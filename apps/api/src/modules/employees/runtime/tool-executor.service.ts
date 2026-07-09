@@ -1,39 +1,72 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import type { ToolCallDto, ToolDefinitionDto } from '@vaep/types';
 import type { ExecutorContext } from '../../skills/executors/skill-executor';
 import { SkillsService } from '../../skills/skills.service';
+import { ApprovalService } from '../../approvals/approval.service';
 
-/** Minimal shape the executor needs to resolve an employee's tools. */
+/** Minimal shape the executor needs to resolve tools + evaluate approval policy. */
 export interface ToolExecutorEmployee {
   id: string;
   companyId: string;
+  approvalRules?: Prisma.JsonValue | null;
 }
 
 /**
  * Bridges the AI Employee runtime's ACT step to the Skills module. `listTools`
  * returns the tools available to an employee (assigned + enabled installed
- * skills); `call` runs one tool via SkillsService (which executes it through the
- * swappable SkillExecutor and writes a SkillExecution audit row), returning a
- * ToolCallDto the runtime records in the message metadata.
+ * skills); `call` runs one tool via SkillsService — but FIRST asks the Approval
+ * Center whether the call is high-risk. If it is, the call is NOT executed:
+ * instead a PENDING ApprovalRequest is created and a `pendingApproval` ToolCallDto
+ * is returned for the runtime to record. Otherwise it executes as before
+ * (SkillsService writes the SkillExecution audit row).
  */
 @Injectable()
 export class ToolExecutorService {
   readonly name = 'skills';
 
-  constructor(private readonly skills: SkillsService) {}
+  constructor(
+    private readonly skills: SkillsService,
+    private readonly approvals: ApprovalService,
+  ) {}
 
   /** Tools this employee may call this turn. Empty → the runtime skips tool use. */
   listTools(employee: ToolExecutorEmployee): Promise<ToolDefinitionDto[]> {
     return this.skills.getToolsForEmployee(employee.companyId, employee.id);
   }
 
-  /** Execute one tool and return its outcome (logged as a SkillExecution). */
-  call(
+  /**
+   * Execute one tool and return its outcome (logged as a SkillExecution) — unless
+   * it is high-risk, in which case route it to the Approval Center (PENDING) and
+   * return a `pendingApproval` result WITHOUT executing.
+   */
+  async call(
     ctx: ExecutorContext,
+    employee: ToolExecutorEmployee,
     skillKey: string,
     tool: string,
     args: Record<string, unknown>,
   ): Promise<ToolCallDto> {
+    if (this.approvals.requiresApproval(employee, skillKey, tool)) {
+      const request = await this.approvals.createRequest({
+        companyId: ctx.companyId,
+        employeeId: ctx.employeeId,
+        conversationId: ctx.conversationId,
+        skillKey,
+        tool,
+        args,
+        description: `Proposed ${skillKey}.${tool} call awaiting approval`,
+      });
+      return {
+        skillKey,
+        tool,
+        args,
+        result: null,
+        ok: false,
+        pendingApproval: true,
+        approvalId: request.id,
+      };
+    }
     return this.skills.runTool(ctx, skillKey, tool, args);
   }
 }

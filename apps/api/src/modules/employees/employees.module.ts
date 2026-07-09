@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { SkillsModule } from '../skills/skills.module';
+import { ApprovalsModule } from '../approvals/approvals.module';
 import { ConversationsController } from './conversations.controller';
 import { EmployeesController } from './employees.controller';
 import { EmployeesService } from './employees.service';
@@ -36,7 +37,7 @@ function llmFactory(config: ConfigService): LlmProvider {
  * reuse its tenant-scoped pgvector search (the "retrieve-knowledge" step).
  */
 @Module({
-  imports: [KnowledgeModule, SkillsModule],
+  imports: [KnowledgeModule, SkillsModule, ApprovalsModule],
   controllers: [EmployeesController, ConversationsController],
   providers: [
     EmployeesService,

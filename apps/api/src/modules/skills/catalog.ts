@@ -68,6 +68,8 @@ const CATALOG: readonly SkillDefinition[] = [
       {
         name: 'create_payment_link',
         description: 'Create a shareable Stripe payment link.',
+        // HIGH-RISK: moving money → always routed to the Approval Center.
+        highRisk: true,
         parameters: {
           type: 'object',
           properties: {

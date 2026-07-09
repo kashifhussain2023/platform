@@ -439,6 +439,12 @@ export interface ToolDefinitionDto {
   name: string;
   description: string;
   parameters: ToolParametersDto;
+  /**
+   * When true the tool is inherently HIGH-RISK: the runtime pauses it for human
+   * approval (via the Approval Center) instead of executing it directly. Absent/
+   * false tools execute as normal (unless an employee's approvalRules require it).
+   */
+  highRisk?: boolean;
 }
 
 /** A built-in skill in the (code-defined) catalog. */
@@ -477,6 +483,12 @@ export interface ToolCallDto {
   args: Record<string, unknown>;
   result: unknown;
   ok: boolean;
+  /**
+   * True when the call was NOT executed because it is high-risk and was routed to
+   * the Approval Center; `approvalId` is the created PENDING ApprovalRequest.
+   */
+  pendingApproval?: boolean;
+  approvalId?: string;
 }
 
 /** Terminal status of a logged skill execution. */
@@ -757,3 +769,67 @@ export interface WorkflowRunDto {
   createdAt: string;
   steps?: WorkflowStepRunDto[];
 }
+
+// ---------------------------------------------------------------------------
+// Approval Center module contracts (Step 11).
+// ---------------------------------------------------------------------------
+// When an AI employee's runtime wants to run a HIGH-RISK tool (per the catalog
+// tool's `highRisk` flag OR the employee's `approvalRules`), the action is NOT
+// executed. Instead an ApprovalRequest (PENDING) captures the proposed tool call
+// and a manager reviews it in the Approval Center: Approve (→ execute now),
+// Reject (→ skip), or Modify (→ edit args then execute). Every executed approval
+// still logs a SkillExecution (via the Skills module's runTool).
+
+/** Lifecycle of an approval request. Only PENDING requests can be decided. */
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export const APPROVAL_STATUSES: readonly ApprovalStatus[] = [
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+] as const;
+
+/**
+ * Per-employee approval policy (persisted on `AiEmployee.approvalRules`). A tool
+ * needs approval when `requireApprovalForAllTools` is set, OR when
+ * `requireApprovalForTools` includes its skill key (`"slack"`) or a fully
+ * qualified `"skillKey:tool"` (`"slack:send_message"`).
+ */
+export interface ApprovalRules {
+  requireApprovalForAllTools?: boolean;
+  requireApprovalForTools?: string[];
+}
+
+/** Public shape of an approval request. */
+export interface ApprovalRequestDto {
+  id: string;
+  companyId: string;
+  employeeId: string | null;
+  conversationId: string | null;
+  skillKey: string;
+  tool: string;
+  args: Record<string, unknown>;
+  result: unknown;
+  description: string | null;
+  status: ApprovalStatus;
+  decidedById: string | null;
+  decidedAt: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+// --- Zod schemas (shared with the web forms) -------------------------------
+
+/** POST /approvals/:id/approve|reject body (optional reviewer note). */
+export const decideApprovalSchema = z.object({
+  note: z.string().max(2000).optional(),
+});
+
+/** POST /approvals/:id/modify body (edited args + optional note). */
+export const modifyApprovalSchema = z.object({
+  args: z.record(z.unknown()),
+  note: z.string().max(2000).optional(),
+});
+
+export type DecideApprovalDto = z.infer<typeof decideApprovalSchema>;
+export type ModifyApprovalDto = z.infer<typeof modifyApprovalSchema>;

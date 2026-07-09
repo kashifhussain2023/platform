@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { useApprovals } from '@/features/approvals/hooks';
 import { useCurrentUser, useLogout } from '@/features/auth/hooks';
 import { useCurrentCompany } from '@/features/tenant/hooks';
 import { useSessionStore } from '@/stores/session.store';
@@ -13,6 +14,7 @@ export default function DashboardPage() {
   const accessToken = useSessionStore((s) => s.accessToken);
   const { data: me, isLoading } = useCurrentUser();
   const { data: company } = useCurrentCompany();
+  const { data: pendingApprovals } = useApprovals('PENDING');
   const logout = useLogout();
 
   // Client-side route guard for this slice (server middleware comes later).
@@ -58,6 +60,17 @@ export default function DashboardPage() {
             className="text-sm font-medium text-brand-700"
           >
             Workflows
+          </Link>
+          <Link
+            href="/approvals"
+            className="flex items-center gap-1.5 text-sm font-medium text-brand-700"
+          >
+            Approvals
+            {pendingApprovals && pendingApprovals.length > 0 && (
+              <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
+                {pendingApprovals.length}
+              </span>
+            )}
           </Link>
           <Link
             href="/knowledge"

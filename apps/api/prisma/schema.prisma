@@ -83,6 +83,12 @@ enum StepRunStatus {
   SKIPPED
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Company {
   id          String    @id @default(cuid())
   name        String
@@ -104,6 +110,7 @@ model Company {
   aiEmployees        AiEmployee[]
   installedSkills    InstalledSkill[]
   workflows          Workflow[]
+  approvalRequests   ApprovalRequest[]
 }
 
 model User {
@@ -337,4 +344,31 @@ model WorkflowStepRun {
   createdAt  DateTime      @default(now())
 
   @@index([companyId])
+}
+
+// --- Approval Center -------------------------------------------------------
+// A HIGH-RISK tool call (per the skills catalog `highRisk` flag or an employee's
+// `approvalRules`) is captured here as PENDING instead of executing. A manager
+// approves (→ execute now, via SkillsService.runTool), rejects (→ skip) or
+// modifies (→ edit args then execute). No vector columns here.
+
+model ApprovalRequest {
+  id             String         @id @default(cuid())
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId     String?
+  conversationId String?
+  skillKey       String
+  tool           String
+  args           Json
+  result         Json?
+  description    String?
+  status         ApprovalStatus @default(PENDING)
+  decidedById    String?
+  decidedAt      DateTime?
+  note           String?
+  createdAt      DateTime       @default(now())
+
+  @@index([companyId])
+  @@index([companyId, status])
 }

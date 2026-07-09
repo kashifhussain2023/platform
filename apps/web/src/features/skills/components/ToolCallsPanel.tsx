@@ -23,12 +23,18 @@ export function ToolCallsPanel({ toolCalls }: { toolCalls: ToolCallDto[] }) {
               </span>
               <span
                 className={`inline-block rounded-full px-2 py-0.5 font-medium ${
-                  call.ok
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-700'
+                  call.pendingApproval
+                    ? 'bg-amber-100 text-amber-700'
+                    : call.ok
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-700'
                 }`}
               >
-                {call.ok ? 'ok' : 'failed'}
+                {call.pendingApproval
+                  ? 'awaiting approval'
+                  : call.ok
+                    ? 'ok'
+                    : 'failed'}
               </span>
             </div>
             <pre className="overflow-x-auto whitespace-pre-wrap break-words text-gray-500">

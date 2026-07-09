@@ -101,6 +101,7 @@ export class AgentRuntimeService {
     const toolCalls: ToolCallDto[] = [];
     let working = this.buildMessages(memory, userText);
     let answer = '';
+    let awaitingApproval = false;
 
     for (let i = 0; i < MAX_ACT_ITERATIONS; i += 1) {
       const draft = await this.router
@@ -110,11 +111,18 @@ export class AgentRuntimeService {
       if (draft.toolCall && tools.length > 0) {
         const call = await this.toolExecutor.call(
           ctx,
+          employee,
           draft.toolCall.skillKey,
           draft.toolCall.tool,
           draft.toolCall.args,
         );
         toolCalls.push(call);
+        if (call.pendingApproval) {
+          // High-risk action paused for human review — do NOT retry the tool.
+          // Feed the pending status back so the LLM finalizes gracefully and
+          // stop the act loop (the action executes later on approval).
+          awaitingApproval = true;
+        }
         // Feed the tool result back so the next iteration can use it.
         working = [
           ...working,
@@ -124,6 +132,7 @@ export class AgentRuntimeService {
               skillKey: call.skillKey,
               tool: call.tool,
               ok: call.ok,
+              pendingApproval: call.pendingApproval ?? false,
               result: call.result,
             })}`,
           },
@@ -142,6 +151,14 @@ export class AgentRuntimeService {
         .forTask('act')
         .complete({ system, messages: working, temperature: 0.2 });
       answer = (draft.content ?? '').trim();
+    }
+
+    // A high-risk action was routed to the Approval Center — make it explicit in
+    // the assistant turn so the user knows nothing was performed yet.
+    if (awaitingApproval) {
+      const note =
+        'A high-risk action is awaiting human approval before it will be performed.';
+      answer = answer ? `${answer}\n\n${note}` : note;
     }
 
     // VALIDATE grounding + confidence.
