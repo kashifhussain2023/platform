@@ -50,6 +50,11 @@ enum MemoryKind {
   SUMMARY
 }
 
+enum SkillExecutionStatus {
+  SUCCESS
+  ERROR
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -59,6 +64,7 @@ model Company {
   users              User[]
   knowledgeDocuments KnowledgeDocument[]
   aiEmployees        AiEmployee[]
+  installedSkills    InstalledSkill[]
 }
 
 model User {
@@ -125,8 +131,9 @@ model AiEmployee {
   model     String?
   createdAt DateTime       @default(now())
 
-  conversations Conversation[]
-  memories      EmployeeMemory[]
+  conversations  Conversation[]
+  memories       EmployeeMemory[]
+  employeeSkills EmployeeSkill[]
 
   @@index([companyId])
 }
@@ -165,6 +172,58 @@ model EmployeeMemory {
   kind       MemoryKind
   content    String
   createdAt  DateTime   @default(now())
+
+  @@index([companyId])
+}
+
+// --- Skills ----------------------------------------------------------------
+// A code-defined CATALOG of built-in skills (see modules/skills/catalog.ts) is
+// the source of truth for tools/params — the DB only tracks which skills a
+// company has INSTALLED, which employees they are ASSIGNED to, and an audit log
+// of executions. No vector columns here.
+
+model InstalledSkill {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  skillKey    String
+  displayName String
+  config      Json?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  employees EmployeeSkill[]
+
+  @@unique([companyId, skillKey])
+  @@index([companyId])
+}
+
+model EmployeeSkill {
+  id               String   @id @default(cuid())
+  companyId        String
+  employeeId       String
+  installedSkillId String
+  createdAt        DateTime @default(now())
+
+  employee       AiEmployee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  installedSkill InstalledSkill @relation(fields: [installedSkillId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, installedSkillId])
+  @@index([companyId])
+}
+
+model SkillExecution {
+  id             String               @id @default(cuid())
+  companyId      String
+  employeeId     String?
+  conversationId String?
+  skillKey       String
+  tool           String
+  args           Json
+  result         Json?
+  status         SkillExecutionStatus
+  error          String?
+  createdAt      DateTime             @default(now())
 
   @@index([companyId])
 }

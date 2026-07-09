@@ -89,6 +89,12 @@ export class EnvVars {
   @IsString()
   @IsOptional()
   ANTHROPIC_API_KEY?: string;
+
+  // --- Skills module ----------------------------------------------------
+  /** 'mock' (default, offline/deterministic sandbox executor). */
+  @IsString()
+  @IsOptional()
+  SKILL_EXECUTOR?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {

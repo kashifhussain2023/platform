@@ -50,6 +50,9 @@ export default function DashboardPage() {
           >
             Employees
           </Link>
+          <Link href="/skills" className="text-sm font-medium text-brand-700">
+            Skills
+          </Link>
           <Link
             href="/knowledge"
             className="text-sm font-medium text-brand-700"

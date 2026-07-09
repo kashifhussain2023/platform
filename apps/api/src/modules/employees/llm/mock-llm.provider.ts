@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import type { ToolDefinitionDto } from '@vaep/types';
 import {
   CONTEXT_CLOSE,
   CONTEXT_OPEN,
   PLAN_PROMPT_MARKER,
+  TOOL_RESULT_MARKER,
 } from '../employees.constants';
+import { SkillCatalog } from '../../skills/catalog';
 import type {
   LlmCompletionInput,
   LlmCompletionResult,
@@ -27,19 +30,114 @@ function between(text: string, open: string, close: string): string {
   return text.slice(from, end === -1 ? undefined : end);
 }
 
+/** Identifying tokens for a tool: its name parts + owning skill key. */
+function toolTokens(tool: ToolDefinitionDto): string[] {
+  const nameParts = tool.name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const skillKey = SkillCatalog.skillKeyForTool(tool.name);
+  return skillKey ? [...nameParts, skillKey.toLowerCase()] : nameParts;
+}
+
+/** Pick the tool best matching the user text (token overlap); fallback: first. */
+function selectTool(
+  tools: ToolDefinitionDto[],
+  userText: string,
+): ToolDefinitionDto {
+  const haystack = userText.toLowerCase();
+  let best = tools[0];
+  let bestScore = -1;
+  for (const tool of tools) {
+    const score = toolTokens(tool).reduce(
+      (n, t) => (haystack.includes(t) ? n + 1 : n),
+      0,
+    );
+    if (score > bestScore) {
+      bestScore = score;
+      best = tool;
+    }
+  }
+  return best;
+}
+
+const RE_CHANNEL = /#[a-z0-9_-]+/i;
+const RE_EMAIL = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+const RE_URL = /https?:\/\/[^\s]+/i;
+const RE_REPO = /\b[\w.-]+\/[\w.-]+\b/;
+const RE_NUMBER = /\d[\d,]*(?:\.\d+)?/;
+
+/** Deterministically derive one required-parameter value from the user text. */
+function deriveArg(
+  name: string,
+  schema: { type: string; enum?: string[] },
+  userText: string,
+): unknown {
+  if (schema.enum && schema.enum.length > 0) {
+    const hit = schema.enum.find((v) =>
+      userText.toLowerCase().includes(v.toLowerCase()),
+    );
+    return hit ?? schema.enum[0];
+  }
+  if (schema.type === 'number' || schema.type === 'integer') {
+    const m = userText.match(RE_NUMBER);
+    return m ? Number(m[0].replace(/,/g, '')) : 1000;
+  }
+  if (/channel/i.test(name)) {
+    return userText.match(RE_CHANNEL)?.[0] ?? '#general';
+  }
+  if (/^to$|email|recipient/i.test(name)) {
+    return userText.match(RE_EMAIL)?.[0] ?? 'user@example.com';
+  }
+  if (/url/i.test(name)) {
+    return userText.match(RE_URL)?.[0] ?? 'https://example.com';
+  }
+  if (/currency/i.test(name)) {
+    return 'usd';
+  }
+  if (/repo/i.test(name)) {
+    return userText.match(RE_REPO)?.[0] ?? 'octo/hello-world';
+  }
+  if (/method/i.test(name)) {
+    return 'GET';
+  }
+  if (/subject|title/i.test(name)) {
+    return clip(userText, 80);
+  }
+  return clip(userText, 500);
+}
+
+/** Build the full args object for a tool's required params. */
+function deriveArgs(
+  tool: ToolDefinitionDto,
+  userText: string,
+): Record<string, unknown> {
+  const args: Record<string, unknown> = {};
+  for (const name of tool.parameters.required) {
+    const schema = tool.parameters.properties[name];
+    if (schema) {
+      args[name] = deriveArg(name, schema, userText);
+    }
+  }
+  return args;
+}
+
 /**
  * DEFAULT provider: fully offline, zero-dependency and DETERMINISTIC so tests
- * can assert on the output. It derives its answer entirely from the input:
+ * can assert on the output. It derives everything from the input:
  *  - PLAN prompts (containing PLAN_PROMPT_MARKER) → a numbered step plan.
- *  - ACT prompts → a grounded answer that quotes the retrieved knowledge block
- *    (between the CONTEXT markers), guaranteeing the ValidationService can see
- *    the answer is backed by the sources.
+ *  - ACT prompts with NO tools → a grounded answer quoting the retrieved
+ *    knowledge block (unchanged from before skills existed).
+ *  - ACT prompts WITH tools → on the first iteration return a `toolCall`
+ *    selecting the best-matching tool with args derived from the message; once a
+ *    tool RESULT is present in the messages, return a final answer that
+ *    references BOTH the tool result and the retrieved knowledge.
  */
 @Injectable()
 export class MockLlmProvider implements LlmProvider {
   readonly name = 'mock';
 
-  async complete(input: LlmCompletionInput): Promise<LlmCompletionResult> {
+  async complete(
+    input: LlmCompletionInput,
+    tools?: ToolDefinitionDto[],
+  ): Promise<LlmCompletionResult> {
     const { system, messages } = input;
     const userText =
       [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
@@ -57,8 +155,39 @@ export class MockLlmProvider implements LlmProvider {
       };
     }
 
-    // ACT mode — quote the retrieved context so the answer is grounded.
+    const hasTools = Array.isArray(tools) && tools.length > 0;
+    const toolResult = messages.find((m) =>
+      m.content.includes(TOOL_RESULT_MARKER),
+    );
+
+    // ACT mode, tools available, none run yet → choose a tool to call.
+    if (hasTools && !toolResult) {
+      const tool = selectTool(tools, userText);
+      return {
+        toolCall: {
+          skillKey: SkillCatalog.skillKeyForTool(tool.name) ?? '',
+          tool: tool.name,
+          args: deriveArgs(tool, userText),
+        },
+      };
+    }
+
     const context = between(system, CONTEXT_OPEN, CONTEXT_CLOSE).trim();
+
+    // ACT mode, a tool already ran → final answer referencing result + knowledge.
+    if (toolResult) {
+      const info = parseToolResult(toolResult.content);
+      const action = info
+        ? `I completed the requested action using the ${info.skillKey} skill (${info.tool}) — ` +
+          `${info.ok ? 'the sandbox call succeeded' : 'it did not succeed'}.`
+        : 'I completed the requested action.';
+      const grounding = context
+        ? ` Based on the company knowledge base: ${clip(context, 500)}`
+        : '';
+      return { content: `${action}${grounding}` };
+    }
+
+    // ACT mode, no tools — original grounded behaviour (unchanged).
     if (!context) {
       return {
         content:
@@ -71,5 +200,30 @@ export class MockLlmProvider implements LlmProvider {
         `Based on the company knowledge base, here is what I found regarding ` +
         `"${clip(userText, 200)}":\n\n${clip(context, 600)}`,
     };
+  }
+}
+
+/** Parse the JSON payload the runtime appends after TOOL_RESULT_MARKER. */
+function parseToolResult(
+  content: string,
+): { skillKey: string; tool: string; ok: boolean } | null {
+  const at = content.indexOf(TOOL_RESULT_MARKER);
+  if (at === -1) {
+    return null;
+  }
+  try {
+    const json = content.slice(at + TOOL_RESULT_MARKER.length).trim();
+    const parsed = JSON.parse(json) as {
+      skillKey?: string;
+      tool?: string;
+      ok?: boolean;
+    };
+    return {
+      skillKey: parsed.skillKey ?? 'unknown',
+      tool: parsed.tool ?? 'unknown',
+      ok: Boolean(parsed.ok),
+    };
+  } catch {
+    return null;
   }
 }

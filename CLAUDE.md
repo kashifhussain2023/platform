@@ -36,9 +36,12 @@ files already use `localhost:5433` / `redis://127.0.0.1:6380`. Adminer :8080.
 ## Provider knobs (swappable, self-hosted defaults)
 - `EMBEDDINGS_PROVIDER`: `hash` (default, offline/deterministic — also used by tests) · `local` (transformers.js, lazy) · `openai` (lazy, needs `OPENAI_API_KEY`). All 384-dim.
 - `STORAGE_PROVIDER`: `local` (default, `STORAGE_DIR`) · `s3` (MinIO/S3, lazy). Auth is behind `AUTH_PROVIDER` (JWT).
+- `LLM_PROVIDER`: `mock` (default, deterministic/offline — used by tests) · `anthropic` (lazy, `claude-sonnet-5`, needs `ANTHROPIC_API_KEY`) · `openai` (lazy, `LLM_MODEL`). Used by the AI Employee runtime.
 
 ## Module status (one module per turn: backend module + mirrored frontend feature, verify, update memory)
 - ✅ Foundation + **auth/tenant**: register/login/refresh/me, JWT, multi-tenant `Company`/`User`.
 - ✅ **Knowledge/RAG**: upload → BullMQ ingest (extract/chunk/embed) → pgvector(384, HNSW) tenant-scoped cosine `/search`. Frontend: optimistic upload, polling doc list, search panel, `/knowledge` page.
-- ⬜ Next: **AI Employee runtime** → Skills → Workflow builder → Billing (Stripe) → Marketplace.
-- Run all e2e: from `apps/api`, `pnpm test` with `DATABASE_URL`+`REDIS_URL`+JWT secrets set (currently 8/8).
+- ✅ **AI Employee runtime**: `AiEmployee` (roles, status pause/disable), Conversation/Message (memory), `EmployeeMemory`. `AgentRuntimeService` = plan→retrieve(reuses KnowledgeService)→memory→act(bounded tool-calling loop, max 3)→validate(citations+confidence+approval). Swappable `LlmProvider`. Frontend: `/employees` list+create+status, `/employees/[id]` chat with sources/plan/validation/tool-calls. Paused/disabled → 409.
+- ✅ **Skills**: code-defined catalog (slack/email/stripe/github/http, each w/ tools) → `InstalledSkill` (company) → `EmployeeSkill` (assigned) → runtime tool-calling; every action logged in `SkillExecution` (audit). Mock/sandbox executors (offline, deterministic; real executors + creds encryption = TODO). Frontend `/skills` (catalog+installed) + employee skill picker + chat "actions taken" panel.
+- ⬜ Next: **Workflow builder** → Billing (Stripe) → Marketplace.
+- Run all e2e: from `apps/api`, `pnpm test` with `LLM_PROVIDER=mock EMBEDDINGS_PROVIDER=hash STORAGE_PROVIDER=local` + `DATABASE_URL`+`REDIS_URL`+JWT secrets (currently 23/23).

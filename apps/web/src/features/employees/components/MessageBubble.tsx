@@ -1,11 +1,13 @@
 'use client';
 
 import type { MessageDto } from '@vaep/types';
+import { ToolCallsPanel } from '@/features/skills/components/ToolCallsPanel';
 import { SourcesPanel } from './SourcesPanel';
 
 /** A single chat turn. User turns align right; assistant turns show metadata. */
 export function MessageBubble({ message }: { message: MessageDto }) {
   const isUser = message.role === 'USER';
+  const toolCalls = message.metadata?.toolCalls ?? [];
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className="max-w-[85%]">
@@ -18,6 +20,9 @@ export function MessageBubble({ message }: { message: MessageDto }) {
         >
           {message.content}
         </div>
+        {!isUser && toolCalls.length > 0 && (
+          <ToolCallsPanel toolCalls={toolCalls} />
+        )}
         {!isUser && message.metadata && (
           <SourcesPanel metadata={message.metadata} />
         )}

@@ -11,6 +11,7 @@ import {
   useStartConversation,
 } from '@/features/employees/hooks';
 import { formatRole } from '@/features/employees/labels';
+import { EmployeeSkillPicker } from '@/features/skills/components/EmployeeSkillPicker';
 import { useSessionStore } from '@/stores/session.store';
 
 export default function EmployeeChatPage({
@@ -91,6 +92,10 @@ export default function EmployeeChatPage({
           </Button>
         </div>
       )}
+
+      <div className="mt-6">
+        <EmployeeSkillPicker employeeId={employeeId} />
+      </div>
     </main>
   );
 }

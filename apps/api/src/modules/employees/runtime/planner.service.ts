@@ -28,7 +28,7 @@ export class PlannerService {
       .forTask('plan')
       .complete({ system, messages: [{ role: 'user', content: userText }], temperature: 0 });
 
-    const steps = content
+    const steps = (content ?? '')
       .split('\n')
       .map((line) => line.replace(/^\s*(?:\d+[.)]|[-*])\s*/, '').trim())
       .filter((line) => line.length > 0);

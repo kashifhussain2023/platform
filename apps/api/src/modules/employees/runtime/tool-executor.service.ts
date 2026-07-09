@@ -1,48 +1,39 @@
 import { Injectable } from '@nestjs/common';
+import type { ToolCallDto, ToolDefinitionDto } from '@vaep/types';
+import type { ExecutorContext } from '../../skills/executors/skill-executor';
+import { SkillsService } from '../../skills/skills.service';
 
-/** Outcome of attempting to run a tool/skill during the ACT step. */
-export interface ToolResult {
-  /** Whether a tool actually handled the step. */
-  handled: boolean;
-  /** Human-readable status/output. */
-  output: string;
+/** Minimal shape the executor needs to resolve an employee's tools. */
+export interface ToolExecutorEmployee {
+  id: string;
+  companyId: string;
 }
 
 /**
- * Contract for executing installed skills/tools. The real implementation arrives
- * with the Skills module; this interface is defined now so the runtime's "act"
- * step is wired against a stable seam.
- */
-export interface ToolExecutor {
-  readonly name: string;
-  /** Names of the tools currently available to this tenant/employee. */
-  listTools(companyId: string): Promise<string[]>;
-  /** Execute a named tool with arbitrary args. */
-  execute(
-    companyId: string,
-    tool: string,
-    args: unknown,
-  ): Promise<ToolResult>;
-}
-
-/**
- * STUB executor: no skills are installed yet, so it advertises no tools and any
- * execution is a no-op. It is wired into the agent loop's ACT step so swapping
- * in the real Skills module later requires no runtime changes.
+ * Bridges the AI Employee runtime's ACT step to the Skills module. `listTools`
+ * returns the tools available to an employee (assigned + enabled installed
+ * skills); `call` runs one tool via SkillsService (which executes it through the
+ * swappable SkillExecutor and writes a SkillExecution audit row), returning a
+ * ToolCallDto the runtime records in the message metadata.
  */
 @Injectable()
-export class ToolExecutorService implements ToolExecutor {
-  readonly name = 'stub';
+export class ToolExecutorService {
+  readonly name = 'skills';
 
-  async listTools(_companyId: string): Promise<string[]> {
-    return [];
+  constructor(private readonly skills: SkillsService) {}
+
+  /** Tools this employee may call this turn. Empty → the runtime skips tool use. */
+  listTools(employee: ToolExecutorEmployee): Promise<ToolDefinitionDto[]> {
+    return this.skills.getToolsForEmployee(employee.companyId, employee.id);
   }
 
-  async execute(
-    _companyId: string,
-    _tool: string,
-    _args: unknown,
-  ): Promise<ToolResult> {
-    return { handled: false, output: 'no skills installed yet' };
+  /** Execute one tool and return its outcome (logged as a SkillExecution). */
+  call(
+    ctx: ExecutorContext,
+    skillKey: string,
+    tool: string,
+    args: Record<string, unknown>,
+  ): Promise<ToolCallDto> {
+    return this.skills.runTool(ctx, skillKey, tool, args);
   }
 }

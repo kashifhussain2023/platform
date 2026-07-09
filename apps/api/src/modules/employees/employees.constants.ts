@@ -14,6 +14,17 @@ export const PLAN_PROMPT_MARKER = '[[VAEP:PLAN]]';
 export const CONTEXT_OPEN = '<<<VAEP_CONTEXT';
 export const CONTEXT_CLOSE = 'VAEP_CONTEXT>>>';
 
+/**
+ * Prefix the runtime uses when it appends a tool RESULT back into the working
+ * messages during the act loop. The MockLlmProvider keys off this marker to know
+ * a tool has already run (→ produce a final grounded answer instead of another
+ * tool call). Shared here so both sides agree on the contract.
+ */
+export const TOOL_RESULT_MARKER = '[[VAEP:TOOL_RESULT]]';
+
+/** Hard cap on act-loop iterations (tool calls) per turn, to keep runs bounded. */
+export const MAX_ACT_ITERATIONS = 3;
+
 /** How many recent conversation messages the MemoryService loads for context. */
 export const RECENT_MESSAGE_LIMIT = 10;
 

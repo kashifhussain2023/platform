@@ -1,3 +1,5 @@
+import type { ToolDefinitionDto } from '@vaep/types';
+
 /**
  * Swappable chat-completion backend (mirrors the knowledge EmbeddingProvider and
  * auth AuthProvider patterns). The active implementation is chosen by the
@@ -19,15 +21,34 @@ export interface LlmCompletionInput {
   temperature?: number;
 }
 
-/** Output of a completion. */
+/** A tool the model chose to invoke (resolved back to its owning skill). */
+export interface LlmToolCall {
+  skillKey: string;
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+/**
+ * Output of a completion: EITHER a final text `content` OR a `toolCall` the
+ * runtime should execute before continuing the loop.
+ */
 export interface LlmCompletionResult {
-  content: string;
+  content?: string;
+  toolCall?: LlmToolCall;
 }
 
 export interface LlmProvider {
   /** Stable id of the backend (e.g. `mock`, `anthropic`, `openai`). */
   readonly name: string;
-  complete(input: LlmCompletionInput): Promise<LlmCompletionResult>;
+  /**
+   * Complete a turn. When `tools` is non-empty the model MAY return a `toolCall`
+   * instead of `content`; when it is empty/undefined the provider behaves as a
+   * plain chat completion (returns `content`).
+   */
+  complete(
+    input: LlmCompletionInput,
+    tools?: ToolDefinitionDto[],
+  ): Promise<LlmCompletionResult>;
 }
 
 /** DI token for the active LlmProvider implementation. */

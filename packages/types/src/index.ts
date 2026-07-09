@@ -236,6 +236,8 @@ export interface MessageMetadataDto {
   sources?: SearchResultDto[];
   /** Grounding / confidence verdict. */
   validation?: MessageValidationDto;
+  /** Skill/tool actions the employee took during the run (empty when none). */
+  toolCalls?: ToolCallDto[];
 }
 
 /** A single conversation message. */
@@ -259,4 +261,125 @@ export interface RunResultDto {
   sources: SearchResultDto[];
   /** Grounding / confidence verdict. */
   validation: MessageValidationDto;
+  /** Skill/tool actions taken during the run (empty when the employee used none). */
+  toolCalls: ToolCallDto[];
 }
+
+// ---------------------------------------------------------------------------
+// Skills module contracts.
+// ---------------------------------------------------------------------------
+// A code-defined catalog of built-in skills, each exposing tools (actions). A
+// company INSTALLS a skill; installed skills are ASSIGNED to employees; the
+// runtime lets an employee CALL an assigned tool during its "act" step. Every
+// execution is logged (audit). Executors are mock/sandbox by default.
+
+/** Grouping used to organise the built-in catalog in the UI. */
+export type SkillCategory =
+  | 'communication'
+  | 'payments'
+  | 'development'
+  | 'utility';
+
+/** JSON-schema-ish parameter contract for a single tool. */
+export interface ToolParametersDto {
+  type: 'object';
+  properties: Record<
+    string,
+    { type: string; description?: string; enum?: string[] }
+  >;
+  required: string[];
+}
+
+/** A single action a skill exposes (maps to LLM tool/function calling). */
+export interface ToolDefinitionDto {
+  name: string;
+  description: string;
+  parameters: ToolParametersDto;
+}
+
+/** A built-in skill in the (code-defined) catalog. */
+export interface SkillDefinitionDto {
+  key: string;
+  name: string;
+  description: string;
+  category: SkillCategory;
+  tools: ToolDefinitionDto[];
+}
+
+/** A skill a company has installed (turns a catalog entry on for the tenant). */
+export interface InstalledSkillDto {
+  id: string;
+  companyId: string;
+  skillKey: string;
+  displayName: string;
+  config: Record<string, unknown> | null;
+  enabled: boolean;
+  createdAt: string;
+}
+
+/** An assignment of an installed skill to a specific AI employee. */
+export interface EmployeeSkillDto {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  installedSkillId: string;
+  createdAt: string;
+}
+
+/** Outcome of a single tool call, surfaced in a run + message metadata. */
+export interface ToolCallDto {
+  skillKey: string;
+  tool: string;
+  args: Record<string, unknown>;
+  result: unknown;
+  ok: boolean;
+}
+
+/** Terminal status of a logged skill execution. */
+export type SkillExecutionStatus = 'SUCCESS' | 'ERROR';
+
+/** An audited tool execution row. */
+export interface SkillExecutionDto {
+  id: string;
+  companyId: string;
+  employeeId: string | null;
+  conversationId: string | null;
+  skillKey: string;
+  tool: string;
+  args: Record<string, unknown>;
+  result: unknown;
+  status: SkillExecutionStatus;
+  error: string | null;
+  createdAt: string;
+}
+
+// --- Zod schemas (shared with the web forms) -------------------------------
+
+/** POST /skills/install body. */
+export const installSkillSchema = z.object({
+  skillKey: z.string().min(1, 'Skill key is required').max(80),
+  displayName: z.string().min(1).max(120).optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+/** PATCH /skills/installed/:id body (enable/disable/config/displayName). */
+export const updateInstalledSkillSchema = z.object({
+  enabled: z.boolean().optional(),
+  displayName: z.string().min(1).max(120).optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+/** POST /employees/:id/skills body (assign an installed skill). */
+export const assignSkillSchema = z.object({
+  installedSkillId: z.string().min(1, 'Installed skill id is required'),
+});
+
+/** POST /skills/installed/:id/tools/:tool/execute body (manual execution). */
+export const executeToolSchema = z.object({
+  args: z.record(z.unknown()),
+});
+
+export type InstallSkillDto = z.infer<typeof installSkillSchema>;
+export type UpdateInstalledSkillDto = z.infer<typeof updateInstalledSkillSchema>;
+export type AssignSkillDto = z.infer<typeof assignSkillSchema>;
+export type ExecuteToolDto = z.infer<typeof executeToolSchema>;

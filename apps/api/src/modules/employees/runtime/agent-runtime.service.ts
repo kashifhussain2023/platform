@@ -1,8 +1,14 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Prisma, type AiEmployee, type Conversation } from '@prisma/client';
-import type { MessageMetadataDto, RunResultDto } from '@vaep/types';
+import type { MessageMetadataDto, RunResultDto, ToolCallDto } from '@vaep/types';
 import { PrismaService } from '../../../common/prisma/prisma.service';
-import { CONTEXT_CLOSE, CONTEXT_OPEN } from '../employees.constants';
+import {
+  CONTEXT_CLOSE,
+  CONTEXT_OPEN,
+  MAX_ACT_ITERATIONS,
+  TOOL_RESULT_MARKER,
+} from '../employees.constants';
+import type { ExecutorContext } from '../../skills/executors/skill-executor';
 import type { LlmMessage } from '../llm/llm.provider';
 import { toMessageDto } from '../employees.mapper';
 import { LlmRouterService } from './llm-router.service';
@@ -20,9 +26,10 @@ function clip(text: string, n: number): string {
 /**
  * The core agent loop. Orchestrates the single-purpose runtime services:
  *   guard status → persist user turn → PLAN → RETRIEVE (knowledge) → load MEMORY
- *   → ACT (LLM draft; tool-executor stub) → VALIDATE (grounding/confidence) →
- *   persist assistant Message (with {plan, sources, validation} metadata) →
- *   write a SUMMARY memory → return RunResultDto.
+ *   → ACT (bounded LLM tool-calling loop via the Skills module) → VALIDATE
+ *   (grounding/confidence) → persist assistant Message (with
+ *   {plan, sources, validation, toolCalls} metadata) → write a SUMMARY memory →
+ *   return RunResultDto.
  */
 @Injectable()
 export class AgentRuntimeService {
@@ -71,25 +78,78 @@ export class AgentRuntimeService {
       employee.id,
     );
 
-    // ACT: consult the tool executor (stub — no skills yet), then draft with the
-    // LLM using a system prompt built from persona + plan + retrieved knowledge.
-    const tools = await this.toolExecutor.listTools(companyId);
+    // ACT: resolve the employee's tools, then run a BOUNDED tool-calling loop.
+    // Each iteration drafts with the LLM; if it returns a tool call we execute
+    // it via the Skills module, append the result to the working messages, and
+    // loop; when it returns text we finalize. With no tools available this is a
+    // single grounded completion (unchanged from before skills existed).
+    const tools = await this.toolExecutor.listTools(employee);
     this.logger.debug(
       `run: employee=${employee.id} tools=${tools.length} sources=${sources.length}`,
     );
 
     const system = this.buildSystemPrompt(employee, plan, sources, memory);
-    const messages = this.buildMessages(memory, userText);
-    const draft = await this.router
-      .forTask('act')
-      .complete({ system, messages, temperature: 0.2 });
-    const answer = draft.content.trim();
+    const ctx: ExecutorContext = {
+      companyId,
+      employeeId: employee.id,
+      conversationId: conversation.id,
+    };
+    const toolCalls: ToolCallDto[] = [];
+    let working = this.buildMessages(memory, userText);
+    let answer = '';
+
+    for (let i = 0; i < MAX_ACT_ITERATIONS; i += 1) {
+      const draft = await this.router
+        .forTask('act')
+        .complete({ system, messages: working, temperature: 0.2 }, tools);
+
+      if (draft.toolCall && tools.length > 0) {
+        const call = await this.toolExecutor.call(
+          ctx,
+          draft.toolCall.skillKey,
+          draft.toolCall.tool,
+          draft.toolCall.args,
+        );
+        toolCalls.push(call);
+        // Feed the tool result back so the next iteration can use it.
+        working = [
+          ...working,
+          {
+            role: 'assistant',
+            content: `${TOOL_RESULT_MARKER} ${JSON.stringify({
+              skillKey: call.skillKey,
+              tool: call.tool,
+              ok: call.ok,
+              result: call.result,
+            })}`,
+          },
+        ];
+        continue;
+      }
+
+      answer = (draft.content ?? '').trim();
+      break;
+    }
+
+    // Safety net: loop exhausted while still requesting tools — force a final
+    // answer with NO tools so a turn always produces a response.
+    if (!answer) {
+      const draft = await this.router
+        .forTask('act')
+        .complete({ system, messages: working, temperature: 0.2 });
+      answer = (draft.content ?? '').trim();
+    }
 
     // VALIDATE grounding + confidence.
     const validation = this.validation.validate(employee.role, answer, sources);
 
     // Persist the assistant turn with structured runtime metadata.
-    const metadata: MessageMetadataDto = { plan, sources, validation };
+    const metadata: MessageMetadataDto = {
+      plan,
+      sources,
+      validation,
+      toolCalls,
+    };
     const assistant = await this.prisma.message.create({
       data: {
         companyId,
@@ -114,6 +174,7 @@ export class AgentRuntimeService {
       plan,
       sources,
       validation,
+      toolCalls,
     };
   }
 
