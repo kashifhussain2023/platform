@@ -96,6 +96,9 @@ export default function DashboardPage() {
           <Link href="/knowledge" className="text-sm font-medium text-brand-700">
             Knowledge
           </Link>
+          <Link href="/billing" className="text-sm font-medium text-brand-700">
+            Billing
+          </Link>
           <Button variant="ghost" onClick={onLogout} disabled={logout.isPending}>
             {logout.isPending ? 'Signing out…' : 'Log out'}
           </Button>

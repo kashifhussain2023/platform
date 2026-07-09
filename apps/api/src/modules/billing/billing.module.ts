@@ -1,0 +1,47 @@
+import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { BillingController } from './billing.controller';
+import { BillingService } from './billing.service';
+import {
+  BILLING_PROVIDER_TOKEN,
+  type BillingProvider,
+} from './billing.provider';
+import { MockBillingProvider } from './providers/mock-billing.provider';
+import { StripeBillingProvider } from './providers/stripe-billing.provider';
+
+/**
+ * Pick the billing backend from BILLING_PROVIDER (default: mock — offline,
+ * deterministic, no external calls). `stripe` is opt-in and lazily imports the
+ * Stripe SDK (NOT a package.json dependency). Mirrors the embeddings / storage
+ * provider factories.
+ */
+function billingProviderFactory(config: ConfigService): BillingProvider {
+  const kind = (config.get<string>('BILLING_PROVIDER') ?? 'mock').toLowerCase();
+  switch (kind) {
+    case 'stripe':
+      return new StripeBillingProvider(config);
+    case 'mock':
+    default:
+      return new MockBillingProvider();
+  }
+}
+
+/**
+ * Billing & Subscription module. Exports BillingService so AuthModule can create
+ * a default subscription at registration. Billing must NOT import AuthModule
+ * (avoids a cycle — AuthModule imports this one); JwtAuthGuard works because the
+ * JWT passport strategy is registered globally by AuthModule.
+ */
+@Module({
+  controllers: [BillingController],
+  providers: [
+    BillingService,
+    {
+      provide: BILLING_PROVIDER_TOKEN,
+      inject: [ConfigService],
+      useFactory: billingProviderFactory,
+    },
+  ],
+  exports: [BillingService],
+})
+export class BillingModule {}

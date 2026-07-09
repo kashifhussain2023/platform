@@ -11,6 +11,7 @@ import type {
   UserDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import {
   AUTH_PROVIDER,
   type AuthProvider,
@@ -30,6 +31,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(AUTH_PROVIDER) private readonly auth: AuthProvider,
+    private readonly billing: BillingService,
   ) {}
 
   /** Register creates the Company + owner User atomically, then issues tokens. */
@@ -63,6 +65,10 @@ export class AuthService {
       });
       return { company, user };
     });
+
+    // Give the new company a default STARTER/ACTIVE subscription (Step 1).
+    // Idempotent; response structure is unchanged.
+    await this.billing.ensureDefaultSubscription(company.id);
 
     return this.buildOutcome(user, company);
   }

@@ -95,6 +95,17 @@ export class EnvVars {
   @IsString()
   @IsOptional()
   SKILL_EXECUTOR?: string;
+
+  // --- Billing & Subscription module ------------------------------------
+  /** 'mock' (default, offline/deterministic) | 'stripe' (lazy SDK). */
+  @IsString()
+  @IsOptional()
+  BILLING_PROVIDER?: string;
+
+  /** Required only when BILLING_PROVIDER=stripe. */
+  @IsString()
+  @IsOptional()
+  STRIPE_SECRET_KEY?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {

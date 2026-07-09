@@ -10,6 +10,7 @@ import { SkillsModule } from './modules/skills/skills.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     WorkflowsModule,
     ApprovalsModule,
     AnalyticsModule,
+    BillingModule,
   ],
 })
 export class AppModule {}

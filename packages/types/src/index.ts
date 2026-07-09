@@ -981,3 +981,88 @@ export interface ActivityFeedDto {
   role: EmployeeRole;
   items: ActivityItemDto[];
 }
+
+// ---------------------------------------------------------------------------
+// Billing & Subscription module contracts (Steps 1 + 13).
+// ---------------------------------------------------------------------------
+// One subscription per company (default STARTER/ACTIVE, created at
+// registration). A code-defined PLAN_CATALOG (see api billing.plans.ts) is the
+// source of truth for prices/limits/features. The active BillingProvider is
+// swappable (mock by default, Stripe opt-in). Plan limits are SOFT: usage is
+// surfaced with an "over limit" hint but nothing is blocked. Prices are
+// ILLUSTRATIVE (from the proposal); ENTERPRISE is custom (null price).
+
+/** Subscription plan tiers. */
+export type Plan = 'STARTER' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
+
+export const PLANS: readonly Plan[] = [
+  'STARTER',
+  'PRO',
+  'BUSINESS',
+  'ENTERPRISE',
+] as const;
+
+/** Lifecycle of a subscription. */
+export type SubscriptionStatus = 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
+
+export const SUBSCRIPTION_STATUSES: readonly SubscriptionStatus[] = [
+  'ACTIVE',
+  'PAST_DUE',
+  'CANCELED',
+] as const;
+
+/** One entry in the (code-defined) plan catalog. */
+export interface PlanDto {
+  plan: Plan;
+  name: string;
+  /** Illustrative monthly price in USD; null = custom (ENTERPRISE). */
+  priceMonthlyUsd: number | null;
+  /** Soft cap on AI employees; null = unlimited. */
+  maxEmployees: number | null;
+  features: string[];
+}
+
+/** Public shape of a company's subscription. */
+export interface SubscriptionDto {
+  id: string;
+  companyId: string;
+  plan: Plan;
+  status: SubscriptionStatus;
+  /** Which BillingProvider owns it ("mock" | "stripe"). */
+  provider: string;
+  currentPeriodEnd: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /**
+   * Present only when a (Stripe) provider returns a hosted checkout URL for a
+   * plan change; the mock provider switches immediately and omits this. TODO.
+   */
+  checkoutUrl?: string | null;
+}
+
+/**
+ * On-the-fly usage snapshot (no usage table). Counts are computed from existing
+ * data; `tokens`/`voiceMinutes` are placeholders (0) until real metering (TODO).
+ * `overEmployeeLimit` is a SOFT, informational flag — nothing is blocked.
+ */
+export interface UsageDto {
+  plan: Plan;
+  /** Soft cap for the current plan; null = unlimited. */
+  maxEmployees: number | null;
+  employees: number;
+  installedSkills: number;
+  /** SkillExecution SUCCESS + assistant Messages + WorkflowRun COMPLETED. */
+  tasks: number;
+  tokens: number;
+  voiceMinutes: number;
+  overEmployeeLimit: boolean;
+}
+
+// --- Zod schemas (shared with the web forms) -------------------------------
+
+/** POST /billing/subscription body (change plan). */
+export const changePlanSchema = z.object({
+  plan: z.enum(['STARTER', 'PRO', 'BUSINESS', 'ENTERPRISE']),
+});
+
+export type ChangePlanDto = z.infer<typeof changePlanSchema>;

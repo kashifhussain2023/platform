@@ -95,6 +95,21 @@ enum ApprovalStatus {
   REJECTED
 }
 
+// Subscription plan tiers (from the proposal pricing). STARTER is the default
+// plan every company gets at registration.
+enum Plan {
+  STARTER
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
 model Company {
   id          String    @id @default(cuid())
   name        String
@@ -117,6 +132,7 @@ model Company {
   installedSkills    InstalledSkill[]
   workflows          Workflow[]
   approvalRequests   ApprovalRequest[]
+  subscription       Subscription?
 }
 
 model User {
@@ -383,4 +399,27 @@ model ApprovalRequest {
 
   @@index([companyId])
   @@index([companyId, status])
+}
+
+// --- Billing & Subscription (Steps 1 + 13) ---------------------------------
+// One subscription per company. Every company gets a default STARTER/ACTIVE
+// subscription at registration (idempotent upsert on the unique companyId).
+// The active BillingProvider (mock by default, Stripe opt-in) is swappable via
+// the BILLING_PROVIDER env var; plan limits are SOFT (informational only — not
+// enforced). No vector columns here.
+
+model Subscription {
+  id                    String             @id @default(cuid())
+  companyId             String             @unique
+  company               Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan                  Plan               @default(STARTER)
+  status                SubscriptionStatus @default(ACTIVE)
+  // Which BillingProvider owns this subscription ("mock" | "stripe").
+  provider              String             @default("mock")
+  // Opaque provider references (e.g. Stripe customer/subscription ids).
+  externalCustomerId    String?
+  externalSubscriptionId String?
+  currentPeriodEnd      DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 }
