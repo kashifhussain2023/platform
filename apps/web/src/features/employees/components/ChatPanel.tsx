@@ -49,7 +49,9 @@ export function ChatPanel({
             No messages yet. Say hello to get started.
           </p>
         ) : (
-          (messages ?? []).map((m) => <MessageBubble key={m.id} message={m} />)
+          (messages ?? []).map((m) => (
+            <MessageBubble key={m.id} message={m} employeeId={employee.id} />
+          ))
         )}
         <div ref={bottomRef} />
       </div>

@@ -1,7 +1,16 @@
-import type { AiEmployee, Conversation, Message } from '@prisma/client';
+import type {
+  AiEmployee,
+  Conversation,
+  EmployeeFeedback,
+  EmployeeMemory,
+  Message,
+} from '@prisma/client';
 import type {
   AiEmployeeDto,
   ConversationDto,
+  EmployeeFeedbackDto,
+  EmployeeMemoryDto,
+  MemorySource,
   MessageDto,
   MessageMetadataDto,
 } from '@vaep/types';
@@ -49,6 +58,32 @@ export function toMessageDto(m: Message): MessageDto {
     role: m.role,
     content: m.content,
     metadata: (m.metadata as unknown as MessageMetadataDto | null) ?? null,
+    createdAt: m.createdAt.toISOString(),
+  };
+}
+
+export function toFeedbackDto(f: EmployeeFeedback): EmployeeFeedbackDto {
+  return {
+    id: f.id,
+    companyId: f.companyId,
+    employeeId: f.employeeId,
+    conversationId: f.conversationId,
+    messageId: f.messageId,
+    rating: f.rating,
+    note: f.note,
+    correction: f.correction,
+    createdAt: f.createdAt.toISOString(),
+  };
+}
+
+export function toMemoryDto(m: EmployeeMemory): EmployeeMemoryDto {
+  return {
+    id: m.id,
+    companyId: m.companyId,
+    employeeId: m.employeeId,
+    kind: m.kind,
+    content: m.content,
+    source: (m.source as MemorySource | null) ?? null,
     createdAt: m.createdAt.toISOString(),
   };
 }

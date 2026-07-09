@@ -34,6 +34,9 @@ export class MemoryService {
         orderBy: { createdAt: 'desc' },
         take: RECENT_MESSAGE_LIMIT,
       }),
+      // No `kind` filter: BOTH SUMMARY (run) and FACT memories are recalled, so
+      // feedback-derived / manually-taught FACTs (Step 15 continuous learning)
+      // are injected into the agent context — closing the improvement loop.
       this.prisma.employeeMemory.findMany({
         where: { companyId, employeeId },
         orderBy: { createdAt: 'desc' },

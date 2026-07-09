@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { ChatPanel } from '@/features/employees/components/ChatPanel';
 import { EmployeeSettings } from '@/features/employees/components/EmployeeSettings';
+import { LearningPanel } from '@/features/employees/components/LearningPanel';
 import {
   useConversations,
   useEmployee,
@@ -96,6 +97,10 @@ export default function EmployeeChatPage({
 
       <div className="mt-6">
         <EmployeeSkillPicker employeeId={employeeId} />
+      </div>
+
+      <div className="mt-6">
+        <LearningPanel employeeId={employeeId} />
       </div>
 
       {employee && (

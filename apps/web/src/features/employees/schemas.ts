@@ -7,9 +7,13 @@ export {
   updateEmployeeSchema,
   employeeConfigSchema,
   sendMessageSchema,
+  createFeedbackSchema,
+  createMemorySchema,
   EMPLOYEE_ROLES,
   EMPLOYEE_STATUSES,
   KNOWLEDGE_ACCESSES,
+  FEEDBACK_RATINGS,
+  MEMORY_KINDS,
 } from '@vaep/types';
 export type {
   AiEmployeeDto,
@@ -27,6 +31,14 @@ export type {
   KnowledgeAccess,
   MessageRole,
   SearchResultDto,
+  CreateFeedbackDto,
+  CreateMemoryDto,
+  EmployeeFeedbackDto,
+  EmployeeMemoryDto,
+  LearningSummaryDto,
+  FeedbackRating,
+  MemoryKind,
+  MemorySource,
 } from '@vaep/types';
 
 /** The employee Settings panel form: name + the shared rich-config fields. */

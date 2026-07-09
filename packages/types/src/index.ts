@@ -353,6 +353,85 @@ export interface RunResultDto {
 }
 
 // ---------------------------------------------------------------------------
+// Continuous Learning module contracts (Step 15).
+// ---------------------------------------------------------------------------
+// Managers give 👍/👎 feedback on AI outputs (optionally teaching a correction).
+// A 👎 with a correction — or an explicit teach — is promoted to a durable FACT
+// EmployeeMemory (source 'FEEDBACK') that the runtime recalls on future runs. The
+// same durable memories are curated (list / manually teach / forget) here.
+
+/** A manager's rating of an AI output. */
+export type FeedbackRating = 'UP' | 'DOWN';
+
+export const FEEDBACK_RATINGS: readonly FeedbackRating[] = ['UP', 'DOWN'] as const;
+
+/** How a memory came to exist: from feedback, taught manually, or a run summary. */
+export type MemorySource = 'FEEDBACK' | 'MANUAL' | 'RUN';
+
+/** A durable long-term employee memory (recalled by the runtime by recency). */
+export type MemoryKind = 'FACT' | 'SUMMARY';
+
+export const MEMORY_KINDS: readonly MemoryKind[] = ['FACT', 'SUMMARY'] as const;
+
+// --- Zod schemas (shared with the web forms) -------------------------------
+
+/** POST /employees/:id/feedback body. */
+export const createFeedbackSchema = z.object({
+  conversationId: z.string().min(1).max(60).optional(),
+  messageId: z.string().min(1).max(60).optional(),
+  rating: z.enum(['UP', 'DOWN']),
+  note: z.string().max(2000).optional(),
+  /** A corrected/preferred answer — promoted to a durable FACT memory. */
+  correction: z.string().max(2000).optional(),
+  /** Force promoting `correction` (or `note`) to a durable memory even for 👍. */
+  teach: z.boolean().optional(),
+});
+
+/** POST /employees/:id/memories body (manually teach a durable memory). */
+export const createMemorySchema = z.object({
+  kind: z.enum(['FACT', 'SUMMARY']),
+  content: z.string().min(1, 'Enter something to teach').max(2000),
+});
+
+export type CreateFeedbackDto = z.infer<typeof createFeedbackSchema>;
+export type CreateMemoryDto = z.infer<typeof createMemorySchema>;
+
+// --- DTOs / API contract types ---------------------------------------------
+
+/** A single piece of manager feedback on an AI output. */
+export interface EmployeeFeedbackDto {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  conversationId: string | null;
+  messageId: string | null;
+  rating: FeedbackRating;
+  note: string | null;
+  correction: string | null;
+  createdAt: string;
+}
+
+/** A durable long-term employee memory row. */
+export interface EmployeeMemoryDto {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  kind: MemoryKind;
+  content: string;
+  /** Provenance: 'FEEDBACK' | 'MANUAL' | 'RUN'; null for legacy/summary writes. */
+  source: MemorySource | null;
+  createdAt: string;
+}
+
+/** GET /employees/:id/learning response — a compact learning summary. */
+export interface LearningSummaryDto {
+  feedback: { up: number; down: number; total: number };
+  memories: { total: number; byKind: Record<MemoryKind, number> };
+  /** Most recent feedback, newest first. */
+  recentFeedback: EmployeeFeedbackDto[];
+}
+
+// ---------------------------------------------------------------------------
 // Onboarding module contracts (Steps 2–5).
 // ---------------------------------------------------------------------------
 // The AI Onboarding Wizard: capture the company business profile, pick

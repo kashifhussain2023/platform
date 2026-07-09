@@ -3,6 +3,11 @@ import type {
   AiEmployeeDto,
   ConversationDto,
   CreateEmployeeDto,
+  CreateFeedbackDto,
+  CreateMemoryDto,
+  EmployeeFeedbackDto,
+  EmployeeMemoryDto,
+  LearningSummaryDto,
   MessageDto,
   RunResultDto,
   UpdateEmployeeDto,
@@ -76,6 +81,57 @@ export async function sendMessage(vars: {
   const { data } = await apiClient.post<RunResultDto>(
     `/conversations/${vars.conversationId}/messages`,
     { content: vars.content },
+  );
+  return data;
+}
+
+// --- Continuous Learning (Step 15) -----------------------------------------
+
+export async function submitFeedback(vars: {
+  employeeId: string;
+  payload: CreateFeedbackDto;
+}): Promise<EmployeeFeedbackDto> {
+  const { data } = await apiClient.post<EmployeeFeedbackDto>(
+    `/employees/${vars.employeeId}/feedback`,
+    vars.payload,
+  );
+  return data;
+}
+
+export async function listMemories(
+  employeeId: string,
+): Promise<EmployeeMemoryDto[]> {
+  const { data } = await apiClient.get<EmployeeMemoryDto[]>(
+    `/employees/${employeeId}/memories`,
+  );
+  return data;
+}
+
+export async function teachMemory(vars: {
+  employeeId: string;
+  payload: CreateMemoryDto;
+}): Promise<EmployeeMemoryDto> {
+  const { data } = await apiClient.post<EmployeeMemoryDto>(
+    `/employees/${vars.employeeId}/memories`,
+    vars.payload,
+  );
+  return data;
+}
+
+export async function forgetMemory(vars: {
+  employeeId: string;
+  memoryId: string;
+}): Promise<void> {
+  await apiClient.delete(
+    `/employees/${vars.employeeId}/memories/${vars.memoryId}`,
+  );
+}
+
+export async function getLearning(
+  employeeId: string,
+): Promise<LearningSummaryDto> {
+  const { data } = await apiClient.get<LearningSummaryDto>(
+    `/employees/${employeeId}/learning`,
   );
   return data;
 }

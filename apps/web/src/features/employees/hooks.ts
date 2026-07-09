@@ -5,6 +5,11 @@ import type {
   AiEmployeeDto,
   ConversationDto,
   CreateEmployeeDto,
+  CreateFeedbackDto,
+  CreateMemoryDto,
+  EmployeeFeedbackDto,
+  EmployeeMemoryDto,
+  LearningSummaryDto,
   MessageDto,
   RunResultDto,
   UpdateEmployeeDto,
@@ -14,12 +19,17 @@ import { useSessionStore } from '@/stores/session.store';
 import {
   createEmployee,
   deleteEmployee,
+  forgetMemory,
   getEmployee,
+  getLearning,
   listConversations,
   listEmployees,
+  listMemories,
   listMessages,
   sendMessage,
   startConversation,
+  submitFeedback,
+  teachMemory,
   updateEmployee,
 } from './api';
 
@@ -31,6 +41,10 @@ export const employeeKeys = {
     ['employees', employeeId, 'conversations'] as const,
   messages: (conversationId: string) =>
     ['conversations', conversationId, 'messages'] as const,
+  memories: (employeeId: string) =>
+    ['employees', employeeId, 'memories'] as const,
+  learning: (employeeId: string) =>
+    ['employees', employeeId, 'learning'] as const,
 };
 
 // --- Employees -------------------------------------------------------------
@@ -260,6 +274,117 @@ export function useSendMessage(conversationId: string) {
       void qc.invalidateQueries({
         queryKey: employeeKeys.messages(conversationId),
       });
+    },
+  });
+}
+
+// --- Continuous Learning (Step 15) -----------------------------------------
+
+/** Learning summary (feedback tallies + memory counts + recent feedback). */
+export function useEmployeeLearning(employeeId: string) {
+  const accessToken = useSessionStore((s) => s.accessToken);
+  return useQuery<LearningSummaryDto, NormalizedApiError>({
+    queryKey: employeeKeys.learning(employeeId),
+    queryFn: () => getLearning(employeeId),
+    enabled: Boolean(accessToken && employeeId),
+  });
+}
+
+/** Durable memories the employee has learned (FACT/SUMMARY, newest first). */
+export function useEmployeeMemories(employeeId: string) {
+  const accessToken = useSessionStore((s) => s.accessToken);
+  return useQuery<EmployeeMemoryDto[], NormalizedApiError>({
+    queryKey: employeeKeys.memories(employeeId),
+    queryFn: () => listMemories(employeeId),
+    enabled: Boolean(accessToken && employeeId),
+  });
+}
+
+/**
+ * Submit 👍/👎 feedback (optionally teaching a correction). Invalidates the
+ * learning summary + memories (a taught correction becomes a FACT memory).
+ */
+export function useSubmitFeedback(employeeId: string) {
+  const qc = useQueryClient();
+  return useMutation<EmployeeFeedbackDto, NormalizedApiError, CreateFeedbackDto>({
+    mutationFn: (payload) => submitFeedback({ employeeId, payload }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: employeeKeys.learning(employeeId) });
+      void qc.invalidateQueries({ queryKey: employeeKeys.memories(employeeId) });
+    },
+  });
+}
+
+interface MemoriesContext {
+  previous?: EmployeeMemoryDto[];
+}
+
+/** Teach a durable memory (optimistic prepend, roll back on error). */
+export function useTeachMemory(employeeId: string) {
+  const qc = useQueryClient();
+  return useMutation<
+    EmployeeMemoryDto,
+    NormalizedApiError,
+    CreateMemoryDto,
+    MemoriesContext
+  >({
+    mutationFn: (payload) => teachMemory({ employeeId, payload }),
+    onMutate: async (payload) => {
+      await qc.cancelQueries({ queryKey: employeeKeys.memories(employeeId) });
+      const previous = qc.getQueryData<EmployeeMemoryDto[]>(
+        employeeKeys.memories(employeeId),
+      );
+      const optimistic: EmployeeMemoryDto = {
+        id: `temp_${Date.now()}`,
+        companyId: '',
+        employeeId,
+        kind: payload.kind,
+        content: payload.content,
+        source: 'MANUAL',
+        createdAt: new Date().toISOString(),
+      };
+      qc.setQueryData<EmployeeMemoryDto[]>(
+        employeeKeys.memories(employeeId),
+        (old) => [optimistic, ...(old ?? [])],
+      );
+      return { previous };
+    },
+    onError: (_err, _payload, context) => {
+      if (context?.previous) {
+        qc.setQueryData(employeeKeys.memories(employeeId), context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: employeeKeys.memories(employeeId) });
+      void qc.invalidateQueries({ queryKey: employeeKeys.learning(employeeId) });
+    },
+  });
+}
+
+/** Forget a durable memory (optimistic removal, roll back on error). */
+export function useForgetMemory(employeeId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, NormalizedApiError, string, MemoriesContext>({
+    mutationFn: (memoryId) => forgetMemory({ employeeId, memoryId }),
+    onMutate: async (memoryId) => {
+      await qc.cancelQueries({ queryKey: employeeKeys.memories(employeeId) });
+      const previous = qc.getQueryData<EmployeeMemoryDto[]>(
+        employeeKeys.memories(employeeId),
+      );
+      qc.setQueryData<EmployeeMemoryDto[]>(
+        employeeKeys.memories(employeeId),
+        (old) => (old ?? []).filter((m) => m.id !== memoryId),
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(employeeKeys.memories(employeeId), context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: employeeKeys.memories(employeeId) });
+      void qc.invalidateQueries({ queryKey: employeeKeys.learning(employeeId) });
     },
   });
 }

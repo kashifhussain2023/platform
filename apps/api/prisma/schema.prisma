@@ -57,6 +57,13 @@ enum MemoryKind {
   SUMMARY
 }
 
+// Manager feedback on an AI output (Step 15 continuous learning). A 👍/👎 signal;
+// a 👎 with a correction (or an explicit teach) also becomes a durable FACT memory.
+enum FeedbackRating {
+  UP
+  DOWN
+}
+
 enum SkillExecutionStatus {
   SUCCESS
   ERROR
@@ -225,6 +232,7 @@ model AiEmployee {
   conversations  Conversation[]
   memories       EmployeeMemory[]
   employeeSkills EmployeeSkill[]
+  feedback       EmployeeFeedback[]
 
   @@index([companyId])
 }
@@ -262,9 +270,31 @@ model EmployeeMemory {
   employee   AiEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   kind       MemoryKind
   content    String
+  // Where this memory came from: 'FEEDBACK' | 'MANUAL' | 'RUN'. Nullable so the
+  // existing rolling SUMMARY writes (RUN) are unaffected (they leave it null).
+  source     String?
   createdAt  DateTime   @default(now())
 
   @@index([companyId])
+}
+
+// Manager feedback on a specific AI output (Step 15 continuous learning). A 👎
+// with a correction (or teach=true) also spawns a durable FACT EmployeeMemory so
+// the runtime recalls the lesson on future runs — closing the improvement loop.
+model EmployeeFeedback {
+  id             String         @id @default(cuid())
+  companyId      String
+  employeeId     String
+  employee       AiEmployee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  conversationId String?
+  messageId      String?
+  rating         FeedbackRating
+  note           String?
+  correction     String?
+  createdAt      DateTime       @default(now())
+
+  @@index([companyId])
+  @@index([employeeId])
 }
 
 // --- Skills ----------------------------------------------------------------

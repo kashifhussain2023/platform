@@ -6,6 +6,8 @@ import { ApprovalsModule } from '../approvals/approvals.module';
 import { ConversationsController } from './conversations.controller';
 import { EmployeesController } from './employees.controller';
 import { EmployeesService } from './employees.service';
+import { LearningController } from './learning.controller';
+import { LearningService } from './learning.service';
 import { AnthropicLlmProvider } from './llm/anthropic-llm.provider';
 import { LLM_PROVIDER_TOKEN, type LlmProvider } from './llm/llm.provider';
 import { MockLlmProvider } from './llm/mock-llm.provider';
@@ -38,9 +40,10 @@ function llmFactory(config: ConfigService): LlmProvider {
  */
 @Module({
   imports: [KnowledgeModule, SkillsModule, ApprovalsModule],
-  controllers: [EmployeesController, ConversationsController],
+  controllers: [EmployeesController, ConversationsController, LearningController],
   providers: [
     EmployeesService,
+    LearningService,
     AgentRuntimeService,
     LlmRouterService,
     PlannerService,
