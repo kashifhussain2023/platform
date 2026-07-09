@@ -909,3 +909,75 @@ export const modifyApprovalSchema = z.object({
 
 export type DecideApprovalDto = z.infer<typeof decideApprovalSchema>;
 export type ModifyApprovalDto = z.infer<typeof modifyApprovalSchema>;
+
+// --- Analytics / KPI dashboard ---------------------------------------------
+// Read-only aggregation over EXISTING data (SkillExecution, Message/Conversation,
+// WorkflowRun, ApprovalRequest, AiEmployee). No new persisted models. `range`
+// bounds the activity-style metrics by their relevant `createdAt`; current-state
+// counts (employees / pending approvals) are point-in-time. Derived money/time
+// figures are ILLUSTRATIVE estimates (see analytics.constants.ts).
+
+/** Time window for a KPI query. `all` = no lower bound. */
+export type AnalyticsRange = 'today' | '7d' | '30d' | 'all';
+
+export const ANALYTICS_RANGES: readonly AnalyticsRange[] = [
+  'today',
+  '7d',
+  '30d',
+  'all',
+] as const;
+
+/** Company-wide KPIs for the selected range. */
+export interface OverviewDto {
+  range: AnalyticsRange;
+  // Raw counts (range-bounded by createdAt).
+  toolActions: number;
+  toolSuccess: number;
+  toolErrors: number;
+  conversations: number;
+  assistantMessages: number;
+  workflowRuns: number;
+  workflowCompleted: number;
+  workflowFailed: number;
+  // Current-state counts (point-in-time, not range-bounded).
+  pendingApprovals: number;
+  employees: number;
+  activeEmployees: number;
+  // Derived ILLUSTRATIVE estimates.
+  tasksCompleted: number;
+  hoursSaved: number;
+  costSavings: number;
+  successRate: number | null;
+  utilization: number;
+}
+
+/** Per-employee KPI row. */
+export interface EmployeeKpiDto {
+  employeeId: string;
+  name: string;
+  role: EmployeeRole;
+  status: EmployeeStatus;
+  toolActions: number;
+  toolSuccess: number;
+  toolErrors: number;
+  conversations: number;
+  assistantMessages: number;
+  pendingApprovals: number;
+  // Derived ILLUSTRATIVE estimates (this employee only).
+  tasksCompleted: number;
+  hoursSaved: number;
+}
+
+/** One grouped activity count in the "Today's AI Activity" feed. */
+export interface ActivityItemDto {
+  label: string;
+  count: number;
+}
+
+/** Activity feed entry for a single employee (grouped skill/tool + message counts). */
+export interface ActivityFeedDto {
+  employeeId: string;
+  employee: string;
+  role: EmployeeRole;
+  items: ActivityItemDto[];
+}

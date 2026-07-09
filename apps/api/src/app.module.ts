@@ -9,6 +9,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ApprovalsModule } from './modules/approvals/approvals.module';
     SkillsModule,
     WorkflowsModule,
     ApprovalsModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}
