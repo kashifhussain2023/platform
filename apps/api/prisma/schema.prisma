@@ -1,0 +1,39 @@
+// V-AEP Prisma schema — Foundation + Auth/Tenant slice.
+// Every future table carries `companyId`; the tenant guard scopes all queries.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  users User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  email        String
+  passwordHash String
+  name         String
+  role         Role     @default(MEMBER)
+  createdAt    DateTime @default(now())
+
+  @@unique([companyId, email])
+}

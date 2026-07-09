@@ -1,0 +1,4 @@
+{
+  "$comment": "Re-export of the workspace root tsconfig.base.json so apps can `extends: @vaep/config/tsconfig`.",
+  "extends": "../../tsconfig.base.json"
+}
