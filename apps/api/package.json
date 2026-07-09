@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --config ./test/jest-e2e.json --passWithNoTests",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:new": "prisma migrate dev"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"
