@@ -2,6 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  ConfigureSkillDto,
+  ConnectSkillDto,
   EmployeeSkillDto,
   InstallSkillDto,
   InstalledSkillDto,
@@ -12,6 +14,9 @@ import type { NormalizedApiError } from '@/lib/apiClient';
 import { useSessionStore } from '@/stores/session.store';
 import {
   assignSkill,
+  configureSkill,
+  connectSkill,
+  disconnectSkill,
   installSkill,
   listCatalog,
   listEmployeeSkills,
@@ -76,6 +81,9 @@ export function useInstallSkill() {
         displayName: payload.displayName ?? payload.skillKey,
         config: payload.config ?? null,
         enabled: true,
+        connectionType: null,
+        connectionStatus: 'NOT_CONNECTED',
+        credentialsSet: false,
         createdAt: new Date().toISOString(),
       };
       qc.setQueryData<InstalledSkillDto[]>(skillKeys.installed, (old) => [
@@ -143,6 +151,121 @@ export function useUninstallSkill() {
       );
       qc.setQueryData<InstalledSkillDto[]>(skillKeys.installed, (old) =>
         (old ?? []).filter((s) => s.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(skillKeys.installed, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: skillKeys.installed });
+    },
+  });
+}
+
+interface ConfigureVars {
+  id: string;
+  data: ConfigureSkillDto;
+}
+
+/** Configure (optimistic): merge the submitted config into the cached row. */
+export function useConfigureSkill() {
+  const qc = useQueryClient();
+  return useMutation<
+    InstalledSkillDto,
+    NormalizedApiError,
+    ConfigureVars,
+    InstalledContext
+  >({
+    mutationFn: configureSkill,
+    onMutate: async ({ id, data }) => {
+      await qc.cancelQueries({ queryKey: skillKeys.installed });
+      const previous = qc.getQueryData<InstalledSkillDto[]>(
+        skillKeys.installed,
+      );
+      qc.setQueryData<InstalledSkillDto[]>(skillKeys.installed, (old) =>
+        (old ?? []).map((s) =>
+          s.id === id
+            ? { ...s, config: { ...(s.config ?? {}), ...data.config } }
+            : s,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(skillKeys.installed, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: skillKeys.installed });
+    },
+  });
+}
+
+interface ConnectVars {
+  id: string;
+  data: ConnectSkillDto;
+}
+
+/** Connect (optimistic): flip the cached row to CONNECTED. */
+export function useConnectSkill() {
+  const qc = useQueryClient();
+  return useMutation<
+    InstalledSkillDto,
+    NormalizedApiError,
+    ConnectVars,
+    InstalledContext
+  >({
+    mutationFn: connectSkill,
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: skillKeys.installed });
+      const previous = qc.getQueryData<InstalledSkillDto[]>(
+        skillKeys.installed,
+      );
+      qc.setQueryData<InstalledSkillDto[]>(skillKeys.installed, (old) =>
+        (old ?? []).map((s) =>
+          s.id === id
+            ? { ...s, connectionStatus: 'CONNECTED', credentialsSet: true }
+            : s,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(skillKeys.installed, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: skillKeys.installed });
+    },
+  });
+}
+
+/** Disconnect (optimistic): flip the cached row to NOT_CONNECTED. */
+export function useDisconnectSkill() {
+  const qc = useQueryClient();
+  return useMutation<
+    InstalledSkillDto,
+    NormalizedApiError,
+    string,
+    InstalledContext
+  >({
+    mutationFn: disconnectSkill,
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: skillKeys.installed });
+      const previous = qc.getQueryData<InstalledSkillDto[]>(
+        skillKeys.installed,
+      );
+      qc.setQueryData<InstalledSkillDto[]>(skillKeys.installed, (old) =>
+        (old ?? []).map((s) =>
+          s.id === id
+            ? { ...s, connectionStatus: 'NOT_CONNECTED', credentialsSet: false }
+            : s,
+        ),
       );
       return { previous };
     },

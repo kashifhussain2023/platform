@@ -4,10 +4,17 @@ export {
   updateInstalledSkillSchema,
   assignSkillSchema,
   executeToolSchema,
+  configureSkillSchema,
+  connectSkillSchema,
 } from '@vaep/types';
 export type {
   SkillCategory,
+  SkillConnectionType,
+  SkillConnectionStatus,
+  SkillConnectionDto,
   SkillDefinitionDto,
+  ConfigFieldDto,
+  ConfigFieldType,
   ToolDefinitionDto,
   ToolParametersDto,
   InstalledSkillDto,
@@ -19,4 +26,6 @@ export type {
   UpdateInstalledSkillDto,
   AssignSkillDto,
   ExecuteToolDto,
+  ConfigureSkillDto,
+  ConnectSkillDto,
 } from '@vaep/types';

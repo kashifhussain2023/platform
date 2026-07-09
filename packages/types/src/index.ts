@@ -422,7 +422,57 @@ export type SkillCategory =
   | 'communication'
   | 'payments'
   | 'development'
-  | 'utility';
+  | 'utility'
+  | 'crm'
+  | 'productivity';
+
+/**
+ * How a skill authenticates against its (real) backend. `api_key` prompts for a
+ * secret key; `oauth` is a stubbed connect flow (real OAuth = TODO); `none` needs
+ * no connection (mock/sandbox executors run without one either way).
+ */
+export type SkillConnectionType = 'oauth' | 'api_key' | 'none';
+
+/** Connection descriptor for a catalog skill. */
+export interface SkillConnectionDto {
+  type: SkillConnectionType;
+  /** Human label for the connect action, e.g. "Connect Slack". */
+  label?: string;
+}
+
+/** Whether an installed skill has been connected (credentials present). */
+export type SkillConnectionStatus = 'NOT_CONNECTED' | 'CONNECTED';
+
+export const SKILL_CONNECTION_STATUSES: readonly SkillConnectionStatus[] = [
+  'NOT_CONNECTED',
+  'CONNECTED',
+] as const;
+
+/** A field in a skill's company-specific configuration form. */
+export type ConfigFieldType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'textarea';
+
+/**
+ * One data-driven configuration field. The frontend renders an input from its
+ * `type`; the backend validates a submitted value against it. `secret:true`
+ * fields are stored in `credentials` (masked in responses), never in `config`.
+ */
+export interface ConfigFieldDto {
+  key: string;
+  label: string;
+  type: ConfigFieldType;
+  /** Allowed values for `select` fields. */
+  options?: string[];
+  /** When true the value is a secret (password input; stored masked). */
+  secret?: boolean;
+  required?: boolean;
+  placeholder?: string;
+  help?: string;
+}
 
 /** JSON-schema-ish parameter contract for a single tool. */
 export interface ToolParametersDto {
@@ -454,6 +504,10 @@ export interface SkillDefinitionDto {
   description: string;
   category: SkillCategory;
   tools: ToolDefinitionDto[];
+  /** How the skill connects to its (real) backend. */
+  connection: SkillConnectionDto;
+  /** Company-specific configuration fields (data-driven form). */
+  configSchema: ConfigFieldDto[];
 }
 
 /** A skill a company has installed (turns a catalog entry on for the tenant). */
@@ -462,8 +516,18 @@ export interface InstalledSkillDto {
   companyId: string;
   skillKey: string;
   displayName: string;
+  /** Non-secret company-specific settings. */
   config: Record<string, unknown> | null;
   enabled: boolean;
+  /** Connection type (mirrors the catalog); null until first set. */
+  connectionType: SkillConnectionType | null;
+  /** Whether credentials have been supplied / the skill is connected. */
+  connectionStatus: SkillConnectionStatus;
+  /**
+   * True when secret credentials are stored. Raw credentials are NEVER returned
+   * — this is the masked indicator the UI uses.
+   */
+  credentialsSet: boolean;
   createdAt: string;
 }
 
@@ -535,10 +599,22 @@ export const executeToolSchema = z.object({
   args: z.record(z.unknown()),
 });
 
+/** PATCH /skills/installed/:id/config body (company-specific settings). */
+export const configureSkillSchema = z.object({
+  config: z.record(z.unknown()),
+});
+
+/** POST /skills/installed/:id/connect body (secret credentials / OAuth token). */
+export const connectSkillSchema = z.object({
+  credentials: z.record(z.unknown()),
+});
+
 export type InstallSkillDto = z.infer<typeof installSkillSchema>;
 export type UpdateInstalledSkillDto = z.infer<typeof updateInstalledSkillSchema>;
 export type AssignSkillDto = z.infer<typeof assignSkillSchema>;
 export type ExecuteToolDto = z.infer<typeof executeToolSchema>;
+export type ConfigureSkillDto = z.infer<typeof configureSkillSchema>;
+export type ConnectSkillDto = z.infer<typeof connectSkillSchema>;
 
 // ---------------------------------------------------------------------------
 // Workflow builder module contracts.

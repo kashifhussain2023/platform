@@ -12,6 +12,11 @@ import type {
 /** Prisma row → public DTO mappers for the skills module. */
 
 export function toInstalledSkillDto(s: InstalledSkill): InstalledSkillDto {
+  // SECRETS: credentials are never returned raw — only a masked boolean flag.
+  const creds = s.credentials as Record<string, unknown> | null;
+  const credentialsSet = Boolean(
+    creds && typeof creds === 'object' && Object.keys(creds).length > 0,
+  );
   return {
     id: s.id,
     companyId: s.companyId,
@@ -19,6 +24,10 @@ export function toInstalledSkillDto(s: InstalledSkill): InstalledSkillDto {
     displayName: s.displayName,
     config: (s.config as Record<string, unknown> | null) ?? null,
     enabled: s.enabled,
+    connectionType:
+      (s.connectionType as InstalledSkillDto['connectionType']) ?? null,
+    connectionStatus: s.connectionStatus as InstalledSkillDto['connectionStatus'],
+    credentialsSet,
     createdAt: s.createdAt.toISOString(),
   };
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -6,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, type InstalledSkill } from '@prisma/client';
 import type {
+  ConfigFieldDto,
   EmployeeSkillDto,
   InstalledSkillDto,
   SkillDefinitionDto,
@@ -13,7 +15,9 @@ import type {
   ToolDefinitionDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { SkillCatalog } from './catalog';
+import { SkillCatalog, type SkillDefinition } from './catalog';
+import { ConfigureSkillDto } from './dto/configure-skill.dto';
+import { ConnectSkillDto } from './dto/connect-skill.dto';
 import { InstallSkillDto } from './dto/install-skill.dto';
 import { UpdateInstalledSkillDto } from './dto/update-installed-skill.dto';
 import {
@@ -69,6 +73,8 @@ export class SkillsService {
           dto.config === undefined
             ? undefined
             : (dto.config as Prisma.InputJsonObject),
+        // Mirror the catalog connection type; starts NOT_CONNECTED (default).
+        connectionType: def.connection.type,
         enabled: true,
       },
     });
@@ -107,6 +113,94 @@ export class SkillsService {
     await this.findOwnedInstalled(companyId, id);
     // Cascades to EmployeeSkill assignments (onDelete: Cascade).
     await this.prisma.installedSkill.delete({ where: { id } });
+  }
+
+  // --- Configuration + connection ------------------------------------------
+
+  /**
+   * Set company-specific configuration. Each provided field is validated against
+   * the skill's catalog `configSchema` (type / required / select-options).
+   * Non-secret fields are stored in `config`; `secret:true` fields go to
+   * `credentials` (masked in responses). Config/connection is OPTIONAL and
+   * NON-BLOCKING — the mock executor runs without either.
+   */
+  async configureSkill(
+    companyId: string,
+    id: string,
+    dto: ConfigureSkillDto,
+  ): Promise<InstalledSkillDto> {
+    const installed = await this.findOwnedInstalled(companyId, id);
+    const def = this.defFor(installed.skillKey);
+    const { config, secrets } = this.partitionConfig(def, dto.config);
+
+    const mergedConfig = {
+      ...((installed.config as Record<string, unknown> | null) ?? {}),
+      ...config,
+    };
+    const mergedCreds = {
+      ...((installed.credentials as Record<string, unknown> | null) ?? {}),
+      ...secrets,
+    };
+
+    const row = await this.prisma.installedSkill.update({
+      where: { id },
+      data: {
+        config: mergedConfig as Prisma.InputJsonObject,
+        credentials:
+          Object.keys(mergedCreds).length > 0
+            ? (mergedCreds as Prisma.InputJsonObject)
+            : undefined,
+      },
+    });
+    return toInstalledSkillDto(row);
+  }
+
+  /**
+   * Connect an installed skill. For `api_key` skills the provided key(s) are
+   * stored in `credentials`; for `oauth` skills this is a STUB that just marks
+   * the skill connected (accepting whatever token is passed). Sets
+   * connectionStatus=CONNECTED and connectionType from the catalog.
+   *
+   * TODO: real OAuth authorization-code flow; encrypt credentials at rest.
+   */
+  async connectSkill(
+    companyId: string,
+    id: string,
+    dto: ConnectSkillDto,
+  ): Promise<InstalledSkillDto> {
+    const installed = await this.findOwnedInstalled(companyId, id);
+    const def = this.defFor(installed.skillKey);
+
+    const mergedCreds = {
+      ...((installed.credentials as Record<string, unknown> | null) ?? {}),
+      ...dto.credentials,
+    };
+
+    const row = await this.prisma.installedSkill.update({
+      where: { id },
+      data: {
+        credentials: mergedCreds as Prisma.InputJsonObject,
+        connectionType: def.connection.type,
+        connectionStatus: 'CONNECTED',
+      },
+    });
+    return toInstalledSkillDto(row);
+  }
+
+  /** Disconnect: clear credentials and reset connectionStatus. */
+  async disconnectSkill(
+    companyId: string,
+    id: string,
+  ): Promise<InstalledSkillDto> {
+    await this.findOwnedInstalled(companyId, id);
+    const row = await this.prisma.installedSkill.update({
+      where: { id },
+      data: {
+        credentials: Prisma.JsonNull,
+        connectionStatus: 'NOT_CONNECTED',
+      },
+    });
+    return toInstalledSkillDto(row);
   }
 
   // --- Assignments (employee ↔ installed skill) ----------------------------
@@ -248,6 +342,84 @@ export class SkillsService {
       throw new NotFoundException(`Unknown tool: ${tool}`);
     }
     return this.runTool({ companyId }, installed.skillKey, tool, args);
+  }
+
+  // --- Config validation helpers -------------------------------------------
+
+  /** Resolve the catalog definition for an installed skill (must exist). */
+  private defFor(skillKey: string): SkillDefinition {
+    const def = SkillCatalog.get(skillKey);
+    if (!def) {
+      throw new NotFoundException(`Unknown skill: ${skillKey}`);
+    }
+    return def;
+  }
+
+  /**
+   * Validate each provided field against the skill's configSchema and split them
+   * into non-secret `config` values and `secrets`. Unknown/invalid fields → 400.
+   */
+  private partitionConfig(
+    def: SkillDefinition,
+    input: Record<string, unknown>,
+  ): { config: Record<string, unknown>; secrets: Record<string, unknown> } {
+    const byKey = new Map<string, ConfigFieldDto>(
+      (def.configSchema ?? []).map((f) => [f.key, f]),
+    );
+    const config: Record<string, unknown> = {};
+    const secrets: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(input)) {
+      const field = byKey.get(key);
+      if (!field) {
+        throw new BadRequestException(`Unknown config field: ${key}`);
+      }
+      this.assertFieldValue(field, value);
+      if (field.secret) {
+        secrets[key] = value;
+      } else {
+        config[key] = value;
+      }
+    }
+    return { config, secrets };
+  }
+
+  /** Assert a single value matches its field's type / required / options. */
+  private assertFieldValue(field: ConfigFieldDto, value: unknown): void {
+    const empty = value === undefined || value === null || value === '';
+    if (empty) {
+      if (field.required) {
+        throw new BadRequestException(`${field.key} is required`);
+      }
+      return; // clearing an optional field is allowed
+    }
+    switch (field.type) {
+      case 'number':
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+          throw new BadRequestException(`${field.key} must be a number`);
+        }
+        break;
+      case 'boolean':
+        if (typeof value !== 'boolean') {
+          throw new BadRequestException(`${field.key} must be a boolean`);
+        }
+        break;
+      case 'select':
+        if (
+          typeof value !== 'string' ||
+          !(field.options ?? []).includes(value)
+        ) {
+          throw new BadRequestException(
+            `${field.key} must be one of: ${(field.options ?? []).join(', ')}`,
+          );
+        }
+        break;
+      case 'string':
+      case 'textarea':
+      default:
+        if (typeof value !== 'string') {
+          throw new BadRequestException(`${field.key} must be a string`);
+        }
+    }
   }
 
   // --- Ownership helpers ---------------------------------------------------

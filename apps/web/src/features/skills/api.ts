@@ -1,5 +1,7 @@
 import { apiClient } from '@/lib/apiClient';
 import type {
+  ConfigureSkillDto,
+  ConnectSkillDto,
   EmployeeSkillDto,
   InstallSkillDto,
   InstalledSkillDto,
@@ -43,6 +45,36 @@ export async function updateInstalledSkill(vars: {
 
 export async function uninstallSkill(id: string): Promise<void> {
   await apiClient.delete(`/skills/installed/${id}`);
+}
+
+export async function configureSkill(vars: {
+  id: string;
+  data: ConfigureSkillDto;
+}): Promise<InstalledSkillDto> {
+  const { data } = await apiClient.patch<InstalledSkillDto>(
+    `/skills/installed/${vars.id}/config`,
+    vars.data,
+  );
+  return data;
+}
+
+export async function connectSkill(vars: {
+  id: string;
+  data: ConnectSkillDto;
+}): Promise<InstalledSkillDto> {
+  const { data } = await apiClient.post<InstalledSkillDto>(
+    `/skills/installed/${vars.id}/connect`,
+    vars.data,
+  );
+  return data;
+}
+
+export async function disconnectSkill(id: string): Promise<InstalledSkillDto> {
+  const { data } = await apiClient.post<InstalledSkillDto>(
+    `/skills/installed/${id}/disconnect`,
+    {},
+  );
+  return data;
 }
 
 // --- Employee ↔ skill assignments ------------------------------------------

@@ -19,6 +19,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { InstallSkillDto } from './dto/install-skill.dto';
 import { UpdateInstalledSkillDto } from './dto/update-installed-skill.dto';
 import { ExecuteToolDto } from './dto/execute-tool.dto';
+import { ConfigureSkillDto } from './dto/configure-skill.dto';
+import { ConnectSkillDto } from './dto/connect-skill.dto';
 import { SkillsService } from './skills.service';
 
 /** All routes are tenant-scoped by companyId from the JWT and JWT-guarded. */
@@ -64,6 +66,35 @@ export class SkillsController {
     @Param('id') id: string,
   ): Promise<void> {
     return this.skills.uninstall(companyId, id);
+  }
+
+  /** Set company-specific configuration (validated against the skill's schema). */
+  @Patch('installed/:id/config')
+  configure(
+    @CurrentTenant() companyId: string,
+    @Param('id') id: string,
+    @Body() dto: ConfigureSkillDto,
+  ): Promise<InstalledSkillDto> {
+    return this.skills.configureSkill(companyId, id, dto);
+  }
+
+  /** Connect the skill (store API key / OAuth token stub → CONNECTED). */
+  @Post('installed/:id/connect')
+  connect(
+    @CurrentTenant() companyId: string,
+    @Param('id') id: string,
+    @Body() dto: ConnectSkillDto,
+  ): Promise<InstalledSkillDto> {
+    return this.skills.connectSkill(companyId, id, dto);
+  }
+
+  /** Disconnect the skill (clear credentials → NOT_CONNECTED). */
+  @Post('installed/:id/disconnect')
+  disconnect(
+    @CurrentTenant() companyId: string,
+    @Param('id') id: string,
+  ): Promise<InstalledSkillDto> {
+    return this.skills.disconnectSkill(companyId, id);
   }
 
   /** Manually run a tool on an installed skill (logs a SkillExecution). */
