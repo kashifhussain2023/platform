@@ -634,6 +634,34 @@ export const WORKFLOW_STATUSES: readonly WorkflowStatus[] = [
   'PAUSED',
 ] as const;
 
+/**
+ * How an ACTIVE workflow is invoked (Steps 8/9/11). MANUAL is the default and
+ * preserves the existing POST /workflows/:id/run path; the others are
+ * event-driven (a repeatable BullMQ job, a public webhook, or an internal event).
+ */
+export type TriggerType = 'MANUAL' | 'SCHEDULE' | 'WEBHOOK' | 'EVENT';
+
+export const TRIGGER_TYPES: readonly TriggerType[] = [
+  'MANUAL',
+  'SCHEDULE',
+  'WEBHOOK',
+  'EVENT',
+] as const;
+
+/**
+ * Trigger configuration persisted on a workflow. Shape depends on triggerType:
+ * SCHEDULE needs `everyMs` (≥15000) OR `cron`; EVENT needs `eventType`;
+ * WEBHOOK/MANUAL carry no config.
+ */
+export interface TriggerConfig {
+  /** SCHEDULE: repeat interval in ms (min 15000). */
+  everyMs?: number;
+  /** SCHEDULE: cron expression (alternative to everyMs). */
+  cron?: string;
+  /** EVENT: the internal event name this workflow listens for. */
+  eventType?: string;
+}
+
 /** Terminal/interim status of a single workflow run. */
 export type WorkflowRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 
@@ -784,12 +812,21 @@ export const createWorkflowSchema = z.object({
   definition: workflowDefinitionSchema.optional(),
 });
 
-/** PATCH /workflows/:id body (name/description/definition/status). */
+/** Shared trigger-config contract (SCHEDULE everyMs/cron · EVENT eventType). */
+export const triggerConfigSchema = z.object({
+  everyMs: z.number().int().min(15000).optional(),
+  cron: z.string().min(1).max(120).optional(),
+  eventType: z.string().min(1).max(120).optional(),
+});
+
+/** PATCH /workflows/:id body (name/description/definition/status/trigger). */
 export const updateWorkflowSchema = z.object({
   name: z.string().min(1).max(160).optional(),
   description: z.string().max(2000).optional(),
   definition: workflowDefinitionSchema.optional(),
   status: z.enum(['DRAFT', 'ACTIVE', 'PAUSED']).optional(),
+  triggerType: z.enum(['MANUAL', 'SCHEDULE', 'WEBHOOK', 'EVENT']).optional(),
+  triggerConfig: triggerConfigSchema.optional(),
 });
 
 /** POST /workflows/:id/run body (optional trigger payload). */
@@ -797,9 +834,16 @@ export const runWorkflowSchema = z.object({
   trigger: z.record(z.unknown()).optional(),
 });
 
+/** POST /workflows/events body — fire an internal event to EVENT-triggered flows. */
+export const fireEventSchema = z.object({
+  eventType: z.string().min(1).max(120),
+  payload: z.record(z.unknown()).optional(),
+});
+
 export type CreateWorkflowDto = z.infer<typeof createWorkflowSchema>;
 export type UpdateWorkflowDto = z.infer<typeof updateWorkflowSchema>;
 export type RunWorkflowDto = z.infer<typeof runWorkflowSchema>;
+export type FireEventDto = z.infer<typeof fireEventSchema>;
 
 // --- DTOs / API contract types ---------------------------------------------
 
@@ -811,8 +855,21 @@ export interface WorkflowDto {
   description: string | null;
   status: WorkflowStatus;
   definition: WorkflowDefinition;
+  triggerType: TriggerType;
+  triggerConfig: TriggerConfig | null;
+  /** Present (for WEBHOOK triggers) once the workflow has been activated. */
+  webhookToken: string | null;
+  activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Result of firing an internal event (POST /workflows/events). */
+export interface FireEventResultDto {
+  eventType: string;
+  /** How many ACTIVE EVENT workflows matched and were enqueued. */
+  count: number;
+  runIds: string[];
 }
 
 /** One visited node's execution record within a run. */
@@ -837,6 +894,8 @@ export interface WorkflowRunDto {
   companyId: string;
   workflowId: string;
   status: WorkflowRunStatus;
+  /** How the run was triggered: MANUAL | SCHEDULE | WEBHOOK | EVENT. */
+  source: string;
   trigger: Record<string, unknown> | null;
   context: Record<string, unknown> | null;
   error: string | null;

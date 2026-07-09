@@ -1,14 +1,28 @@
+import { randomBytes } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, type Workflow } from '@prisma/client';
 import type { Queue } from 'bullmq';
-import type { WorkflowDto, WorkflowRunDto } from '@vaep/types';
+import type {
+  FireEventResultDto,
+  TriggerConfig,
+  TriggerType,
+  WorkflowDefinition,
+  WorkflowDto,
+  WorkflowRunDto,
+} from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import {
+  MIN_SCHEDULE_MS,
   WORKFLOW_RUN_JOB,
   WORKFLOW_RUN_QUEUE,
+  WORKFLOW_TRIGGER_JOB,
   type WorkflowRunJobData,
 } from './workflows.constants';
 import {
@@ -17,11 +31,21 @@ import {
   toWorkflowRunDto,
 } from './workflows.mapper';
 
+/** BullMQ job-scheduler id for a workflow's SCHEDULE repeatable job. */
+function schedulerId(workflowId: string): string {
+  return `wf:${workflowId}`;
+}
+
 /**
- * Tenant-scoped CRUD for workflows plus run creation. A run is created PENDING
- * and its execution is enqueued on the BullMQ `workflow-run` queue (async, same
- * style as knowledge ingestion); the WorkflowProcessor/WorkflowEngine walk the
- * graph. Every query is scoped by companyId (from the JWT).
+ * Tenant-scoped CRUD for workflows plus run creation and trigger/activation.
+ *
+ * A run is created PENDING and its execution is enqueued on the BullMQ
+ * `workflow-run` queue (async); the WorkflowProcessor/WorkflowEngine walk the
+ * graph. Every tenant query is scoped by companyId (from the JWT).
+ *
+ * Triggers (Steps 8/9/11): MANUAL keeps the existing POST /:id/run path.
+ * ACTIVE workflows can also fire via a SCHEDULE (repeatable BullMQ job), a
+ * public WEBHOOK (token URL), or an internal EVENT.
  */
 @Injectable()
 export class WorkflowsService {
@@ -66,13 +90,27 @@ export class WorkflowsService {
     id: string,
     dto: UpdateWorkflowDto,
   ): Promise<WorkflowDto> {
-    await this.findOwned(companyId, id);
+    const existing = await this.findOwned(companyId, id);
+
+    // Validate the trigger shape when either trigger field is being changed.
+    if (dto.triggerType !== undefined || dto.triggerConfig !== undefined) {
+      const type = (dto.triggerType ?? existing.triggerType) as TriggerType;
+      const config =
+        dto.triggerConfig ?? (existing.triggerConfig as TriggerConfig | null);
+      this.validateTrigger(type, config);
+    }
+
     const workflow = await this.prisma.workflow.update({
       where: { id },
       data: {
         name: dto.name,
         description: dto.description,
         status: dto.status,
+        triggerType: dto.triggerType,
+        triggerConfig:
+          dto.triggerConfig === undefined
+            ? undefined
+            : (dto.triggerConfig as Prisma.InputJsonObject),
         definition:
           dto.definition === undefined
             ? undefined
@@ -83,9 +121,116 @@ export class WorkflowsService {
   }
 
   async remove(companyId: string, id: string): Promise<void> {
-    await this.findOwned(companyId, id);
+    const existing = await this.findOwned(companyId, id);
+    // Best-effort: drop any repeatable schedule so it doesn't fire post-delete.
+    if (existing.triggerType === 'SCHEDULE') {
+      await this.removeSchedule(id);
+    }
     // Cascades to runs and their step runs (onDelete: Cascade).
     await this.prisma.workflow.delete({ where: { id } });
+  }
+
+  // --- Activation (Steps 8/9) ---------------------------------------------
+
+  /**
+   * Activate a workflow: require ≥1 runnable (non-TRIGGER) node, set ACTIVE +
+   * activatedAt. SCHEDULE → add a repeatable job; WEBHOOK → ensure a token.
+   */
+  async activate(companyId: string, id: string): Promise<WorkflowDto> {
+    const existing = await this.findOwned(companyId, id);
+
+    if (!this.hasRunnableSteps(existing.definition)) {
+      throw new BadRequestException(
+        'Add at least one step (beyond the trigger) before activating',
+      );
+    }
+
+    const type = existing.triggerType as TriggerType;
+    const config = existing.triggerConfig as TriggerConfig | null;
+    this.validateTrigger(type, config);
+
+    // Generate a webhook token on first WEBHOOK activation (crypto-random).
+    const webhookToken =
+      type === 'WEBHOOK' && !existing.webhookToken
+        ? randomBytes(24).toString('hex')
+        : undefined;
+
+    const workflow = await this.prisma.workflow.update({
+      where: { id },
+      data: {
+        status: 'ACTIVE',
+        activatedAt: new Date(),
+        ...(webhookToken ? { webhookToken } : {}),
+      },
+    });
+
+    if (type === 'SCHEDULE') {
+      await this.addSchedule(id, config);
+    }
+
+    return toWorkflowDto(workflow);
+  }
+
+  /** Deactivate: set PAUSED and remove any SCHEDULE repeatable job. */
+  async deactivate(companyId: string, id: string): Promise<WorkflowDto> {
+    const existing = await this.findOwned(companyId, id);
+    if (existing.triggerType === 'SCHEDULE') {
+      await this.removeSchedule(id);
+    }
+    const workflow = await this.prisma.workflow.update({
+      where: { id },
+      data: { status: 'PAUSED' },
+    });
+    return toWorkflowDto(workflow);
+  }
+
+  // --- Event / webhook firing (Step 11) -----------------------------------
+
+  /**
+   * Fire an internal event: enqueue a run for every ACTIVE EVENT workflow whose
+   * triggerConfig.eventType matches. Returns the matched count + created runIds.
+   */
+  async fireEvent(
+    companyId: string,
+    eventType: string,
+    payload?: Record<string, unknown>,
+  ): Promise<FireEventResultDto> {
+    const workflows = await this.prisma.workflow.findMany({
+      where: {
+        companyId,
+        status: 'ACTIVE',
+        triggerType: 'EVENT',
+        triggerConfig: { path: ['eventType'], equals: eventType },
+      },
+    });
+
+    const runIds: string[] = [];
+    for (const wf of workflows) {
+      const run = await this.enqueueRun(wf.companyId, wf.id, 'EVENT', payload);
+      runIds.push(run.id);
+    }
+    return { eventType, count: runIds.length, runIds };
+  }
+
+  /**
+   * Fire a public webhook by token (no JWT; tenant = the workflow's company).
+   * 404 unless the token maps to an ACTIVE WEBHOOK workflow.
+   */
+  async fireWebhook(
+    token: string,
+    payload?: Record<string, unknown>,
+  ): Promise<WorkflowRunDto> {
+    const workflow = await this.prisma.workflow.findUnique({
+      where: { webhookToken: token },
+    });
+    if (
+      !workflow ||
+      workflow.status !== 'ACTIVE' ||
+      workflow.triggerType !== 'WEBHOOK'
+    ) {
+      throw new NotFoundException('Webhook not found');
+    }
+    return this.enqueueRun(workflow.companyId, workflow.id, 'WEBHOOK', payload);
   }
 
   // --- Runs ----------------------------------------------------------------
@@ -97,25 +242,7 @@ export class WorkflowsService {
     trigger?: Record<string, unknown>,
   ): Promise<WorkflowRunDto> {
     await this.findOwned(companyId, id);
-    const run = await this.prisma.workflowRun.create({
-      data: {
-        companyId,
-        workflowId: id,
-        status: 'PENDING',
-        trigger:
-          trigger === undefined
-            ? Prisma.JsonNull
-            : (trigger as Prisma.InputJsonObject),
-      },
-    });
-
-    await this.queue.add(
-      WORKFLOW_RUN_JOB,
-      { runId: run.id },
-      { removeOnComplete: true, removeOnFail: 100 },
-    );
-
-    return toWorkflowRunDto(run);
+    return this.enqueueRun(companyId, id, 'MANUAL', trigger);
   }
 
   async listRuns(companyId: string, id: string): Promise<WorkflowRunDto[]> {
@@ -137,6 +264,99 @@ export class WorkflowsService {
       throw new NotFoundException('Workflow run not found');
     }
     return toWorkflowRunDto(run);
+  }
+
+  /** Test/introspection hook: the queue's registered job schedulers. */
+  listSchedulers() {
+    return this.queue.getJobSchedulers();
+  }
+
+  // --- Internals -----------------------------------------------------------
+
+  /** Create a run with the given source + enqueue a `{runId}` job. */
+  private async enqueueRun(
+    companyId: string,
+    workflowId: string,
+    source: string,
+    trigger?: Record<string, unknown>,
+  ): Promise<WorkflowRunDto> {
+    const run = await this.prisma.workflowRun.create({
+      data: {
+        companyId,
+        workflowId,
+        status: 'PENDING',
+        source,
+        trigger:
+          trigger === undefined
+            ? Prisma.JsonNull
+            : (trigger as Prisma.InputJsonObject),
+      },
+    });
+
+    await this.queue.add(
+      WORKFLOW_RUN_JOB,
+      { runId: run.id },
+      { removeOnComplete: true, removeOnFail: 100 },
+    );
+
+    return toWorkflowRunDto(run);
+  }
+
+  /** True when the definition has ≥1 node that is not a TRIGGER. */
+  private hasRunnableSteps(definition: Prisma.JsonValue): boolean {
+    const def = (definition ?? {}) as Partial<WorkflowDefinition>;
+    const nodes = Array.isArray(def.nodes) ? def.nodes : [];
+    return nodes.some((n) => n?.type && n.type !== 'TRIGGER');
+  }
+
+  /** Validate a trigger's config shape (SCHEDULE/EVENT); 400 otherwise. */
+  private validateTrigger(
+    type: TriggerType,
+    config: TriggerConfig | null,
+  ): void {
+    if (type === 'SCHEDULE') {
+      const everyMs = Number(config?.everyMs);
+      const hasEvery = Number.isFinite(everyMs) && everyMs >= MIN_SCHEDULE_MS;
+      const hasCron =
+        typeof config?.cron === 'string' && config.cron.trim().length > 0;
+      if (!hasEvery && !hasCron) {
+        throw new BadRequestException(
+          `SCHEDULE trigger needs everyMs >= ${MIN_SCHEDULE_MS} or a cron expression`,
+        );
+      }
+    }
+    if (type === 'EVENT') {
+      const eventType =
+        typeof config?.eventType === 'string' ? config.eventType.trim() : '';
+      if (!eventType) {
+        throw new BadRequestException('EVENT trigger needs a non-empty eventType');
+      }
+    }
+  }
+
+  /** Add/refresh the repeatable SCHEDULE job for a workflow. */
+  private async addSchedule(
+    workflowId: string,
+    config: TriggerConfig | null,
+  ): Promise<void> {
+    const repeat =
+      typeof config?.cron === 'string' && config.cron.trim().length > 0
+        ? { pattern: config.cron.trim() }
+        : { every: Number(config?.everyMs) };
+    await this.queue.upsertJobScheduler(schedulerId(workflowId), repeat, {
+      name: WORKFLOW_TRIGGER_JOB,
+      data: { workflowId, source: 'SCHEDULE' },
+      opts: { removeOnComplete: true, removeOnFail: 100 },
+    });
+  }
+
+  /** Best-effort removal of a workflow's repeatable SCHEDULE job. */
+  private async removeSchedule(workflowId: string): Promise<void> {
+    try {
+      await this.queue.removeJobScheduler(schedulerId(workflowId));
+    } catch {
+      // No scheduler registered (e.g. never activated) — nothing to remove.
+    }
   }
 
   // --- Ownership helper ----------------------------------------------------

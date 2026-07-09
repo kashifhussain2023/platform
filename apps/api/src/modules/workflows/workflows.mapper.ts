@@ -4,6 +4,8 @@ import type {
   WorkflowStepRun,
 } from '@prisma/client';
 import type {
+  TriggerConfig,
+  TriggerType,
   WorkflowDefinition,
   WorkflowDto,
   WorkflowRunDto,
@@ -36,6 +38,10 @@ export function toWorkflowDto(w: Workflow): WorkflowDto {
     definition:
       (w.definition as unknown as WorkflowDefinition | null) ??
       EMPTY_DEFINITION,
+    triggerType: w.triggerType as TriggerType,
+    triggerConfig: (w.triggerConfig as TriggerConfig | null) ?? null,
+    webhookToken: w.webhookToken ?? null,
+    activatedAt: w.activatedAt?.toISOString() ?? null,
     createdAt: w.createdAt.toISOString(),
     updatedAt: w.updatedAt.toISOString(),
   };
@@ -66,6 +72,7 @@ export function toWorkflowRunDto(
     companyId: r.companyId,
     workflowId: r.workflowId,
     status: r.status,
+    source: r.source,
     trigger: (r.trigger as Record<string, unknown> | null) ?? null,
     context: (r.context as Record<string, unknown> | null) ?? null,
     error: r.error,

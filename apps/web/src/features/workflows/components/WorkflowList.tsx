@@ -1,15 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import type { WorkflowDto, WorkflowStatus } from '@vaep/types';
+import type { WorkflowDto } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
-import { useDeleteWorkflow, useUpdateWorkflow, useWorkflows } from '../hooks';
+import {
+  useActivateWorkflow,
+  useDeactivateWorkflow,
+  useDeleteWorkflow,
+  useWorkflows,
+} from '../hooks';
 import { WORKFLOW_STATUS_STYLES } from '../labels';
 
-/** The tenant's workflows with activate/pause + delete (optimistic) + open. */
+/** The tenant's workflows with activate/deactivate + delete (optimistic) + open. */
 export function WorkflowList() {
   const { data: workflows, isLoading } = useWorkflows();
-  const update = useUpdateWorkflow();
+  const activate = useActivateWorkflow();
+  const deactivate = useDeactivateWorkflow();
   const del = useDeleteWorkflow();
 
   if (isLoading) {
@@ -24,14 +30,13 @@ export function WorkflowList() {
     );
   }
 
-  const setStatus = (id: string, status: WorkflowStatus) =>
-    update.mutate({ id, data: { status } });
-
   return (
     <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
       {workflows.map((workflow: WorkflowDto) => {
         const isTemp = workflow.id.startsWith('temp_');
-        const nodeCount = workflow.definition?.nodes?.length ?? 0;
+        const nodes = workflow.definition?.nodes ?? [];
+        const nodeCount = nodes.length;
+        const canActivate = nodes.some((n) => n.type !== 'TRIGGER');
         return (
           <li
             key={workflow.id}
@@ -56,16 +61,19 @@ export function WorkflowList() {
               {workflow.status === 'ACTIVE' ? (
                 <Button
                   variant="ghost"
-                  onClick={() => setStatus(workflow.id, 'PAUSED')}
-                  disabled={isTemp || update.isPending}
+                  onClick={() => deactivate.mutate(workflow.id)}
+                  disabled={isTemp || deactivate.isPending}
                 >
-                  Pause
+                  Deactivate
                 </Button>
               ) : (
                 <Button
                   variant="ghost"
-                  onClick={() => setStatus(workflow.id, 'ACTIVE')}
-                  disabled={isTemp || update.isPending}
+                  onClick={() => activate.mutate(workflow.id)}
+                  disabled={isTemp || !canActivate || activate.isPending}
+                  title={
+                    canActivate ? undefined : 'Add a step before activating'
+                  }
                 >
                   Activate
                 </Button>

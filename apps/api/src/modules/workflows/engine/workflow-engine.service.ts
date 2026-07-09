@@ -79,6 +79,31 @@ export class WorkflowEngine {
     @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
   ) {}
 
+  /**
+   * Scheduled/triggered entry: create a WorkflowRun for a workflow (with the
+   * given source) then execute it. Used by the processor for `{workflowId,
+   * source}` jobs (SCHEDULE repeatable). A missing/deleted workflow is a no-op.
+   */
+  async trigger(workflowId: string, source: string): Promise<void> {
+    const workflow = await this.prisma.workflow.findUnique({
+      where: { id: workflowId },
+    });
+    if (!workflow) {
+      this.logger.warn(`Triggered workflow ${workflowId} not found; skipping`);
+      return;
+    }
+    const run = await this.prisma.workflowRun.create({
+      data: {
+        companyId: workflow.companyId,
+        workflowId,
+        status: 'PENDING',
+        source,
+        trigger: Prisma.JsonNull,
+      },
+    });
+    await this.execute(run.id);
+  }
+
   async execute(runId: string): Promise<void> {
     const run = await this.prisma.workflowRun.findUnique({
       where: { id: runId },

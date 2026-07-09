@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { NodeList } from '@/features/workflows/components/NodeList';
 import { RunPanel } from '@/features/workflows/components/RunPanel';
+import { TriggerPanel } from '@/features/workflows/components/TriggerPanel';
 import { useWorkflow } from '@/features/workflows/hooks';
 import { useSessionStore } from '@/stores/session.store';
 
@@ -48,6 +49,12 @@ export default function WorkflowEditorPage({
       ) : (
         <div className="space-y-6">
           <NodeList workflow={workflow} />
+          <TriggerPanel
+            workflow={workflow}
+            canActivate={(workflow.definition?.nodes ?? []).some(
+              (n) => n.type !== 'TRIGGER',
+            )}
+          />
           <RunPanel
             workflowId={workflow.id}
             canRun={(workflow.definition?.nodes ?? []).some(

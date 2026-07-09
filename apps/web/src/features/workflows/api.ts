@@ -40,6 +40,20 @@ export async function deleteWorkflow(id: string): Promise<void> {
   await apiClient.delete(`/workflows/${id}`);
 }
 
+export async function activateWorkflow(id: string): Promise<WorkflowDto> {
+  const { data } = await apiClient.post<WorkflowDto>(
+    `/workflows/${id}/activate`,
+  );
+  return data;
+}
+
+export async function deactivateWorkflow(id: string): Promise<WorkflowDto> {
+  const { data } = await apiClient.post<WorkflowDto>(
+    `/workflows/${id}/deactivate`,
+  );
+  return data;
+}
+
 // --- Runs ------------------------------------------------------------------
 
 export async function runWorkflow(vars: {

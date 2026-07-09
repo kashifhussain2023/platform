@@ -6,6 +6,7 @@ import { SkillsModule } from '../skills/skills.module';
 import { WorkflowEngine } from './engine/workflow-engine.service';
 import { WorkflowProcessor } from './engine/workflow.processor';
 import { WorkflowsController } from './workflows.controller';
+import { WorkflowWebhooksController } from './webhooks.controller';
 import { WorkflowsService } from './workflows.service';
 import { WORKFLOW_RUN_QUEUE } from './workflows.constants';
 
@@ -28,7 +29,7 @@ import { WORKFLOW_RUN_QUEUE } from './workflows.constants';
     SkillsModule,
     EmployeesModule,
   ],
-  controllers: [WorkflowsController],
+  controllers: [WorkflowsController, WorkflowWebhooksController],
   providers: [WorkflowsService, WorkflowEngine, WorkflowProcessor],
   exports: [WorkflowsService],
 })

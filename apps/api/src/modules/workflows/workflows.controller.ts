@@ -9,10 +9,15 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import type { WorkflowDto, WorkflowRunDto } from '@vaep/types';
+import type {
+  FireEventResultDto,
+  WorkflowDto,
+  WorkflowRunDto,
+} from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
+import { FireEventDto } from './dto/fire-event.dto';
 import { RunWorkflowDto } from './dto/run-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import { WorkflowsService } from './workflows.service';
@@ -34,6 +39,20 @@ export class WorkflowsController {
   @Get()
   list(@CurrentTenant() companyId: string): Promise<WorkflowDto[]> {
     return this.workflows.list(companyId);
+  }
+
+  /**
+   * Fire an internal event to every ACTIVE EVENT-triggered workflow whose
+   * eventType matches. Declared before `:id` so the fixed `events` segment is
+   * never shadowed by a parametric route.
+   */
+  @Post('events')
+  @HttpCode(200)
+  fireEvent(
+    @CurrentTenant() companyId: string,
+    @Body() dto: FireEventDto,
+  ): Promise<FireEventResultDto> {
+    return this.workflows.fireEvent(companyId, dto.eventType, dto.payload);
   }
 
   /**
@@ -90,5 +109,25 @@ export class WorkflowsController {
     @Param('id') id: string,
   ): Promise<WorkflowRunDto[]> {
     return this.workflows.listRuns(companyId, id);
+  }
+
+  /** Activate a workflow (requires runnable steps); arms its trigger. */
+  @Post(':id/activate')
+  @HttpCode(200)
+  activate(
+    @CurrentTenant() companyId: string,
+    @Param('id') id: string,
+  ): Promise<WorkflowDto> {
+    return this.workflows.activate(companyId, id);
+  }
+
+  /** Deactivate a workflow (PAUSED); disarms any SCHEDULE job. */
+  @Post(':id/deactivate')
+  @HttpCode(200)
+  deactivate(
+    @CurrentTenant() companyId: string,
+    @Param('id') id: string,
+  ): Promise<WorkflowDto> {
+    return this.workflows.deactivate(companyId, id);
   }
 }

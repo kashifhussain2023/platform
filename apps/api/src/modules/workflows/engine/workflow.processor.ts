@@ -2,15 +2,20 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import {
-  WORKFLOW_RUN_JOB,
   WORKFLOW_RUN_QUEUE,
   type WorkflowRunJobData,
 } from '../workflows.constants';
 import { WorkflowEngine } from './workflow-engine.service';
 
 /**
- * In-process BullMQ worker that executes a queued WorkflowRun by delegating to
+ * In-process BullMQ worker that executes queued workflow jobs by delegating to
  * the WorkflowEngine (same WorkerHost style as the knowledge IngestionProcessor).
+ *
+ * Two job shapes flow through the same queue:
+ * - `{ runId }`     — an already-created run (MANUAL/EVENT/WEBHOOK). Existing path.
+ * - `{ workflowId, source }` — a SCHEDULE/repeatable fire: create a run (with
+ *   that source) then execute it.
+ *
  * The engine owns all status transitions and error handling, so this handler
  * stays thin — a node failure is recorded as a FAILED run (a terminal domain
  * outcome the poller reads), not a thrown job error.
@@ -24,10 +29,20 @@ export class WorkflowProcessor extends WorkerHost {
   }
 
   async process(job: Job<WorkflowRunJobData>): Promise<void> {
-    if (job.name !== WORKFLOW_RUN_JOB) {
+    const data = job.data;
+    if ('runId' in data && data.runId) {
+      this.logger.debug(`Executing workflow run ${data.runId}`);
+      await this.engine.execute(data.runId);
       return;
     }
-    this.logger.debug(`Executing workflow run ${job.data.runId}`);
-    await this.engine.execute(job.data.runId);
+    if ('workflowId' in data && data.workflowId) {
+      const source = data.source ?? 'SCHEDULE';
+      this.logger.debug(
+        `Triggered workflow ${data.workflowId} (source=${source})`,
+      );
+      await this.engine.trigger(data.workflowId, source);
+      return;
+    }
+    this.logger.warn(`Ignoring workflow job with unrecognised data shape`);
   }
 }

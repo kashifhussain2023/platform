@@ -10,7 +10,9 @@ import type {
 import type { NormalizedApiError } from '@/lib/apiClient';
 import { useSessionStore } from '@/stores/session.store';
 import {
+  activateWorkflow,
   createWorkflow,
+  deactivateWorkflow,
   deleteWorkflow,
   getWorkflow,
   getWorkflowRun,
@@ -73,6 +75,10 @@ export function useCreateWorkflow() {
         description: payload.description ?? null,
         status: 'DRAFT',
         definition: payload.definition ?? { nodes: [], edges: [] },
+        triggerType: 'MANUAL',
+        triggerConfig: null,
+        webhookToken: null,
+        activatedAt: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -150,6 +156,61 @@ export function useDeleteWorkflow() {
       void qc.invalidateQueries({ queryKey: workflowKeys.list });
     },
   });
+}
+
+interface ActivateContext {
+  previousList?: WorkflowDto[];
+  previousDetail?: WorkflowDto;
+}
+
+/**
+ * Activate/deactivate share one optimistic shape: flip the workflow's status in
+ * both the list and detail caches, roll back on error, then invalidate so the
+ * server truth (webhookToken/activatedAt) lands.
+ */
+function useSetActive(activate: boolean) {
+  const qc = useQueryClient();
+  const status: WorkflowDto['status'] = activate ? 'ACTIVE' : 'PAUSED';
+  return useMutation<WorkflowDto, NormalizedApiError, string, ActivateContext>({
+    mutationFn: (id) => (activate ? activateWorkflow(id) : deactivateWorkflow(id)),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: workflowKeys.list });
+      await qc.cancelQueries({ queryKey: workflowKeys.detail(id) });
+      const previousList = qc.getQueryData<WorkflowDto[]>(workflowKeys.list);
+      const previousDetail = qc.getQueryData<WorkflowDto>(
+        workflowKeys.detail(id),
+      );
+      qc.setQueryData<WorkflowDto[]>(workflowKeys.list, (old) =>
+        (old ?? []).map((w) => (w.id === id ? { ...w, status } : w)),
+      );
+      qc.setQueryData<WorkflowDto>(workflowKeys.detail(id), (old) =>
+        old ? { ...old, status } : old,
+      );
+      return { previousList, previousDetail };
+    },
+    onError: (_err, id, context) => {
+      if (context?.previousList) {
+        qc.setQueryData(workflowKeys.list, context.previousList);
+      }
+      if (context?.previousDetail) {
+        qc.setQueryData(workflowKeys.detail(id), context.previousDetail);
+      }
+    },
+    onSettled: (_data, _err, id) => {
+      void qc.invalidateQueries({ queryKey: workflowKeys.list });
+      void qc.invalidateQueries({ queryKey: workflowKeys.detail(id) });
+    },
+  });
+}
+
+/** Activate a workflow (arms its trigger). Optimistic status → ACTIVE. */
+export function useActivateWorkflow() {
+  return useSetActive(true);
+}
+
+/** Deactivate a workflow. Optimistic status → PAUSED. */
+export function useDeactivateWorkflow() {
+  return useSetActive(false);
 }
 
 // --- Runs ------------------------------------------------------------------

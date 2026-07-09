@@ -122,6 +122,10 @@ export function useInstallWorkflowTemplate() {
         description: null,
         status: 'DRAFT',
         definition: { nodes: [], edges: [] },
+        triggerType: 'MANUAL',
+        triggerConfig: null,
+        webhookToken: null,
+        activatedAt: null,
         createdAt: now,
         updatedAt: now,
       };
