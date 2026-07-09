@@ -33,6 +33,8 @@ GOTCHA (local port conflicts): a local Postgres holds `127.0.0.1:5432` and a loc
 so Docker publishes Postgres on **5433** (`POSTGRES_PORT`) and Redis on **6380** (`REDIS_PORT`). The `.env`
 files already use `localhost:5433` / `redis://127.0.0.1:6380`. Adminer :8080.
 
+GOTCHA (monorepo build): `@vaep/types` is a built **CommonJS** package (`main`→`dist/index.js`; run `pnpm --filter @vaep/types build`, or `pnpm build`/turbo `^build` does it). `apps/api/tsconfig.build.json` sets `rootDir:"src"`, `paths:{}`, `incremental:false` so `nest build` emits `dist/main.js` (NOT `dist/apps/api/src/main.js`) and resolves `@vaep/types` from node_modules at runtime. Do NOT add source path-aliases (`../../packages/.../src`) to `tsconfig.build.json` — that hoists rootDir and scatters the entry. Typecheck (`tsconfig.json`) keeps source paths; jest maps `@vaep/types`→source.
+
 ## Provider knobs (swappable, self-hosted defaults)
 - `EMBEDDINGS_PROVIDER`: `hash` (default, offline/deterministic — also used by tests) · `local` (transformers.js, lazy) · `openai` (lazy, needs `OPENAI_API_KEY`). All 384-dim.
 - `STORAGE_PROVIDER`: `local` (default, `STORAGE_DIR`) · `s3` (MinIO/S3, lazy). Auth is behind `AUTH_PROVIDER` (JWT).
@@ -43,5 +45,6 @@ files already use `localhost:5433` / `redis://127.0.0.1:6380`. Adminer :8080.
 - ✅ **Knowledge/RAG**: upload → BullMQ ingest (extract/chunk/embed) → pgvector(384, HNSW) tenant-scoped cosine `/search`. Frontend: optimistic upload, polling doc list, search panel, `/knowledge` page.
 - ✅ **AI Employee runtime**: `AiEmployee` (roles, status pause/disable), Conversation/Message (memory), `EmployeeMemory`. `AgentRuntimeService` = plan→retrieve(reuses KnowledgeService)→memory→act(bounded tool-calling loop, max 3)→validate(citations+confidence+approval). Swappable `LlmProvider`. Frontend: `/employees` list+create+status, `/employees/[id]` chat with sources/plan/validation/tool-calls. Paused/disabled → 409.
 - ✅ **Skills**: code-defined catalog (slack/email/stripe/github/http, each w/ tools) → `InstalledSkill` (company) → `EmployeeSkill` (assigned) → runtime tool-calling; every action logged in `SkillExecution` (audit). Mock/sandbox executors (offline, deterministic; real executors + creds encryption = TODO). Frontend `/skills` (catalog+installed) + employee skill picker + chat "actions taken" panel.
-- ⬜ Next: **Workflow builder** → Billing (Stripe) → Marketplace.
-- Run all e2e: from `apps/api`, `pnpm test` with `LLM_PROVIDER=mock EMBEDDINGS_PROVIDER=hash STORAGE_PROVIDER=local` + `DATABASE_URL`+`REDIS_URL`+JWT secrets (currently 23/23).
+- ✅ **Workflow builder**: `Workflow` (graph JSON nodes+edges), `WorkflowRun`+`WorkflowStepRun` (per-node audit). `WorkflowEngine` on a BullMQ `workflow-run` queue walks the graph threading a context; nodes TRIGGER/RETRIEVE(Knowledge)/AI_STEP(shared LlmProvider)/TOOL_ACTION(Skills)/WAIT/CONDITION/NOTIFY; `{{a.b.c}}` template resolver (no eval). Frontend `/workflows` list + linear step builder + run log (polling). WAIT is a bounded sleep (durable resume = TODO); triggers are manual (scheduled/webhook = TODO).
+- ⬜ Next: **Billing (Stripe)** → Marketplace.
+- Run all e2e: from `apps/api`, `pnpm test` with `LLM_PROVIDER=mock EMBEDDINGS_PROVIDER=hash STORAGE_PROVIDER=local` + `DATABASE_URL`+`REDIS_URL`+JWT secrets (currently 30/30).
