@@ -16,6 +16,10 @@ out/
 apps/api/src/generated/
 **/node_modules/.prisma/
 
+# knowledge module local blob storage (LocalStorageProvider)
+apps/api/.storage/
+.storage/
+
 # env
 .env
 .env.local

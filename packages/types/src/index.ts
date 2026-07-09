@@ -29,6 +29,12 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+/** Knowledge search form/body contract — web uses this directly (rhf + zod). */
+export const searchSchema = z.object({
+  query: z.string().min(1, 'Enter a search query').max(1000),
+  k: z.number().int().min(1).max(50).optional(),
+});
+
 // ---------------------------------------------------------------------------
 // DTOs / API contract types.
 // ---------------------------------------------------------------------------
@@ -75,4 +81,43 @@ export interface AuthResponse {
   user: UserDto;
   company: CompanyDto;
   tokens: AuthTokens;
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge / RAG module contracts.
+// ---------------------------------------------------------------------------
+
+/** Ingestion lifecycle of an uploaded knowledge document. */
+export type DocumentStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
+
+export const DOCUMENT_STATUSES: readonly DocumentStatus[] = [
+  'PENDING',
+  'PROCESSING',
+  'READY',
+  'FAILED',
+] as const;
+
+/** Public shape of a knowledge document (never includes the storage key). */
+export interface KnowledgeDocumentDto {
+  id: string;
+  companyId: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: DocumentStatus;
+  error: string | null;
+  chunkCount: number;
+  createdAt: string;
+}
+
+/** POST /knowledge/search body. */
+export type SearchQueryDto = z.infer<typeof searchSchema>;
+
+/** A single vector-search hit returned by POST /knowledge/search. */
+export interface SearchResultDto {
+  chunkId: string;
+  documentId: string;
+  content: string;
+  /** Cosine similarity in [0,1]; higher is closer. */
+  score: number;
 }

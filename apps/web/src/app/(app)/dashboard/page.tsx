@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useCurrentUser, useLogout } from '@/features/auth/hooks';
@@ -42,9 +43,17 @@ export default function DashboardPage() {
             {activeCompany?.name ?? 'Loading…'}
           </h1>
         </div>
-        <Button variant="ghost" onClick={onLogout} disabled={logout.isPending}>
-          {logout.isPending ? 'Signing out…' : 'Log out'}
-        </Button>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/knowledge"
+            className="text-sm font-medium text-brand-700"
+          >
+            Knowledge
+          </Link>
+          <Button variant="ghost" onClick={onLogout} disabled={logout.isPending}>
+            {logout.isPending ? 'Signing out…' : 'Log out'}
+          </Button>
+        </div>
       </header>
 
       {isLoading ? (

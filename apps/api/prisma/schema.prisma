@@ -16,13 +16,21 @@ enum Role {
   MEMBER
 }
 
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  users User[]
+  users              User[]
+  knowledgeDocuments KnowledgeDocument[]
 }
 
 model User {
@@ -36,4 +44,40 @@ model User {
   createdAt    DateTime @default(now())
 
   @@unique([companyId, email])
+}
+
+// --- Knowledge / RAG -------------------------------------------------------
+// pgvector powers similarity search. Prisma cannot read/write the vector column
+// (it is `Unsupported`), so embeddings are inserted/queried via $executeRaw /
+// $queryRaw with a `::vector` cast. The hnsw index is added in the migration SQL.
+
+model KnowledgeDocument {
+  id         String           @id @default(cuid())
+  companyId  String
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  filename   String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String
+  status     DocumentStatus   @default(PENDING)
+  error      String?
+  chunkCount Int              @default(0)
+  createdAt  DateTime         @default(now())
+
+  chunks KnowledgeChunk[]
+
+  @@index([companyId])
+}
+
+model KnowledgeChunk {
+  id         String                       @id @default(cuid())
+  documentId String
+  document   KnowledgeDocument            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  companyId  String
+  content    String
+  chunkIndex Int
+  embedding  Unsupported("vector(384)")?
+  createdAt  DateTime                     @default(now())
+
+  @@index([companyId])
 }

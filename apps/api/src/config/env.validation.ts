@@ -32,6 +32,47 @@ export class EnvVars {
   @IsString()
   @IsOptional()
   WEB_ORIGIN?: string;
+
+  // --- Knowledge / RAG module -------------------------------------------
+  /** Redis connection for the BullMQ ingestion queue. Required. */
+  @IsString()
+  @IsNotEmpty()
+  REDIS_URL!: string;
+
+  /** 'hash' (default, zero-dep) | 'local' (@xenova) | 'openai'. */
+  @IsString()
+  @IsOptional()
+  EMBEDDINGS_PROVIDER?: string;
+
+  /** 'local' (default, filesystem) | 's3' (MinIO/S3-compatible). */
+  @IsString()
+  @IsOptional()
+  STORAGE_PROVIDER?: string;
+
+  /** Base dir for LocalStorageProvider (default apps/api/.storage). */
+  @IsString()
+  @IsOptional()
+  STORAGE_DIR?: string;
+
+  @IsString()
+  @IsOptional()
+  OPENAI_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  S3_ENDPOINT?: string;
+
+  @IsString()
+  @IsOptional()
+  S3_BUCKET?: string;
+
+  @IsString()
+  @IsOptional()
+  S3_ACCESS_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  S3_SECRET_KEY?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {
