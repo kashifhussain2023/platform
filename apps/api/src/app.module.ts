@@ -11,6 +11,7 @@ import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { BillingModule } from './modules/billing/billing.module';
     ApprovalsModule,
     AnalyticsModule,
     BillingModule,
+    MarketplaceModule,
   ],
 })
 export class AppModule {}

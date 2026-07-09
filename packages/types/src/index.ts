@@ -1066,3 +1066,58 @@ export const changePlanSchema = z.object({
 });
 
 export type ChangePlanDto = z.infer<typeof changePlanSchema>;
+
+// ---------------------------------------------------------------------------
+// Marketplace expansion module contracts (Step 14).
+// ---------------------------------------------------------------------------
+// A UNIFIED, code-defined catalog to install more AI Employees, Workflow
+// Templates, and Skills into a tenant. There are NO new persistence models:
+// installs DELEGATE to the existing Employees / Workflows / Skills services.
+// Skills reuse the existing SkillDefinitionDto catalog (not duplicated here).
+
+/** A hireable AI-employee template surfaced in the marketplace. */
+export interface EmployeeTemplateDto {
+  /** Stable install key (unique across the marketplace). */
+  key: string;
+  /** Suggested display name for the hired employee (e.g. "SalesAI"). */
+  name: string;
+  /** The employee vertical the template maps to. */
+  role: EmployeeRole;
+  /** Concise role instruction seeded onto the created employee's persona. */
+  persona: string;
+  /** UI grouping label (e.g. "Sales", "Legal"). */
+  category: string;
+  /** Catalog skill keys this template pairs well with (advisory only). */
+  suggestedSkills: string[];
+  /** Marketing blurb shown on the template card. */
+  description: string;
+}
+
+/** A ready-to-install workflow template surfaced in the marketplace. */
+export interface WorkflowTemplateDto {
+  /** Stable install key (unique across the marketplace). */
+  key: string;
+  name: string;
+  description: string;
+  /** UI grouping label (e.g. "Recruiting"). */
+  category: string;
+  /** The full graph installed verbatim (valid: starts with a TRIGGER). */
+  definition: WorkflowDefinition;
+}
+
+/** GET /marketplace response — the unified, code-defined catalog. */
+export interface MarketplaceCatalogDto {
+  employees: EmployeeTemplateDto[];
+  workflows: WorkflowTemplateDto[];
+  /** Reuses the existing Skills catalog verbatim. */
+  skills: SkillDefinitionDto[];
+}
+
+// --- Zod schemas (shared with the web forms) -------------------------------
+
+/** POST /marketplace/employees/:key/install body (optional name override). */
+export const installEmployeeSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+});
+
+export type InstallEmployeeDto = z.infer<typeof installEmployeeSchema>;
