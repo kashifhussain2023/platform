@@ -121,3 +121,142 @@ export interface SearchResultDto {
   /** Cosine similarity in [0,1]; higher is closer. */
   score: number;
 }
+
+// ---------------------------------------------------------------------------
+// AI Employee runtime module contracts.
+// ---------------------------------------------------------------------------
+
+/** The vertical an AI employee is specialised for. */
+export type EmployeeRole =
+  | 'SUPPORT'
+  | 'SALES'
+  | 'RECRUITER'
+  | 'HR'
+  | 'ACCOUNTANT'
+  | 'PROJECT_MANAGER'
+  | 'CUSTOM';
+
+export const EMPLOYEE_ROLES: readonly EmployeeRole[] = [
+  'SUPPORT',
+  'SALES',
+  'RECRUITER',
+  'HR',
+  'ACCOUNTANT',
+  'PROJECT_MANAGER',
+  'CUSTOM',
+] as const;
+
+/** Lifecycle status. Only ACTIVE employees accept new messages. */
+export type EmployeeStatus = 'ACTIVE' | 'PAUSED' | 'DISABLED';
+
+export const EMPLOYEE_STATUSES: readonly EmployeeStatus[] = [
+  'ACTIVE',
+  'PAUSED',
+  'DISABLED',
+] as const;
+
+/** Author of a conversation message. */
+export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM';
+
+// --- Zod schemas (shared with the web forms) -------------------------------
+
+/** POST /employees body. */
+export const createEmployeeSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(120),
+  role: z.enum([
+    'SUPPORT',
+    'SALES',
+    'RECRUITER',
+    'HR',
+    'ACCOUNTANT',
+    'PROJECT_MANAGER',
+    'CUSTOM',
+  ]),
+  persona: z.string().max(2000).optional(),
+  model: z.string().max(120).optional(),
+});
+
+/** PATCH /employees/:id body (status pause/disable, persona, model, name). */
+export const updateEmployeeSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  status: z.enum(['ACTIVE', 'PAUSED', 'DISABLED']).optional(),
+  persona: z.string().max(2000).optional(),
+  model: z.string().max(120).optional(),
+});
+
+/** POST /conversations/:id/messages body. */
+export const sendMessageSchema = z.object({
+  content: z.string().min(1, 'Enter a message').max(4000),
+});
+
+export type CreateEmployeeDto = z.infer<typeof createEmployeeSchema>;
+export type UpdateEmployeeDto = z.infer<typeof updateEmployeeSchema>;
+export type SendMessageDto = z.infer<typeof sendMessageSchema>;
+
+// --- DTOs / API contract types ---------------------------------------------
+
+/** Public shape of an AI employee. */
+export interface AiEmployeeDto {
+  id: string;
+  companyId: string;
+  name: string;
+  role: EmployeeRole;
+  status: EmployeeStatus;
+  persona: string | null;
+  model: string | null;
+  createdAt: string;
+}
+
+/** A conversation thread with one AI employee. */
+export interface ConversationDto {
+  id: string;
+  companyId: string;
+  employeeId: string;
+  title: string | null;
+  createdAt: string;
+}
+
+/** Verdict produced by the runtime ValidationService for an answer. */
+export interface MessageValidationDto {
+  /** True when the answer is backed by retrieved company knowledge. */
+  grounded: boolean;
+  /** Confidence in the answer, in [0,1]. */
+  confidence: number;
+  /** True when a human should approve before acting (low confidence / high-stakes role). */
+  needsApproval: boolean;
+  /** Human-readable rationale for the verdict. */
+  notes?: string;
+}
+
+/** Structured runtime metadata persisted alongside an assistant message. */
+export interface MessageMetadataDto {
+  /** The step plan the runtime followed. */
+  plan?: string[];
+  /** Knowledge chunks cited while drafting the answer. */
+  sources?: SearchResultDto[];
+  /** Grounding / confidence verdict. */
+  validation?: MessageValidationDto;
+}
+
+/** A single conversation message. */
+export interface MessageDto {
+  id: string;
+  companyId: string;
+  conversationId: string;
+  role: MessageRole;
+  content: string;
+  metadata: MessageMetadataDto | null;
+  createdAt: string;
+}
+
+/** Response of POST /conversations/:id/messages — the full agent run outcome. */
+export interface RunResultDto {
+  /** The persisted assistant message. */
+  message: MessageDto;
+  /** Step plan the agent followed. */
+  plan: string[];
+  /** Knowledge chunks retrieved and cited. */
+  sources: SearchResultDto[];
+  /** Grounding / confidence verdict. */
+  validation: MessageValidationDto;
+}

@@ -23,6 +23,33 @@ enum DocumentStatus {
   FAILED
 }
 
+enum EmployeeRole {
+  SUPPORT
+  SALES
+  RECRUITER
+  HR
+  ACCOUNTANT
+  PROJECT_MANAGER
+  CUSTOM
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MemoryKind {
+  FACT
+  SUMMARY
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -31,6 +58,7 @@ model Company {
 
   users              User[]
   knowledgeDocuments KnowledgeDocument[]
+  aiEmployees        AiEmployee[]
 }
 
 model User {
@@ -78,6 +106,65 @@ model KnowledgeChunk {
   chunkIndex Int
   embedding  Unsupported("vector(384)")?
   createdAt  DateTime                     @default(now())
+
+  @@index([companyId])
+}
+
+// --- AI Employee runtime ---------------------------------------------------
+// No vector columns here: memory is recalled by recency (see EmployeeMemory /
+// Message). Retrieval reuses the Knowledge module's pgvector search.
+
+model AiEmployee {
+  id        String         @id @default(cuid())
+  companyId String
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  role      EmployeeRole
+  status    EmployeeStatus @default(ACTIVE)
+  persona   String?
+  model     String?
+  createdAt DateTime       @default(now())
+
+  conversations Conversation[]
+  memories      EmployeeMemory[]
+
+  @@index([companyId])
+}
+
+model Conversation {
+  id         String     @id @default(cuid())
+  companyId  String
+  employeeId String
+  employee   AiEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  title      String?
+  createdAt  DateTime   @default(now())
+
+  messages Message[]
+
+  @@index([companyId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  companyId      String
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([companyId])
+}
+
+model EmployeeMemory {
+  id         String     @id @default(cuid())
+  companyId  String
+  employeeId String
+  employee   AiEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind       MemoryKind
+  content    String
+  createdAt  DateTime   @default(now())
 
   @@index([companyId])
 }

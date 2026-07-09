@@ -95,6 +95,19 @@ export class KnowledgeService {
     await this.prisma.knowledgeDocument.delete({ where: { id: doc.id } });
   }
 
+  /**
+   * Cross-module retrieval capability consumed by the employees runtime
+   * (RetrievalService). Reuses the exact embed + pgvector cosine search below so
+   * the SQL is not duplicated. Tenant-scoped by companyId.
+   */
+  retrieve(
+    companyId: string,
+    query: string,
+    k = 5,
+  ): Promise<SearchResultDto[]> {
+    return this.search(companyId, { query, k });
+  }
+
   /** Embed the query and return the top-k nearest chunks for this tenant. */
   async search(companyId: string, dto: SearchDto): Promise<SearchResultDto[]> {
     const k = dto.k ?? 5;

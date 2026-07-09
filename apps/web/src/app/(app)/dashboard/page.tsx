@@ -45,6 +45,12 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <Link
+            href="/employees"
+            className="text-sm font-medium text-brand-700"
+          >
+            Employees
+          </Link>
+          <Link
             href="/knowledge"
             className="text-sm font-medium text-brand-700"
           >

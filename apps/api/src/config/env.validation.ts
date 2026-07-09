@@ -73,6 +73,22 @@ export class EnvVars {
   @IsString()
   @IsOptional()
   S3_SECRET_KEY?: string;
+
+  // --- AI Employee runtime ----------------------------------------------
+  /** 'mock' (default, offline/deterministic) | 'anthropic' | 'openai'. */
+  @IsString()
+  @IsOptional()
+  LLM_PROVIDER?: string;
+
+  /** Override model id (anthropic default claude-sonnet-5 / openai default gpt-4o-mini). */
+  @IsString()
+  @IsOptional()
+  LLM_MODEL?: string;
+
+  /** Required only when LLM_PROVIDER=anthropic. */
+  @IsString()
+  @IsOptional()
+  ANTHROPIC_API_KEY?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {
