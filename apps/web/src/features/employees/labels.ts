@@ -14,3 +14,18 @@ export const STATUS_STYLES: Record<EmployeeStatus, string> = {
   PAUSED: 'bg-amber-100 text-amber-700',
   DISABLED: 'bg-gray-200 text-gray-600',
 };
+
+/** Permission flags surfaced as checkboxes in the employee Settings panel. */
+export const PERMISSION_OPTIONS: readonly { key: string; label: string }[] = [
+  { key: 'sendEmail', label: 'Send email' },
+  { key: 'contactCustomers', label: 'Contact customers' },
+  { key: 'makePayments', label: 'Make payments' },
+  { key: 'accessKnowledge', label: 'Access knowledge base' },
+];
+
+/** Approval-rule flags surfaced as checkboxes in the employee Settings panel. */
+export const APPROVAL_RULE_OPTIONS: readonly { key: string; label: string }[] = [
+  { key: 'approveOverBudget', label: 'Require approval over budget' },
+  { key: 'approveExternalMessages', label: 'Require approval for external messages' },
+  { key: 'approveRefunds', label: 'Require approval for refunds' },
+];

@@ -22,6 +22,15 @@ export const registerSchema = z.object({
   name: z.string().min(1, 'Your name is required').max(120),
   email: z.string().email('Enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+  // Optional company profile (Step 2 richer registration) + admin phone.
+  industry: z.string().max(120).optional(),
+  size: z.string().max(40).optional(),
+  country: z.string().max(120).optional(),
+  timezone: z.string().max(80).optional(),
+  website: z.string().max(200).optional(),
+  logoUrl: z.string().max(500).optional(),
+  description: z.string().max(2000).optional(),
+  phone: z.string().max(40).optional(),
 });
 
 export const loginSchema = z.object({
@@ -58,6 +67,7 @@ export interface UserDto {
   companyId: string;
   email: string;
   name: string;
+  phone: string | null;
   role: Role;
   createdAt: string;
 }
@@ -67,8 +77,31 @@ export interface CompanyDto {
   id: string;
   name: string;
   slug: string;
+  industry: string | null;
+  size: string | null;
+  country: string | null;
+  timezone: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  description: string | null;
+  /** Set when the AI Onboarding Wizard is completed; null = not yet onboarded. */
+  onboardedAt: string | null;
   createdAt: string;
 }
+
+/** PATCH /companies/current body — update the company profile. */
+export const updateCompanySchema = z.object({
+  name: z.string().min(2).max(120).optional(),
+  industry: z.string().max(120).optional(),
+  size: z.string().max(40).optional(),
+  country: z.string().max(120).optional(),
+  timezone: z.string().max(80).optional(),
+  website: z.string().max(200).optional(),
+  logoUrl: z.string().max(500).optional(),
+  description: z.string().max(2000).optional(),
+});
+
+export type UpdateCompanyDto = z.infer<typeof updateCompanySchema>;
 
 /** GET /auth/me response. */
 export interface MeDto {
@@ -155,6 +188,30 @@ export const EMPLOYEE_STATUSES: readonly EmployeeStatus[] = [
   'DISABLED',
 ] as const;
 
+/** Whether an employee may retrieve from the company knowledge base. */
+export type KnowledgeAccess = 'ALL' | 'NONE';
+
+export const KNOWLEDGE_ACCESSES: readonly KnowledgeAccess[] = [
+  'ALL',
+  'NONE',
+] as const;
+
+/** Business departments (used by the onboarding wizard + employee catalog). */
+export type Department =
+  | 'SALES'
+  | 'HR'
+  | 'CUSTOMER_SUPPORT'
+  | 'RECRUITMENT'
+  | 'FINANCE';
+
+export const DEPARTMENTS: readonly Department[] = [
+  'SALES',
+  'HR',
+  'CUSTOMER_SUPPORT',
+  'RECRUITMENT',
+  'FINANCE',
+] as const;
+
 /** Author of a conversation message. */
 export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM';
 
@@ -176,13 +233,32 @@ export const createEmployeeSchema = z.object({
   model: z.string().max(120).optional(),
 });
 
-/** PATCH /employees/:id body (status pause/disable, persona, model, name). */
-export const updateEmployeeSchema = z.object({
-  name: z.string().min(1).max(120).optional(),
-  status: z.enum(['ACTIVE', 'PAUSED', 'DISABLED']).optional(),
-  persona: z.string().max(2000).optional(),
-  model: z.string().max(120).optional(),
+/**
+ * Rich AI-employee configuration (Step 5). Shared by the employee settings
+ * panel. All fields optional; folded into the PATCH /employees/:id body.
+ */
+export const employeeConfigSchema = z.object({
+  department: z.string().max(120).optional(),
+  managerName: z.string().max(120).optional(),
+  workingHoursStart: z.string().max(10).optional(),
+  workingHoursEnd: z.string().max(10).optional(),
+  timezone: z.string().max(80).optional(),
+  language: z.string().max(80).optional(),
+  knowledgeAccess: z.enum(['ALL', 'NONE']).optional(),
+  budgetLimit: z.number().int().min(0).max(100000000).nullable().optional(),
+  permissions: z.record(z.boolean()).optional(),
+  approvalRules: z.record(z.unknown()).optional(),
 });
+
+/** PATCH /employees/:id body (status pause/disable, persona, model, name, rich config). */
+export const updateEmployeeSchema = z
+  .object({
+    name: z.string().min(1).max(120).optional(),
+    status: z.enum(['ACTIVE', 'PAUSED', 'DISABLED']).optional(),
+    persona: z.string().max(2000).optional(),
+    model: z.string().max(120).optional(),
+  })
+  .merge(employeeConfigSchema);
 
 /** POST /conversations/:id/messages body. */
 export const sendMessageSchema = z.object({
@@ -191,6 +267,7 @@ export const sendMessageSchema = z.object({
 
 export type CreateEmployeeDto = z.infer<typeof createEmployeeSchema>;
 export type UpdateEmployeeDto = z.infer<typeof updateEmployeeSchema>;
+export type EmployeeConfigDto = z.infer<typeof employeeConfigSchema>;
 export type SendMessageDto = z.infer<typeof sendMessageSchema>;
 
 // --- DTOs / API contract types ---------------------------------------------
@@ -204,6 +281,16 @@ export interface AiEmployeeDto {
   status: EmployeeStatus;
   persona: string | null;
   model: string | null;
+  department: string | null;
+  managerName: string | null;
+  workingHoursStart: string | null;
+  workingHoursEnd: string | null;
+  timezone: string | null;
+  language: string | null;
+  knowledgeAccess: KnowledgeAccess;
+  budgetLimit: number | null;
+  permissions: Record<string, boolean> | null;
+  approvalRules: Record<string, unknown> | null;
   createdAt: string;
 }
 
@@ -263,6 +350,63 @@ export interface RunResultDto {
   validation: MessageValidationDto;
   /** Skill/tool actions taken during the run (empty when the employee used none). */
   toolCalls: ToolCallDto[];
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding module contracts (Steps 2–5).
+// ---------------------------------------------------------------------------
+// The AI Onboarding Wizard: capture the company business profile, pick
+// departments, then hire AI employees from a code-defined role catalog. The
+// company itself remains the tenant; completing the wizard stamps
+// company.onboardedAt.
+
+/** A hireable AI-employee role template surfaced in the onboarding catalog. */
+export interface EmployeeRoleTemplate {
+  role: EmployeeRole;
+  suggestedName: string;
+  title: string;
+  description: string;
+  /** Departments this template belongs to (filtered by wizard selection). */
+  departments: Department[];
+}
+
+/** GET /onboarding/status response. */
+export interface OnboardingStatusDto {
+  completed: boolean;
+}
+
+/** POST /onboarding/complete body. */
+export const completeOnboardingSchema = z.object({
+  business: z
+    .object({
+      industry: z.string().max(120).optional(),
+      size: z.string().max(40).optional(),
+      description: z.string().max(2000).optional(),
+    })
+    .optional(),
+  departments: z.array(z.string().max(40)),
+  employees: z.array(
+    z.object({
+      role: z.enum([
+        'SUPPORT',
+        'SALES',
+        'RECRUITER',
+        'HR',
+        'ACCOUNTANT',
+        'PROJECT_MANAGER',
+        'CUSTOM',
+      ]),
+      name: z.string().max(120).optional(),
+    }),
+  ),
+});
+
+export type CompleteOnboardingDto = z.infer<typeof completeOnboardingSchema>;
+
+/** POST /onboarding/complete response. */
+export interface CompleteOnboardingResultDto {
+  company: CompanyDto;
+  employees: AiEmployeeDto[];
 }
 
 // ---------------------------------------------------------------------------

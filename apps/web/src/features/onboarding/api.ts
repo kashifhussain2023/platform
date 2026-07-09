@@ -1,0 +1,33 @@
+import { apiClient } from '@/lib/apiClient';
+import type {
+  CompleteOnboardingDto,
+  CompleteOnboardingResultDto,
+  EmployeeRoleTemplate,
+  OnboardingStatusDto,
+} from '@vaep/types';
+
+export async function onboardingStatusRequest(): Promise<OnboardingStatusDto> {
+  const { data } = await apiClient.get<OnboardingStatusDto>(
+    '/onboarding/status',
+  );
+  return data;
+}
+
+export async function onboardingCatalogRequest(): Promise<
+  EmployeeRoleTemplate[]
+> {
+  const { data } = await apiClient.get<EmployeeRoleTemplate[]>(
+    '/onboarding/catalog',
+  );
+  return data;
+}
+
+export async function completeOnboardingRequest(
+  payload: CompleteOnboardingDto,
+): Promise<CompleteOnboardingResultDto> {
+  const { data } = await apiClient.post<CompleteOnboardingResultDto>(
+    '/onboarding/complete',
+    payload,
+  );
+  return data;
+}

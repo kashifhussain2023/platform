@@ -39,6 +39,13 @@ enum EmployeeStatus {
   DISABLED
 }
 
+// Whether an AI employee may retrieve from the company knowledge base at all.
+// ALL (default) preserves current retrieval behaviour; NONE skips retrieval.
+enum KnowledgeAccess {
+  ALL
+  NONE
+}
+
 enum MessageRole {
   USER
   ASSISTANT
@@ -77,10 +84,20 @@ enum StepRunStatus {
 }
 
 model Company {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  // Company profile (Step 2 richer registration + onboarding wizard). Optional.
+  industry    String?
+  size        String?
+  country     String?
+  timezone    String?
+  website     String?
+  logoUrl     String?
+  description String?
+  // Set when the AI Onboarding Wizard is completed; null = not yet onboarded.
+  onboardedAt DateTime?
+  createdAt   DateTime  @default(now())
 
   users              User[]
   knowledgeDocuments KnowledgeDocument[]
@@ -96,6 +113,7 @@ model User {
   email        String
   passwordHash String
   name         String
+  phone        String?
   role         Role     @default(MEMBER)
   createdAt    DateTime @default(now())
 
@@ -151,6 +169,19 @@ model AiEmployee {
   status    EmployeeStatus @default(ACTIVE)
   persona   String?
   model     String?
+  // Rich employee configuration (Step 5). All optional; sensible defaults apply.
+  department        String?
+  managerName       String?
+  workingHoursStart String?
+  workingHoursEnd   String?
+  timezone          String?
+  language          String?
+  // Whether this employee may retrieve from the company knowledge base.
+  knowledgeAccess   KnowledgeAccess @default(ALL)
+  budgetLimit       Int?
+  // Free-form permission flags + approval rules (enforced by a future Approval Center).
+  permissions       Json?
+  approvalRules     Json?
   createdAt DateTime       @default(now())
 
   conversations  Conversation[]

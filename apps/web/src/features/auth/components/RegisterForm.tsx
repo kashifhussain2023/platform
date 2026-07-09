@@ -3,9 +3,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
+import { COMPANY_SIZES } from '@/features/onboarding/labels';
 import { Button } from '@/components/ui/Button';
 import { useRegister } from '../hooks';
 import { registerSchema, type RegisterDto } from '../schemas';
+
+const inputClass = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
 
 export function RegisterForm() {
   const router = useRouter();
@@ -16,13 +19,40 @@ export function RegisterForm() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterDto>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { companyName: '', name: '', email: '', password: '' },
+    defaultValues: {
+      companyName: '',
+      name: '',
+      email: '',
+      password: '',
+      industry: '',
+      size: '',
+      country: '',
+      timezone: '',
+      website: '',
+      logoUrl: '',
+      phone: '',
+    },
   });
 
   const onSubmit = handleSubmit(async (values) => {
+    // Strip empty optional strings so we don't persist "".
+    const payload: RegisterDto = {
+      companyName: values.companyName,
+      name: values.name,
+      email: values.email,
+      password: values.password,
+      industry: values.industry?.trim() || undefined,
+      size: values.size || undefined,
+      country: values.country?.trim() || undefined,
+      timezone: values.timezone?.trim() || undefined,
+      website: values.website?.trim() || undefined,
+      logoUrl: values.logoUrl?.trim() || undefined,
+      phone: values.phone?.trim() || undefined,
+    };
     try {
-      await registerMutation.mutateAsync(values);
-      router.push('/dashboard');
+      await registerMutation.mutateAsync(payload);
+      // New company → always start the onboarding wizard.
+      router.push('/onboarding');
     } catch {
       // Error is surfaced below via `registerMutation.error`.
     }
@@ -34,31 +64,38 @@ export function RegisterForm() {
         <label htmlFor="companyName" className="mb-1 block text-sm font-medium">
           Company name
         </label>
-        <input
-          id="companyName"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          {...register('companyName')}
-        />
+        <input id="companyName" className={inputClass} {...register('companyName')} />
         {errors.companyName && (
-          <p className="mt-1 text-sm text-red-600">
-            {errors.companyName.message}
-          </p>
+          <p className="mt-1 text-sm text-red-600">{errors.companyName.message}</p>
         )}
       </div>
 
-      <div>
-        <label htmlFor="name" className="mb-1 block text-sm font-medium">
-          Your name
-        </label>
-        <input
-          id="name"
-          autoComplete="name"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          {...register('name')}
-        />
-        {errors.name && (
-          <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-        )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="name" className="mb-1 block text-sm font-medium">
+            Your name
+          </label>
+          <input
+            id="name"
+            autoComplete="name"
+            className={inputClass}
+            {...register('name')}
+          />
+          {errors.name && (
+            <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+          )}
+        </div>
+        <div>
+          <label htmlFor="phone" className="mb-1 block text-sm font-medium">
+            Phone <span className="text-gray-400">(optional)</span>
+          </label>
+          <input
+            id="phone"
+            autoComplete="tel"
+            className={inputClass}
+            {...register('phone')}
+          />
+        </div>
       </div>
 
       <div>
@@ -69,7 +106,7 @@ export function RegisterForm() {
           id="email"
           type="email"
           autoComplete="email"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className={inputClass}
           {...register('email')}
         />
         {errors.email && (
@@ -85,13 +122,79 @@ export function RegisterForm() {
           id="password"
           type="password"
           autoComplete="new-password"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className={inputClass}
           {...register('password')}
         />
         {errors.password && (
           <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
         )}
       </div>
+
+      <fieldset className="space-y-4 rounded-md border border-gray-200 p-4">
+        <legend className="px-1 text-xs font-medium text-gray-500">
+          Company profile (optional)
+        </legend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="industry" className="mb-1 block text-sm font-medium">
+              Industry
+            </label>
+            <input id="industry" className={inputClass} {...register('industry')} />
+          </div>
+          <div>
+            <label htmlFor="size" className="mb-1 block text-sm font-medium">
+              Company size
+            </label>
+            <select id="size" className={inputClass} {...register('size')}>
+              <option value="">Select…</option>
+              {COMPANY_SIZES.map((s) => (
+                <option key={s} value={s}>
+                  {s} employees
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="country" className="mb-1 block text-sm font-medium">
+              Country
+            </label>
+            <input id="country" className={inputClass} {...register('country')} />
+          </div>
+          <div>
+            <label htmlFor="timezone" className="mb-1 block text-sm font-medium">
+              Time zone
+            </label>
+            <input
+              id="timezone"
+              className={inputClass}
+              placeholder="e.g. Europe/London"
+              {...register('timezone')}
+            />
+          </div>
+          <div>
+            <label htmlFor="website" className="mb-1 block text-sm font-medium">
+              Website
+            </label>
+            <input
+              id="website"
+              className={inputClass}
+              placeholder="https://…"
+              {...register('website')}
+            />
+          </div>
+          <div>
+            <label htmlFor="logoUrl" className="mb-1 block text-sm font-medium">
+              Company logo URL
+            </label>
+            <input
+              id="logoUrl"
+              className={inputClass}
+              placeholder="https://…/logo.png"
+              {...register('logoUrl')}
+            />
+          </div>
+        </div>
+      </fieldset>
 
       {registerMutation.isError && (
         <p className="text-sm text-red-600">

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { AiEmployee, Conversation } from '@prisma/client';
+import { Prisma, type AiEmployee, type Conversation } from '@prisma/client';
 import type {
   AiEmployeeDto,
   ConversationDto,
@@ -71,6 +71,24 @@ export class EmployeesService {
         status: dto.status,
         persona: dto.persona,
         model: dto.model,
+        // Rich configuration (Step 5). TODO: budgetLimit / permissions /
+        // approvalRules are persisted here but enforced by a future Approval Center.
+        department: dto.department,
+        managerName: dto.managerName,
+        workingHoursStart: dto.workingHoursStart,
+        workingHoursEnd: dto.workingHoursEnd,
+        timezone: dto.timezone,
+        language: dto.language,
+        knowledgeAccess: dto.knowledgeAccess,
+        budgetLimit: dto.budgetLimit,
+        permissions:
+          dto.permissions === undefined
+            ? undefined
+            : (dto.permissions as Prisma.InputJsonValue),
+        approvalRules:
+          dto.approvalRules === undefined
+            ? undefined
+            : (dto.approvalRules as Prisma.InputJsonValue),
       },
     });
     return toEmployeeDto(employee);

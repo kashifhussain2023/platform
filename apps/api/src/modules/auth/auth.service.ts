@@ -39,13 +39,24 @@ export class AuthService {
 
     const { company, user } = await this.prisma.$transaction(async (tx) => {
       const company = await tx.company.create({
-        data: { name: dto.companyName, slug },
+        data: {
+          name: dto.companyName,
+          slug,
+          industry: dto.industry ?? null,
+          size: dto.size ?? null,
+          country: dto.country ?? null,
+          timezone: dto.timezone ?? null,
+          website: dto.website ?? null,
+          logoUrl: dto.logoUrl ?? null,
+          description: dto.description ?? null,
+        },
       });
       const user = await tx.user.create({
         data: {
           companyId: company.id,
           email: dto.email,
           name: dto.name,
+          phone: dto.phone ?? null,
           passwordHash,
           role: 'OWNER',
         },
@@ -150,6 +161,7 @@ function toUserDto(user: User): UserDto {
     companyId: user.companyId,
     email: user.email,
     name: user.name,
+    phone: user.phone,
     role: user.role,
     createdAt: user.createdAt.toISOString(),
   };
@@ -160,6 +172,14 @@ function toCompanyDto(company: Company): CompanyDto {
     id: company.id,
     name: company.name,
     slug: company.slug,
+    industry: company.industry,
+    size: company.size,
+    country: company.country,
+    timezone: company.timezone,
+    website: company.website,
+    logoUrl: company.logoUrl,
+    description: company.description,
+    onboardedAt: company.onboardedAt ? company.onboardedAt.toISOString() : null,
     createdAt: company.createdAt.toISOString(),
   };
 }

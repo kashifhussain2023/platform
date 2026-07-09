@@ -71,7 +71,11 @@ export class AgentRuntimeService {
 
     // PLAN → RETRIEVE (knowledge) → load MEMORY.
     const plan = await this.planner.plan(employee.role, employee.name, userText);
-    const sources = await this.retrieval.retrieve(companyId, userText);
+    const sources = await this.retrieval.retrieve(
+      companyId,
+      userText,
+      employee.knowledgeAccess,
+    );
     const memory = await this.memory.load(
       companyId,
       conversation.id,

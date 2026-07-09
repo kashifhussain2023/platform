@@ -78,6 +78,16 @@ export function useCreateEmployee() {
         status: 'ACTIVE',
         persona: payload.persona ?? null,
         model: payload.model ?? null,
+        department: null,
+        managerName: null,
+        workingHoursStart: null,
+        workingHoursEnd: null,
+        timezone: null,
+        language: null,
+        knowledgeAccess: 'ALL',
+        budgetLimit: null,
+        permissions: null,
+        approvalRules: null,
         createdAt: new Date().toISOString(),
       };
       qc.setQueryData<AiEmployeeDto[]>(employeeKeys.list, (old) => [

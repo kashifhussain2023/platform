@@ -17,6 +17,16 @@ export function toEmployeeDto(e: AiEmployee): AiEmployeeDto {
     status: e.status,
     persona: e.persona,
     model: e.model,
+    department: e.department,
+    managerName: e.managerName,
+    workingHoursStart: e.workingHoursStart,
+    workingHoursEnd: e.workingHoursEnd,
+    timezone: e.timezone,
+    language: e.language,
+    knowledgeAccess: e.knowledgeAccess,
+    budgetLimit: e.budgetLimit,
+    permissions: (e.permissions as Record<string, boolean> | null) ?? null,
+    approvalRules: (e.approvalRules as Record<string, unknown> | null) ?? null,
     createdAt: e.createdAt.toISOString(),
   };
 }

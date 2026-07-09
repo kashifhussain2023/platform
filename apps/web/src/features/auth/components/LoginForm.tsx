@@ -21,8 +21,9 @@ export function LoginForm() {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      await login.mutateAsync(values);
-      router.push('/dashboard');
+      const result = await login.mutateAsync(values);
+      // Route by onboarding state: unfinished tenants go to the wizard.
+      router.push(result.company.onboardedAt ? '/dashboard' : '/onboarding');
     } catch {
       // Error is surfaced below via `login.error`.
     }
