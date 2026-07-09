@@ -6,6 +6,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { WorkflowsModule } from './modules/workflows/workflows.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SkillsModule } from './modules/skills/skills.module';
     KnowledgeModule,
     EmployeesModule,
     SkillsModule,
+    WorkflowsModule,
   ],
 })
 export class AppModule {}

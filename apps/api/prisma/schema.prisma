@@ -55,6 +55,27 @@ enum SkillExecutionStatus {
   ERROR
 }
 
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+enum WorkflowRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum StepRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -65,6 +86,7 @@ model Company {
   knowledgeDocuments KnowledgeDocument[]
   aiEmployees        AiEmployee[]
   installedSkills    InstalledSkill[]
+  workflows          Workflow[]
 }
 
 model User {
@@ -224,6 +246,64 @@ model SkillExecution {
   status         SkillExecutionStatus
   error          String?
   createdAt      DateTime             @default(now())
+
+  @@index([companyId])
+}
+
+// --- Workflow builder ------------------------------------------------------
+// A no-code engine chaining trigger → AI step → retrieve → tool action → wait →
+// condition → notify. `definition` is the graph ({nodes, edges}); running a
+// workflow creates a WorkflowRun (executed async via BullMQ) that walks the
+// graph writing a WorkflowStepRun per visited node. No vector columns here.
+
+model Workflow {
+  id          String         @id @default(cuid())
+  companyId   String
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  status      WorkflowStatus @default(DRAFT)
+  definition  Json
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  runs WorkflowRun[]
+
+  @@index([companyId])
+}
+
+model WorkflowRun {
+  id         String            @id @default(cuid())
+  companyId  String
+  workflowId String
+  workflow   Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status     WorkflowRunStatus @default(PENDING)
+  trigger    Json?
+  context    Json?
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime          @default(now())
+
+  steps WorkflowStepRun[]
+
+  @@index([companyId])
+}
+
+model WorkflowStepRun {
+  id         String        @id @default(cuid())
+  companyId  String
+  runId      String
+  run        WorkflowRun   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  nodeId     String
+  type       String
+  status     StepRunStatus @default(PENDING)
+  input      Json?
+  output     Json?
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime      @default(now())
 
   @@index([companyId])
 }

@@ -54,6 +54,12 @@ export default function DashboardPage() {
             Skills
           </Link>
           <Link
+            href="/workflows"
+            className="text-sm font-medium text-brand-700"
+          >
+            Workflows
+          </Link>
+          <Link
             href="/knowledge"
             className="text-sm font-medium text-brand-700"
           >

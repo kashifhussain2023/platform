@@ -54,6 +54,8 @@ function llmFactory(config: ConfigService): LlmProvider {
       useFactory: llmFactory,
     },
   ],
-  exports: [EmployeesService],
+  // Export the LlmProvider singleton so other modules (e.g. WorkflowsModule's
+  // AI_STEP node) reuse the SAME instance instead of duplicating the factory.
+  exports: [EmployeesService, LLM_PROVIDER_TOKEN],
 })
 export class EmployeesModule {}

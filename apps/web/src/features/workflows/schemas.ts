@@ -1,0 +1,27 @@
+// Re-export the shared validation contract so components import from the feature.
+export {
+  createWorkflowSchema,
+  updateWorkflowSchema,
+  runWorkflowSchema,
+  workflowDefinitionSchema,
+  NODE_TYPES,
+  WORKFLOW_STATUSES,
+  WORKFLOW_RUN_STATUSES,
+  CONDITION_OPS,
+} from '@vaep/types';
+export type {
+  NodeType,
+  ConditionOp,
+  WorkflowStatus,
+  WorkflowRunStatus,
+  StepRunStatus,
+  WorkflowNode,
+  WorkflowEdge,
+  WorkflowDefinition,
+  WorkflowDto,
+  WorkflowRunDto,
+  WorkflowStepRunDto,
+  CreateWorkflowDto,
+  UpdateWorkflowDto,
+  RunWorkflowDto,
+} from '@vaep/types';

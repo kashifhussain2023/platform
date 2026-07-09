@@ -383,3 +383,233 @@ export type InstallSkillDto = z.infer<typeof installSkillSchema>;
 export type UpdateInstalledSkillDto = z.infer<typeof updateInstalledSkillSchema>;
 export type AssignSkillDto = z.infer<typeof assignSkillSchema>;
 export type ExecuteToolDto = z.infer<typeof executeToolSchema>;
+
+// ---------------------------------------------------------------------------
+// Workflow builder module contracts.
+// ---------------------------------------------------------------------------
+// A no-code engine that chains a TRIGGER through AI/retrieve/tool/wait/branch/
+// notify nodes. A Workflow holds a graph `definition` ({nodes, edges}); running
+// it spawns a WorkflowRun (async, BullMQ) whose engine walks the graph writing a
+// WorkflowStepRun per visited node. Nodes reuse the Knowledge (RETRIEVE), LLM
+// (AI_STEP) and Skills (TOOL_ACTION) modules. No vector columns here.
+
+/** Lifecycle of a workflow definition. Only ACTIVE workflows are "live". */
+export type WorkflowStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED';
+
+export const WORKFLOW_STATUSES: readonly WorkflowStatus[] = [
+  'DRAFT',
+  'ACTIVE',
+  'PAUSED',
+] as const;
+
+/** Terminal/interim status of a single workflow run. */
+export type WorkflowRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export const WORKFLOW_RUN_STATUSES: readonly WorkflowRunStatus[] = [
+  'PENDING',
+  'RUNNING',
+  'COMPLETED',
+  'FAILED',
+] as const;
+
+/** Status of a single step (one visited node) within a run. */
+export type StepRunStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'SKIPPED';
+
+/** The kind of a workflow node. `config` shape depends on this. */
+export type NodeType =
+  | 'TRIGGER'
+  | 'RETRIEVE'
+  | 'AI_STEP'
+  | 'TOOL_ACTION'
+  | 'WAIT'
+  | 'CONDITION'
+  | 'NOTIFY';
+
+export const NODE_TYPES: readonly NodeType[] = [
+  'TRIGGER',
+  'RETRIEVE',
+  'AI_STEP',
+  'TOOL_ACTION',
+  'WAIT',
+  'CONDITION',
+  'NOTIFY',
+] as const;
+
+/** Comparison operators available to a CONDITION node. */
+export type ConditionOp = 'eq' | 'neq' | 'contains' | 'gt' | 'lt';
+
+export const CONDITION_OPS: readonly ConditionOp[] = [
+  'eq',
+  'neq',
+  'contains',
+  'gt',
+  'lt',
+] as const;
+
+/** One node in a workflow graph. Templates use `{{a.b.c}}` context lookups. */
+export interface WorkflowNode {
+  id: string;
+  type: NodeType;
+  name?: string;
+  config: Record<string, unknown>;
+}
+
+/** A directed edge. `branch` selects a CONDITION outcome ('true'/'false'). */
+export interface WorkflowEdge {
+  from: string;
+  to: string;
+  branch?: 'true' | 'false';
+}
+
+/** The full graph persisted on a workflow. */
+export interface WorkflowDefinition {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}
+
+// --- Per-node config shapes (documentation + FE editor convenience) --------
+
+/** TRIGGER: no configuration (seeds context.trigger with the run payload). */
+export type TriggerNodeConfig = Record<string, never>;
+
+/** RETRIEVE: knowledge search. `query` is a template; results → context[outputKey]. */
+export interface RetrieveNodeConfig {
+  query: string;
+  k?: number;
+  outputKey: string;
+}
+
+/** AI_STEP: LLM completion of a templated prompt; text → context[outputKey]. */
+export interface AiStepNodeConfig {
+  prompt: string;
+  employeeId?: string;
+  outputKey: string;
+}
+
+/** TOOL_ACTION: run a skill tool; each arg value is a template. Result → context[outputKey]. */
+export interface ToolActionNodeConfig {
+  skillKey: string;
+  tool: string;
+  args: Record<string, string>;
+  outputKey: string;
+}
+
+/** WAIT: bounded delay (capped by the engine). */
+export interface WaitNodeConfig {
+  durationMs: number;
+}
+
+/** CONDITION: compare a templated `left` against a literal `right`. */
+export interface ConditionNodeConfig {
+  left: string;
+  op: ConditionOp;
+  right: string;
+}
+
+/** NOTIFY: record a templated message in the step output (log-style). */
+export interface NotifyNodeConfig {
+  message: string;
+}
+
+// --- Zod schemas (shared with the web forms) -------------------------------
+
+const workflowNodeSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum([
+    'TRIGGER',
+    'RETRIEVE',
+    'AI_STEP',
+    'TOOL_ACTION',
+    'WAIT',
+    'CONDITION',
+    'NOTIFY',
+  ]),
+  name: z.string().max(200).optional(),
+  config: z.record(z.unknown()),
+});
+
+const workflowEdgeSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
+  branch: z.enum(['true', 'false']).optional(),
+});
+
+/** Shared graph contract for a workflow definition. */
+export const workflowDefinitionSchema = z.object({
+  nodes: z.array(workflowNodeSchema),
+  edges: z.array(workflowEdgeSchema),
+});
+
+/** POST /workflows body. */
+export const createWorkflowSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(160),
+  description: z.string().max(2000).optional(),
+  definition: workflowDefinitionSchema.optional(),
+});
+
+/** PATCH /workflows/:id body (name/description/definition/status). */
+export const updateWorkflowSchema = z.object({
+  name: z.string().min(1).max(160).optional(),
+  description: z.string().max(2000).optional(),
+  definition: workflowDefinitionSchema.optional(),
+  status: z.enum(['DRAFT', 'ACTIVE', 'PAUSED']).optional(),
+});
+
+/** POST /workflows/:id/run body (optional trigger payload). */
+export const runWorkflowSchema = z.object({
+  trigger: z.record(z.unknown()).optional(),
+});
+
+export type CreateWorkflowDto = z.infer<typeof createWorkflowSchema>;
+export type UpdateWorkflowDto = z.infer<typeof updateWorkflowSchema>;
+export type RunWorkflowDto = z.infer<typeof runWorkflowSchema>;
+
+// --- DTOs / API contract types ---------------------------------------------
+
+/** Public shape of a workflow. */
+export interface WorkflowDto {
+  id: string;
+  companyId: string;
+  name: string;
+  description: string | null;
+  status: WorkflowStatus;
+  definition: WorkflowDefinition;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One visited node's execution record within a run. */
+export interface WorkflowStepRunDto {
+  id: string;
+  companyId: string;
+  runId: string;
+  nodeId: string;
+  type: string;
+  status: StepRunStatus;
+  input: unknown;
+  output: unknown;
+  error: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+/** A single execution of a workflow. `steps` is included when polling one run. */
+export interface WorkflowRunDto {
+  id: string;
+  companyId: string;
+  workflowId: string;
+  status: WorkflowRunStatus;
+  trigger: Record<string, unknown> | null;
+  context: Record<string, unknown> | null;
+  error: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  steps?: WorkflowStepRunDto[];
+}
