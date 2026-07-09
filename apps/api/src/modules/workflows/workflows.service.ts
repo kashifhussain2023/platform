@@ -12,7 +12,7 @@ import {
   type WorkflowRunJobData,
 } from './workflows.constants';
 import {
-  EMPTY_DEFINITION,
+  STARTER_DEFINITION,
   toWorkflowDto,
   toWorkflowRunDto,
 } from './workflows.mapper';
@@ -43,7 +43,7 @@ export class WorkflowsService {
         name: dto.name,
         description: dto.description ?? null,
         definition: (dto.definition ??
-          EMPTY_DEFINITION) as unknown as Prisma.InputJsonObject,
+          STARTER_DEFINITION) as unknown as Prisma.InputJsonObject,
       },
     });
     return toWorkflowDto(workflow);

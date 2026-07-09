@@ -12,8 +12,19 @@ import type {
 
 /** Prisma row → public DTO mappers for the workflows module. */
 
-/** An empty definition, used when a workflow is created without one. */
+/** An empty definition, used as the fallback when a stored definition is null. */
 export const EMPTY_DEFINITION: WorkflowDefinition = { nodes: [], edges: [] };
+
+/**
+ * Definition given to a freshly-created workflow: a single TRIGGER entry node so
+ * a new workflow is never empty (the editor also assumes a TRIGGER always leads).
+ * Users add real steps in the builder and Save; a trigger-only workflow runs to
+ * COMPLETED as a harmless no-op instead of failing with "no nodes to run".
+ */
+export const STARTER_DEFINITION: WorkflowDefinition = {
+  nodes: [{ id: 'trigger', type: 'TRIGGER', config: {} }],
+  edges: [],
+};
 
 export function toWorkflowDto(w: Workflow): WorkflowDto {
   return {

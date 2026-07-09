@@ -20,7 +20,14 @@ function preview(value: unknown): string {
  * while PENDING/RUNNING, showing each WorkflowStepRun's status + output (a live
  * run log). Save the workflow first so the run executes the latest steps.
  */
-export function RunPanel({ workflowId }: { workflowId: string }) {
+export function RunPanel({
+  workflowId,
+  canRun = true,
+}: {
+  workflowId: string;
+  /** False when the saved workflow has no runnable steps (only a TRIGGER). */
+  canRun?: boolean;
+}) {
   const [triggerText, setTriggerText] = useState('{\n  "query": "refund policy"\n}');
   const [triggerError, setTriggerError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
@@ -68,8 +75,14 @@ export function RunPanel({ workflowId }: { workflowId: string }) {
         <p className="mt-1 text-xs text-red-600">{triggerError}</p>
       )}
 
+      {!canRun && (
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Add at least one step and click <strong>Save</strong> above before running.
+        </p>
+      )}
+
       <div className="mt-3 flex items-center gap-3">
-        <Button onClick={onRun} disabled={run.isPending}>
+        <Button onClick={onRun} disabled={run.isPending || !canRun}>
           {run.isPending ? 'Starting…' : 'Run workflow'}
         </Button>
         {current && (

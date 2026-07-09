@@ -229,6 +229,41 @@ describeIfDb('Workflows e2e (create -> run -> poll linear chain)', () => {
     expect(res.body.some((r: { id: string }) => r.id === runId)).toBe(true);
   });
 
+  // Regression: a workflow created WITHOUT a definition is seeded with a TRIGGER
+  // entry node and runs to COMPLETED — previously an empty definition FAILED the
+  // run with "Workflow definition has no nodes to run".
+  it('seeds a TRIGGER on create; a trigger-only workflow runs to COMPLETED', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/workflows')
+      .set(auth())
+      .send({ name: 'Fresh workflow' })
+      .expect(201);
+    expect(created.body.definition.nodes).toHaveLength(1);
+    expect(created.body.definition.nodes[0].type).toBe('TRIGGER');
+    const freshId = created.body.id;
+
+    const start = await request(app.getHttpServer())
+      .post(`/workflows/${freshId}/run`)
+      .set(auth())
+      .send({})
+      .expect(201);
+    const freshRunId = start.body.id;
+
+    const deadline = Date.now() + 15_000;
+    let run: any = start.body;
+    while (Date.now() < deadline) {
+      const res = await request(app.getHttpServer())
+        .get(`/workflows/runs/${freshRunId}`)
+        .set(auth())
+        .expect(200);
+      run = res.body;
+      if (run.status === 'COMPLETED' || run.status === 'FAILED') break;
+      await sleep(300);
+    }
+    expect(run.status).toBe('COMPLETED');
+    expect(run.error).toBeFalsy();
+  }, 20_000);
+
   it('rejects workflow routes without a token', async () => {
     await request(app.getHttpServer()).get('/workflows').expect(401);
   });

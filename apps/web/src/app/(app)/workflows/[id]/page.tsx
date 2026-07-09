@@ -48,7 +48,12 @@ export default function WorkflowEditorPage({
       ) : (
         <div className="space-y-6">
           <NodeList workflow={workflow} />
-          <RunPanel workflowId={workflow.id} />
+          <RunPanel
+            workflowId={workflow.id}
+            canRun={(workflow.definition?.nodes ?? []).some(
+              (n) => n.type !== 'TRIGGER',
+            )}
+          />
         </div>
       )}
     </main>
