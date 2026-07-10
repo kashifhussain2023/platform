@@ -18,6 +18,7 @@ export type {
   ToolDefinitionDto,
   ToolParametersDto,
   InstalledSkillDto,
+  ConnectorHealthDto,
   EmployeeSkillDto,
   ToolCallDto,
   SkillExecutionDto,

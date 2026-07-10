@@ -580,12 +580,24 @@ export interface SkillConnectionDto {
   label?: string;
 }
 
-/** Whether an installed skill has been connected (credentials present). */
-export type SkillConnectionStatus = 'NOT_CONNECTED' | 'CONNECTED';
+/**
+ * Connection/health state of an installed skill acting as a connector.
+ * NOT_CONNECTED (initial) · CONNECTED (healthy) · DEGRADED (auth OK but recent
+ * egress/health failures — quarantines dependent workflows) · DISCONNECTED
+ * (needs re-auth: refresh failed / grant revoked). Transitions are owned solely
+ * by ConnectorHealthService (docs §1.7).
+ */
+export type SkillConnectionStatus =
+  | 'NOT_CONNECTED'
+  | 'CONNECTED'
+  | 'DEGRADED'
+  | 'DISCONNECTED';
 
 export const SKILL_CONNECTION_STATUSES: readonly SkillConnectionStatus[] = [
   'NOT_CONNECTED',
   'CONNECTED',
+  'DEGRADED',
+  'DISCONNECTED',
 ] as const;
 
 /** A field in a skill's company-specific configuration form. */
@@ -669,6 +681,27 @@ export interface InstalledSkillDto {
    */
   credentialsSet: boolean;
   createdAt: string;
+}
+
+/**
+ * Connector health snapshot (Unit B, docs §1.6–1.8). Returned by
+ * `GET /connectors/:id/health` and `POST /connectors/:id/health-check` (run a
+ * probe now). `status` mirrors the connector's connectionStatus; the other
+ * fields expose the passive/active health signals driving the state machine.
+ */
+export interface ConnectorHealthDto {
+  connectorId: string;
+  status: SkillConnectionStatus;
+  /** Last active-probe timestamp (ISO); null until first probed. */
+  lastHealthCheckAt: string | null;
+  /** Rolling consecutive egress/probe failure count (reset on success). */
+  consecutiveErrors: number;
+  /** Last recorded health/egress error message; null when healthy. */
+  lastHealthError: string | null;
+  /** Cached OAuth access-token expiry (ISO); null for api-key/no-expiry. */
+  tokenExpiresAt: string | null;
+  /** Why the connector was auto-DISCONNECTED (revoked/invalid_grant); null otherwise. */
+  disabledReason: string | null;
 }
 
 /** An assignment of an installed skill to a specific AI employee. */

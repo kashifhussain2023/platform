@@ -15,13 +15,22 @@ export function formatCategory(category: SkillCategory): string {
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
-/** Tailwind classes for the connection-status badge. */
+/** Tailwind classes for the connection/health-status badge. */
 export const CONNECTION_STATUS_STYLES: Record<SkillConnectionStatus, string> = {
   CONNECTED: 'bg-green-100 text-green-700',
   NOT_CONNECTED: 'bg-gray-100 text-gray-500',
+  DEGRADED: 'bg-amber-100 text-amber-700',
+  DISCONNECTED: 'bg-red-100 text-red-700',
 };
 
-/** "NOT_CONNECTED" → "Not connected". */
+/** Human label for a connection/health status, e.g. "NOT_CONNECTED" → "Not connected". */
+const CONNECTION_STATUS_LABELS: Record<SkillConnectionStatus, string> = {
+  CONNECTED: 'Connected',
+  NOT_CONNECTED: 'Not connected',
+  DEGRADED: 'Degraded',
+  DISCONNECTED: 'Disconnected',
+};
+
 export function formatConnectionStatus(status: SkillConnectionStatus): string {
-  return status === 'CONNECTED' ? 'Connected' : 'Not connected';
+  return CONNECTION_STATUS_LABELS[status] ?? status;
 }

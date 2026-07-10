@@ -76,10 +76,17 @@ enum SkillExecutionStatus {
   ERROR
 }
 
-// Whether an installed skill has been connected to its (real) backend.
+// Connection/health state of an installed skill acting as a connector (Unit B).
+// NOT_CONNECTED (initial) → CONNECTED (connect). CONNECTED → DEGRADED after N
+// consecutive egress/health failures; a successful probe heals DEGRADED →
+// CONNECTED. A refresh failure / revoked grant drives CONNECTED|DEGRADED →
+// DISCONNECTED (needs re-auth). See ConnectorHealthService (single source of
+// truth for all transitions) + docs §1.7.
 enum SkillConnectionStatus {
   NOT_CONNECTED
   CONNECTED
+  DEGRADED
+  DISCONNECTED
 }
 
 enum WorkflowStatus {
@@ -343,6 +350,16 @@ model InstalledSkill {
   connectionType   String?
   connectionStatus SkillConnectionStatus @default(NOT_CONNECTED)
   credentials      Json?
+  // --- Connector health / lifecycle (Unit B, docs §1.6–1.8) ---
+  // lastHealthCheckAt/lastHealthError: last active probe timestamp + error.
+  // consecutiveErrors: rolling egress/probe failure count; ≥N → DEGRADED.
+  // tokenExpiresAt: cached OAuth access-token expiry (drives single-flight refresh).
+  // disabledReason: why the connector was auto-DISCONNECTED (revoked/invalid_grant).
+  lastHealthCheckAt DateTime?
+  lastHealthError   String?
+  consecutiveErrors Int      @default(0)
+  tokenExpiresAt    DateTime?
+  disabledReason    String?
   createdAt   DateTime @default(now())
 
   employees EmployeeSkill[]

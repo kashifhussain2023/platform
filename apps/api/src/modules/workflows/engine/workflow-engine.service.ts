@@ -532,6 +532,28 @@ export class WorkflowEngine {
         : undefined;
     const args = resolveArgs(argsRaw, context);
 
+    // Quarantine (docs §5.5): if this skill's connector is DEGRADED/DISCONNECTED,
+    // fail the step with a clear, non-retryable "connector unavailable" error
+    // rather than hammer a dead provider. Only applies when the skill is installed
+    // as a connector AND currently unhealthy — a not-installed or CONNECTED/
+    // NOT_CONNECTED skill runs exactly as before (default mock connectors stay
+    // CONNECTED, so existing workflow tests are unaffected).
+    if (skillKey) {
+      const connector = await this.prisma.installedSkill.findUnique({
+        where: { companyId_skillKey: { companyId, skillKey } },
+        select: { connectionStatus: true },
+      });
+      if (
+        connector &&
+        (connector.connectionStatus === 'DEGRADED' ||
+          connector.connectionStatus === 'DISCONNECTED')
+      ) {
+        throw new Error(
+          `Connector for "${skillKey}" is ${connector.connectionStatus} — step quarantined (connector unavailable)`,
+        );
+      }
+    }
+
     // Runs through SkillsService (swappable executor) + writes a SkillExecution.
     const call = await this.skills.runTool({ companyId }, skillKey, tool, args);
     if (!call.ok) {

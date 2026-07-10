@@ -6,8 +6,13 @@ import { ConnectorEventsController } from './connector-events.controller';
 import { ConnectorWebhookController } from './connector-webhook.controller';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
-import { EVENT_NORMALIZE_QUEUE } from './events.constants';
+import {
+  CONNECTOR_RECONCILE_QUEUE,
+  EVENT_NORMALIZE_QUEUE,
+} from './events.constants';
 import { EventNormalizeProcessor } from './ingestion/event-normalize.processor';
+import { ConnectorReconcileService } from './reconciliation/connector-reconcile.service';
+import { ConnectorReconcileProcessor } from './reconciliation/connector-reconcile.processor';
 
 /**
  * Connector Event Ingestion module (Unit A) — the per-provider event pipeline
@@ -24,6 +29,7 @@ import { EventNormalizeProcessor } from './ingestion/event-normalize.processor';
 @Module({
   imports: [
     BullModule.registerQueue({ name: EVENT_NORMALIZE_QUEUE }),
+    BullModule.registerQueue({ name: CONNECTOR_RECONCILE_QUEUE }),
     SkillsModule,
     WorkflowsModule,
   ],
@@ -32,7 +38,12 @@ import { EventNormalizeProcessor } from './ingestion/event-normalize.processor';
     ConnectorEventsController,
     EventsController,
   ],
-  providers: [EventsService, EventNormalizeProcessor],
+  providers: [
+    EventsService,
+    EventNormalizeProcessor,
+    ConnectorReconcileService,
+    ConnectorReconcileProcessor,
+  ],
   exports: [EventsService],
 })
 export class EventsModule {}

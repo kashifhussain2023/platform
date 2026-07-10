@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ConfigureSkillDto,
+  ConnectorHealthDto,
   ConnectSkillDto,
   EmployeeSkillDto,
   InstallSkillDto,
@@ -14,6 +15,7 @@ import type { NormalizedApiError } from '@/lib/apiClient';
 import { useSessionStore } from '@/stores/session.store';
 import {
   assignSkill,
+  checkConnectorHealth,
   configureSkill,
   connectSkill,
   disconnectSkill,
@@ -274,6 +276,21 @@ export function useDisconnectSkill() {
         qc.setQueryData(skillKeys.installed, context.previous);
       }
     },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: skillKeys.installed });
+    },
+  });
+}
+
+/**
+ * Run a connector health check (Unit B): probe now, then refetch the installed
+ * list so the status badge reflects any transition (e.g. DEGRADED → CONNECTED).
+ * The mutation result carries the fresh ConnectorHealthDto for inline display.
+ */
+export function useCheckConnectorHealth() {
+  const qc = useQueryClient();
+  return useMutation<ConnectorHealthDto, NormalizedApiError, string>({
+    mutationFn: checkConnectorHealth,
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: skillKeys.installed });
     },

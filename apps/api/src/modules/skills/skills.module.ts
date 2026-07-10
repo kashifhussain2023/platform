@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EmployeeSkillsController } from './employee-skills.controller';
@@ -8,6 +9,15 @@ import {
 import { MockSkillExecutor } from './executors/mock-skill-executor';
 import { RealSkillExecutor } from './executors/real-skill-executor';
 import { AutoSkillExecutor } from './executors/auto-skill-executor';
+import { ConnectorHealthService } from './connectors/connector-health.service';
+import { ConnectorHealthProcessor } from './connectors/connector-health.processor';
+import {
+  CONNECTOR_FETCH,
+  ConnectorTokenService,
+  type FetchLike,
+} from './connectors/connector-token.service';
+import { CONNECTOR_HEALTH_QUEUE } from './connectors/connector.constants';
+import { ConnectorsController } from './connectors/connectors.controller';
 import { SkillsOAuthController } from './oauth/oauth.controller';
 import { OAuthService } from './oauth/oauth.service';
 import { SkillsController } from './skills.controller';
@@ -40,21 +50,39 @@ function skillExecutorFactory(config: ConfigService): SkillExecutor {
 
 /**
  * Skills module: the built-in catalog (code), tenant-scoped install/assign, the
- * runtime seam (getToolsForEmployee / runTool), and the OAuth authorize/callback
- * endpoints. Exports SkillsService so the AI Employee runtime's
- * ToolExecutorService can drive real tool execution.
+ * runtime seam (getToolsForEmployee / runTool), the OAuth authorize/callback
+ * endpoints, and the CONNECTOR lifecycle (Unit B): ConnectorHealthService (state
+ * machine + passive/active health), ConnectorTokenService (single-flight OAuth
+ * refresh), the scheduled `connector-health` sweep (BullMQ repeatable), and the
+ * connector health endpoints. Exports SkillsService (runtime tool execution) and
+ * ConnectorHealthService. The shared BullMQ connection is registered globally by
+ * KnowledgeModule, so only registerQueue is needed here.
  */
 @Module({
-  controllers: [SkillsController, EmployeeSkillsController, SkillsOAuthController],
+  imports: [BullModule.registerQueue({ name: CONNECTOR_HEALTH_QUEUE })],
+  controllers: [
+    SkillsController,
+    EmployeeSkillsController,
+    SkillsOAuthController,
+    ConnectorsController,
+  ],
   providers: [
     SkillsService,
     OAuthService,
+    ConnectorHealthService,
+    ConnectorTokenService,
+    ConnectorHealthProcessor,
     {
       provide: SKILL_EXECUTOR_TOKEN,
       inject: [ConfigService],
       useFactory: skillExecutorFactory,
     },
+    // Injectable fetch for the token-refresh endpoint call (stubbed in unit tests).
+    {
+      provide: CONNECTOR_FETCH,
+      useValue: ((url, init) => fetch(url, init)) as FetchLike,
+    },
   ],
-  exports: [SkillsService],
+  exports: [SkillsService, ConnectorHealthService],
 })
 export class SkillsModule {}

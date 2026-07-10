@@ -4,6 +4,7 @@
  * singleton under SKILL_EXECUTOR_TOKEN. The default (`mock`) is deterministic,
  * offline and side-effect-free so tools are safe to run with no credentials.
  */
+import type { SkillConnectionStatus } from '@vaep/types';
 
 /** Who/what a tool is executed for — carried into the audit log. */
 export interface ExecutorContext {
@@ -17,7 +18,7 @@ export interface ExecutorContext {
    * args/result, not ctx) and let a real executor reach the live backend.
    */
   installedSkillId?: string | null;
-  connectionStatus?: 'NOT_CONNECTED' | 'CONNECTED' | null;
+  connectionStatus?: SkillConnectionStatus | null;
   /** Non-secret company-specific settings (InstalledSkill.config). */
   config?: Record<string, unknown> | null;
   /** DECRYPTED credentials for the installed skill (api keys / OAuth tokens). */

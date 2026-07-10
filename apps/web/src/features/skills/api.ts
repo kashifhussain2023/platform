@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/apiClient';
 import type {
   ConfigureSkillDto,
+  ConnectorHealthDto,
   ConnectSkillDto,
   EmployeeSkillDto,
   InstallSkillDto,
@@ -73,6 +74,30 @@ export async function connectSkill(vars: {
 export async function disconnectSkill(id: string): Promise<InstalledSkillDto> {
   const { data } = await apiClient.post<InstalledSkillDto>(
     `/skills/installed/${id}/disconnect`,
+    {},
+  );
+  return data;
+}
+
+// --- Connector health (Unit B) ---------------------------------------------
+// A "connector" is an installed skill; health uses the /connectors/:id/* routes.
+
+/** Current connector health snapshot. */
+export async function getConnectorHealth(
+  id: string,
+): Promise<ConnectorHealthDto> {
+  const { data } = await apiClient.get<ConnectorHealthDto>(
+    `/connectors/${id}/health`,
+  );
+  return data;
+}
+
+/** Run an active health probe now and return the updated health. */
+export async function checkConnectorHealth(
+  id: string,
+): Promise<ConnectorHealthDto> {
+  const { data } = await apiClient.post<ConnectorHealthDto>(
+    `/connectors/${id}/health-check`,
     {},
   );
   return data;

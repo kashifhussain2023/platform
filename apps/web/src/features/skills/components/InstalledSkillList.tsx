@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
   useCatalog,
+  useCheckConnectorHealth,
   useInstalledSkills,
   useUninstallSkill,
   useUpdateInstalledSkill,
@@ -24,9 +25,11 @@ function InstalledSkillRow({
 }) {
   const update = useUpdateInstalledSkill();
   const uninstall = useUninstallSkill();
+  const checkHealth = useCheckConnectorHealth();
   const [showConfig, setShowConfig] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
   const isTemp = skill.id.startsWith('temp_');
+  const health = checkHealth.data;
 
   return (
     <li className="px-4 py-3">
@@ -68,6 +71,13 @@ function InstalledSkillRow({
           </Button>
           <Button
             variant="ghost"
+            onClick={() => checkHealth.mutate(skill.id)}
+            disabled={isTemp || checkHealth.isPending}
+          >
+            {checkHealth.isPending ? 'Checking…' : 'Check health'}
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() =>
               update.mutate({
                 id: skill.id,
@@ -102,6 +112,36 @@ function InstalledSkillRow({
         <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-4">
           <p className="mb-2 text-xs font-medium text-gray-500">Recent Events</p>
           <RecentConnectorEvents connectorId={skill.id} />
+        </div>
+      )}
+
+      {(health || checkHealth.isError) && (
+        <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 text-xs">
+          {health ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-600">
+              <span>
+                Health:{' '}
+                <span className="font-medium">
+                  {formatConnectionStatus(health.status)}
+                </span>
+              </span>
+              <span>Consecutive errors: {health.consecutiveErrors}</span>
+              {health.lastHealthError && (
+                <span className="text-red-600">
+                  Last error: {health.lastHealthError}
+                </span>
+              )}
+              {health.lastHealthCheckAt && (
+                <span className="text-gray-400">
+                  Checked {new Date(health.lastHealthCheckAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-red-600">
+              {checkHealth.error?.message ?? 'Health check failed'}
+            </span>
+          )}
         </div>
       )}
     </li>

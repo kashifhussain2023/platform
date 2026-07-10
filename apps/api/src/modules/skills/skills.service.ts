@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, type InstalledSkill } from '@prisma/client';
@@ -17,6 +18,13 @@ import type {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { SkillCatalog, type SkillDefinition } from './catalog';
+import { ConnectorHealthService } from './connectors/connector-health.service';
+import { ConnectorTokenService } from './connectors/connector-token.service';
+import {
+  credString,
+  readCredentials as decryptCreds,
+  sealCredentials as encryptCreds,
+} from './connectors/credentials.util';
 import { ConfigureSkillDto } from './dto/configure-skill.dto';
 import { ConnectSkillDto } from './dto/connect-skill.dto';
 import { InstallSkillDto } from './dto/install-skill.dto';
@@ -37,9 +45,13 @@ import { toEmployeeSkillDto, toInstalledSkillDto } from './skills.mapper';
  */
 @Injectable()
 export class SkillsService {
+  private readonly logger = new Logger(SkillsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
+    private readonly health: ConnectorHealthService,
+    private readonly tokens: ConnectorTokenService,
     @Inject(SKILL_EXECUTOR_TOKEN) private readonly executor: SkillExecutor,
   ) {}
 
@@ -189,12 +201,17 @@ export class SkillsService {
         credentials: this.sealCredentials(mergedCreds),
         connectionType: def.connection.type,
         connectionStatus: 'CONNECTED',
+        // (Re)connect resets the health lifecycle → CONNECTED (docs §1.7).
+        consecutiveErrors: 0,
+        lastHealthError: null,
+        disabledReason: null,
+        tokenExpiresAt: this.parseExpiry(mergedCreds),
       },
     });
     return toInstalledSkillDto(row);
   }
 
-  /** Disconnect: clear credentials and reset connectionStatus. */
+  /** Disconnect: clear credentials, reset health, back to NOT_CONNECTED. */
   async disconnectSkill(
     companyId: string,
     id: string,
@@ -205,6 +222,10 @@ export class SkillsService {
       data: {
         credentials: Prisma.JsonNull,
         connectionStatus: 'NOT_CONNECTED',
+        consecutiveErrors: 0,
+        lastHealthError: null,
+        disabledReason: null,
+        tokenExpiresAt: null,
       },
     });
     return toInstalledSkillDto(row);
@@ -312,6 +333,10 @@ export class SkillsService {
           error: err instanceof Error ? err.message : 'Tool execution failed',
         };
       }
+      // Passive connector health signal (docs §1.8): a real egress outcome feeds
+      // the state machine. No-op when the skill isn't installed as a connector or
+      // isn't live; never breaks the tool call (health tracking is best-effort).
+      await this.recordEgressHealth(ctx.companyId, skillKey, outcome);
     }
 
     await this.prisma.skillExecution.create({
@@ -375,14 +400,79 @@ export class SkillsService {
     if (!installed) {
       return ctx;
     }
+    const credentials = this.readCredentials(installed.credentials);
+    // OAuth egress uses a FRESH access token: when the connector has a refresh
+    // token and its cached expiry is near/passed, ConnectorTokenService renews it
+    // (single-flight) and persists the new token. API-key connectors are
+    // unaffected (no refresh token → the stored value is used as-is).
+    if (
+      installed.connectionType === 'oauth' &&
+      credString(credentials, 'refreshToken', 'refresh_token')
+    ) {
+      try {
+        const fresh = await this.tokens.getAccessToken(installed.id);
+        if (fresh) {
+          credentials.accessToken = fresh;
+        }
+      } catch (err) {
+        // Refresh failed (revoked → ConnectorTokenService already flipped the
+        // connector DISCONNECTED; or a provider misconfig). Leave creds as-is: the
+        // executor surfaces the auth error and dependent workflows quarantine.
+        this.logger.warn(
+          `Token refresh failed for connector ${installed.id} (${skillKey}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
     return {
       ...ctx,
       installedSkillId: installed.id,
       connectionStatus:
         installed.connectionStatus as ExecutorContext['connectionStatus'],
       config: (installed.config as Record<string, unknown> | null) ?? null,
-      credentials: this.readCredentials(installed.credentials),
+      credentials,
     };
+  }
+
+  /**
+   * Feed a tool-call outcome into ConnectorHealthService (passive health signal,
+   * docs §1.8). Runs for every real egress attempt; a no-op when the skill is not
+   * installed as a connector for this tenant, or the connector is not live.
+   * Wrapped so a health-tracking hiccup never breaks (or fails) the tool call.
+   */
+  private async recordEgressHealth(
+    companyId: string,
+    skillKey: string,
+    outcome: SkillExecutionResult,
+  ): Promise<void> {
+    try {
+      if (outcome.ok) {
+        await this.health.recordSuccess(companyId, skillKey);
+      } else {
+        await this.health.recordFailure(
+          companyId,
+          skillKey,
+          outcome.error ?? 'tool call failed',
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Connector health tracking failed for ${skillKey}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  /** Parse an OAuth `expiresAt` ISO string from creds into a Date (or null). */
+  private parseExpiry(creds: Record<string, unknown>): Date | null {
+    const iso = credString(creds, 'expiresAt');
+    if (!iso) {
+      return null;
+    }
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? null : date;
   }
 
   // --- Credentials at rest (encrypted) -------------------------------------
@@ -434,39 +524,25 @@ export class SkillsService {
         credentials: this.sealCredentials(merged),
         connectionType: this.defFor(installed.skillKey).connection.type,
         connectionStatus: 'CONNECTED',
+        // Fresh OAuth connect resets the health lifecycle + caches token expiry.
+        consecutiveErrors: 0,
+        lastHealthError: null,
+        disabledReason: null,
+        tokenExpiresAt: this.parseExpiry(merged),
       },
     });
   }
 
-  /**
-   * Decrypt/unwrap stored credentials into the raw secrets object. Handles the
-   * `{ enc: <envelope> }` shape, an empty/null column (→ `{}`), and legacy
-   * plaintext objects written before encryption was introduced (→ used as-is).
-   */
+  /** Decrypt/unwrap stored credentials (delegates to the shared connector util). */
   private readCredentials(
     stored: Prisma.JsonValue | null,
   ): Record<string, unknown> {
-    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
-      return {};
-    }
-    const obj = stored as Record<string, unknown>;
-    if (typeof obj.enc === 'string') {
-      return this.crypto.decryptJson<Record<string, unknown>>(obj.enc);
-    }
-    // Back-compat: pre-encryption plaintext credentials — treat as raw secrets.
-    return obj;
+    return decryptCreds(this.crypto, stored);
   }
 
-  /**
-   * Encrypt a raw secrets object into the `{ enc: <envelope> }` shape stored in
-   * `InstalledSkill.credentials`. Returns `{}` for an empty object so
-   * `credentialsSet` stays false (no ciphertext for "no secrets").
-   */
+  /** Encrypt a raw secrets object into the `{ enc }` envelope (shared util). */
   private sealCredentials(raw: Record<string, unknown>): Prisma.InputJsonObject {
-    if (Object.keys(raw).length === 0) {
-      return {};
-    }
-    return { enc: this.crypto.encryptJson(raw) };
+    return encryptCreds(this.crypto, raw);
   }
 
   // --- Config validation helpers -------------------------------------------
