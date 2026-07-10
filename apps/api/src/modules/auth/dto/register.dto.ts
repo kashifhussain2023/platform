@@ -22,6 +22,8 @@ export class RegisterDto implements IRegisterDto {
   @IsEmail()
   email!: string;
 
+  // Security policy (P1 #7): registration has no company/policy yet, so the
+  // default passwordMinLength of 8 is enforced here as a hard minimum.
   @IsString()
   @MinLength(8)
   @MaxLength(200)

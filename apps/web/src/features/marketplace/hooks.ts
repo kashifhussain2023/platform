@@ -75,6 +75,8 @@ export function useInstallEmployeeTemplate() {
         budgetLimit: null,
         permissions: null,
         approvalRules: null,
+        goals: null,
+        kpiTargets: null,
         createdAt: new Date().toISOString(),
       };
       qc.setQueryData<AiEmployeeDto[]>(employeeKeys.list, (old) => [

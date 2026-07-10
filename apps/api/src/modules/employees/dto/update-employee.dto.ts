@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsIn,
   IsInt,
   IsObject,
@@ -14,6 +15,7 @@ import {
   KNOWLEDGE_ACCESSES,
   type EmployeeStatus,
   type KnowledgeAccess,
+  type KpiTargets,
   type UpdateEmployeeDto as IUpdateEmployeeDto,
 } from '@vaep/types';
 
@@ -88,4 +90,17 @@ export class UpdateEmployeeDto implements IUpdateEmployeeDto {
   @IsOptional()
   @IsObject()
   approvalRules?: Record<string, unknown>;
+
+  // --- Goals + KPI targets (P1 #6) -----------------------------------------
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  goals?: string[];
+
+  // @IsOptional() also skips validation for an explicit null (used to clear).
+  @IsOptional()
+  @IsObject()
+  kpiTargets?: KpiTargets | null;
 }

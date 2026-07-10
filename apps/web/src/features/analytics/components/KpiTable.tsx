@@ -1,10 +1,54 @@
 'use client';
 
-import type { AnalyticsRange } from '@vaep/types';
+import type { AnalyticsRange, KpiAttainmentDto } from '@vaep/types';
 import { useEmployeeKpis } from '../hooks';
 import { formatHours, formatNumber } from '../labels';
 
-/** Per-employee KPI table: name/role, tasks, tool actions, success, pending. */
+/** Attainment badge tone: higher-is-better metrics get a green/amber/red scale. */
+function scaleClass(pct: number): string {
+  if (pct >= 100) return 'bg-green-100 text-green-700';
+  if (pct >= 70) return 'bg-amber-100 text-amber-700';
+  return 'bg-red-100 text-red-700';
+}
+
+/**
+ * Actual-vs-target attainment (P1 #6). Tasks + success rate use the higher-is-
+ * better scale; approvals is "% of the pending cap used" and stays neutral.
+ * Renders "—" when the employee has no KPI targets configured.
+ */
+function AttainmentCell({ a }: { a: KpiAttainmentDto | null }) {
+  const parts = a
+    ? ([
+        { label: 'Tasks', pct: a.tasksPct, neutral: false },
+        { label: 'Rate', pct: a.successRatePct, neutral: false },
+        { label: 'Appr', pct: a.approvalsPct, neutral: true },
+      ].filter((p) => p.pct !== null) as {
+        label: string;
+        pct: number;
+        neutral: boolean;
+      }[])
+    : [];
+  if (parts.length === 0) {
+    return <span className="text-gray-300">—</span>;
+  }
+  return (
+    <div className="flex flex-wrap justify-end gap-1">
+      {parts.map((p) => (
+        <span
+          key={p.label}
+          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+            p.neutral ? 'bg-gray-100 text-gray-600' : scaleClass(p.pct)
+          }`}
+          title={`${p.label}: ${p.pct}% of target`}
+        >
+          {p.label} {p.pct}%
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Per-employee KPI table: name/role, tasks, tool actions, success, attainment. */
 export function KpiTable({ range }: { range: AnalyticsRange }) {
   const { data: rows, isLoading } = useEmployeeKpis(range);
 
@@ -29,6 +73,7 @@ export function KpiTable({ range }: { range: AnalyticsRange }) {
             <th className="px-4 py-3 text-right">Tool actions</th>
             <th className="px-4 py-3 text-right">Success</th>
             <th className="px-4 py-3 text-right">Hours saved</th>
+            <th className="px-4 py-3 text-right">Attainment</th>
             <th className="px-4 py-3 text-right">Pending</th>
           </tr>
         </thead>
@@ -55,6 +100,9 @@ export function KpiTable({ range }: { range: AnalyticsRange }) {
               </td>
               <td className="px-4 py-3 text-right tabular-nums text-gray-600">
                 {formatHours(r.hoursSaved)}
+              </td>
+              <td className="px-4 py-3 text-right">
+                <AttainmentCell a={r.attainment} />
               </td>
               <td className="px-4 py-3 text-right tabular-nums">
                 {r.pendingApprovals > 0 ? (

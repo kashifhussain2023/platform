@@ -10,6 +10,7 @@ import type {
   ConversationDto,
   EmployeeFeedbackDto,
   EmployeeMemoryDto,
+  KpiTargets,
   MemorySource,
   MessageDto,
   MessageMetadataDto,
@@ -36,6 +37,8 @@ export function toEmployeeDto(e: AiEmployee): AiEmployeeDto {
     budgetLimit: e.budgetLimit,
     permissions: (e.permissions as Record<string, boolean> | null) ?? null,
     approvalRules: (e.approvalRules as Record<string, unknown> | null) ?? null,
+    goals: (e.goals as string[] | null) ?? null,
+    kpiTargets: (e.kpiTargets as KpiTargets | null) ?? null,
     createdAt: e.createdAt.toISOString(),
   };
 }

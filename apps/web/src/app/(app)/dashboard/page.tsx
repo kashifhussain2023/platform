@@ -59,6 +59,8 @@ export default function DashboardPage() {
   const user = me?.user;
   const activeCompany = company ?? me?.company;
   const pendingCount = pendingApprovals?.length ?? overview?.pendingApprovals ?? 0;
+  // Organization (departments/teams/security policy) is an OWNER/ADMIN area.
+  const canManageOrg = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
@@ -105,6 +107,14 @@ export default function DashboardPage() {
           <Link href="/team" className="text-sm font-medium text-brand-700">
             Team
           </Link>
+          {canManageOrg && (
+            <Link
+              href="/organization"
+              className="text-sm font-medium text-brand-700"
+            >
+              Organization
+            </Link>
+          )}
           <Button variant="ghost" onClick={onLogout} disabled={logout.isPending}>
             {logout.isPending ? 'Signing out…' : 'Log out'}
           </Button>

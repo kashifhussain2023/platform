@@ -14,6 +14,7 @@ import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
+import { OrganizationModule } from './modules/organization/organization.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { MarketplaceModule } from './modules/marketplace/marketplace.module';
     AnalyticsModule,
     BillingModule,
     MarketplaceModule,
+    OrganizationModule,
   ],
 })
 export class AppModule {}

@@ -4,6 +4,8 @@ import type {
   ActivityItemDto,
   AnalyticsRange,
   EmployeeKpiDto,
+  KpiAttainmentDto,
+  KpiTargets,
   OverviewDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -117,7 +119,13 @@ export class AnalyticsService {
     const employees = await this.prisma.aiEmployee.findMany({
       where: { companyId },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true, role: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        status: true,
+        kpiTargets: true,
+      },
     });
     if (employees.length === 0) return [];
 
@@ -165,6 +173,8 @@ export class AnalyticsService {
       const t = tool.get(e.id) ?? { actions: 0, success: 0, errors: 0 };
       const assistant = assistantByEmployee.get(e.id) ?? 0;
       const tasksCompleted = t.success + assistant;
+      const pendingApprovals = pending.get(e.id) ?? 0;
+      const kpiTargets = (e.kpiTargets as KpiTargets | null) ?? null;
       return {
         employeeId: e.id,
         name: e.name,
@@ -175,9 +185,16 @@ export class AnalyticsService {
         toolErrors: t.errors,
         conversations: conversations.get(e.id) ?? 0,
         assistantMessages: assistant,
-        pendingApprovals: pending.get(e.id) ?? 0,
+        pendingApprovals,
         tasksCompleted,
         hoursSaved: hoursSavedFor(tasksCompleted),
+        kpiTargets,
+        attainment: attainmentFor(kpiTargets, {
+          tasksCompleted,
+          toolActions: t.actions,
+          toolSuccess: t.success,
+          pendingApprovals,
+        }),
       };
     });
   }
@@ -289,4 +306,40 @@ export class AnalyticsService {
   ): number {
     return rows.find((r) => r.status === status)?._count._all ?? 0;
   }
+}
+
+/**
+ * KPI attainment (actual vs configured target, as a percent) for one employee
+ * (P1 #6). Returns null when the employee has no kpiTargets; each field is null
+ * when its specific target is unset (or, for success rate, when there are no
+ * tool actions to measure). ILLUSTRATIVE — surfaced with a "target" hint in the
+ * UI, never a billing figure.
+ */
+function attainmentFor(
+  targets: KpiTargets | null,
+  actual: {
+    tasksCompleted: number;
+    toolActions: number;
+    toolSuccess: number;
+    pendingApprovals: number;
+  },
+): KpiAttainmentDto | null {
+  if (!targets || typeof targets !== 'object') return null;
+  const pct = (value: number, target?: number): number | null =>
+    typeof target === 'number' && target > 0
+      ? Math.round((value / target) * 100)
+      : null;
+  const successRateActual =
+    actual.toolActions > 0
+      ? Math.round((actual.toolSuccess / actual.toolActions) * 100)
+      : null;
+  return {
+    tasksPct: pct(actual.tasksCompleted, targets.tasksPerWeek),
+    successRatePct:
+      successRateActual !== null
+        ? pct(successRateActual, targets.successRatePct)
+        : null,
+    approvalsPct: pct(actual.pendingApprovals, targets.approvalsMax),
+    successRateActual,
+  };
 }

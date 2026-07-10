@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { AiEmployeeDto } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +11,7 @@ import {
   KNOWLEDGE_ACCESSES,
   employeeSettingsSchema,
   type EmployeeSettingsDto,
+  type KpiTargets,
 } from '../schemas';
 
 const inputClass = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
@@ -26,12 +28,32 @@ function toFlags(
   return out;
 }
 
-/** Employee Settings panel (Step 4/5): rich per-employee configuration. */
+/** Empty string / null / undefined → undefined; otherwise a Number. */
+const numOrUndef = (v: unknown): number | undefined =>
+  v === '' || v === null || v === undefined ? undefined : Number(v);
+
+/** Keep only the numeric KPI targets that were actually set; null when none. */
+function cleanTargets(t?: KpiTargets | null): KpiTargets | null {
+  if (!t) return null;
+  const out: KpiTargets = {};
+  if (typeof t.tasksPerWeek === 'number' && !Number.isNaN(t.tasksPerWeek))
+    out.tasksPerWeek = t.tasksPerWeek;
+  if (typeof t.successRatePct === 'number' && !Number.isNaN(t.successRatePct))
+    out.successRatePct = t.successRatePct;
+  if (typeof t.approvalsMax === 'number' && !Number.isNaN(t.approvalsMax))
+    out.approvalsMax = t.approvalsMax;
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/** Employee Settings panel (Step 4/5 + P1 #6): rich per-employee configuration. */
 export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
   const update = useUpdateEmployee();
+  const [newGoal, setNewGoal] = useState('');
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<EmployeeSettingsDto>({
     resolver: zodResolver(employeeSettingsSchema),
@@ -47,8 +69,30 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
       budgetLimit: employee.budgetLimit,
       permissions: toFlags(employee.permissions, PERMISSION_OPTIONS),
       approvalRules: toFlags(employee.approvalRules, APPROVAL_RULE_OPTIONS),
+      goals: employee.goals ?? [],
+      kpiTargets: {
+        tasksPerWeek: employee.kpiTargets?.tasksPerWeek,
+        successRatePct: employee.kpiTargets?.successRatePct,
+        approvalsMax: employee.kpiTargets?.approvalsMax,
+      },
     },
   });
+
+  const goals = watch('goals') ?? [];
+
+  const addGoal = () => {
+    const g = newGoal.trim();
+    if (!g) return;
+    setValue('goals', [...goals, g].slice(0, 50), { shouldDirty: true });
+    setNewGoal('');
+  };
+  const removeGoal = (idx: number) => {
+    setValue(
+      'goals',
+      goals.filter((_, i) => i !== idx),
+      { shouldDirty: true },
+    );
+  };
 
   const onSubmit = handleSubmit((values) => {
     // Strip empty optional strings so we store null rather than "".
@@ -67,6 +111,8 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
         budgetLimit: values.budgetLimit ?? null,
         permissions: values.permissions,
         approvalRules: values.approvalRules,
+        goals: values.goals ?? [],
+        kpiTargets: cleanTargets(values.kpiTargets),
       },
     });
   });
@@ -189,6 +235,116 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
             )}
           </div>
         </div>
+
+        {/* Goals (P1 #6): a free-form list of objectives (add/remove). */}
+        <fieldset className="rounded-md border border-gray-200 p-4">
+          <legend className="px-1 text-xs font-medium text-gray-500">Goals</legend>
+          {goals.length > 0 ? (
+            <ul className="mb-3 space-y-2">
+              {goals.map((g, i) => (
+                <li
+                  key={`${g}-${i}`}
+                  className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-sm"
+                >
+                  <span className="text-gray-800">{g}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeGoal(i)}
+                    className="text-xs font-medium text-red-600 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mb-3 text-sm text-gray-400">No goals yet.</p>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              aria-label="New goal"
+              className={inputClass}
+              placeholder="e.g. Resolve 50 tickets per week"
+              value={newGoal}
+              onChange={(e) => setNewGoal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addGoal();
+                }
+              }}
+            />
+            <Button type="button" variant="ghost" onClick={addGoal}>
+              Add
+            </Button>
+          </div>
+          {errors.goals && (
+            <p className="mt-1 text-sm text-red-600">
+              {errors.goals.message ?? 'Invalid goals'}
+            </p>
+          )}
+        </fieldset>
+
+        {/* KPI targets (P1 #6): drive the actual-vs-target attainment in analytics. */}
+        <fieldset className="rounded-md border border-gray-200 p-4">
+          <legend className="px-1 text-xs font-medium text-gray-500">
+            KPI targets
+          </legend>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="k-tasks" className="mb-1 block text-sm font-medium">
+                Tasks / week
+              </label>
+              <input
+                id="k-tasks"
+                type="number"
+                min={0}
+                step={1}
+                className={inputClass}
+                placeholder="e.g. 50"
+                {...register('kpiTargets.tasksPerWeek', {
+                  setValueAs: numOrUndef,
+                })}
+              />
+            </div>
+            <div>
+              <label htmlFor="k-success" className="mb-1 block text-sm font-medium">
+                Success rate %
+              </label>
+              <input
+                id="k-success"
+                type="number"
+                min={0}
+                max={100}
+                step="any"
+                className={inputClass}
+                placeholder="e.g. 90"
+                {...register('kpiTargets.successRatePct', {
+                  setValueAs: numOrUndef,
+                })}
+              />
+            </div>
+            <div>
+              <label htmlFor="k-approvals" className="mb-1 block text-sm font-medium">
+                Max pending approvals
+              </label>
+              <input
+                id="k-approvals"
+                type="number"
+                min={0}
+                step={1}
+                className={inputClass}
+                placeholder="e.g. 5"
+                {...register('kpiTargets.approvalsMax', {
+                  setValueAs: numOrUndef,
+                })}
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-gray-400">
+            Attainment (actual vs target) is shown on the analytics dashboard.
+          </p>
+        </fieldset>
 
         <fieldset className="rounded-md border border-gray-200 p-4">
           <legend className="px-1 text-xs font-medium text-gray-500">

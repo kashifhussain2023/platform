@@ -1,0 +1,300 @@
+'use client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+  CreateDepartmentDto,
+  CreateTeamDto,
+  DepartmentDto,
+  SecurityPolicyDto,
+  TeamDto,
+  UpdateDepartmentDto,
+  UpdateSecurityPolicyDto,
+  UpdateTeamDto,
+} from '@vaep/types';
+import type { NormalizedApiError } from '@/lib/apiClient';
+import { useCurrentRole } from '@/features/users/hooks';
+import { useSessionStore } from '@/stores/session.store';
+import {
+  createDepartment,
+  createTeam,
+  deleteDepartment,
+  deleteTeam,
+  getSecurityPolicy,
+  listDepartments,
+  listTeams,
+  updateDepartment,
+  updateSecurityPolicy,
+  updateTeam,
+} from './api';
+
+export const orgKeys = {
+  all: ['organization'] as const,
+  departments: ['organization', 'departments'] as const,
+  teams: ['organization', 'teams'] as const,
+  securityPolicy: ['organization', 'security-policy'] as const,
+};
+
+/** Whether the current user may manage the org (OWNER/ADMIN). Mirrors RolesGuard. */
+export function useCanManageOrg(): boolean {
+  const role = useCurrentRole();
+  return role === 'OWNER' || role === 'ADMIN';
+}
+
+// --- Departments -----------------------------------------------------------
+
+export function useDepartments() {
+  const accessToken = useSessionStore((s) => s.accessToken);
+  return useQuery<DepartmentDto[], NormalizedApiError>({
+    queryKey: orgKeys.departments,
+    queryFn: listDepartments,
+    enabled: Boolean(accessToken),
+  });
+}
+
+interface DepartmentsContext {
+  previous?: DepartmentDto[];
+}
+
+/** Create (optimistic): append a temp department, roll back on error. */
+export function useCreateDepartment() {
+  const qc = useQueryClient();
+  return useMutation<
+    DepartmentDto,
+    NormalizedApiError,
+    CreateDepartmentDto,
+    DepartmentsContext
+  >({
+    mutationFn: createDepartment,
+    onMutate: async (payload) => {
+      await qc.cancelQueries({ queryKey: orgKeys.departments });
+      const previous = qc.getQueryData<DepartmentDto[]>(orgKeys.departments);
+      const optimistic: DepartmentDto = {
+        id: `temp_${Date.now()}`,
+        companyId: '',
+        name: payload.name,
+        description: payload.description ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      qc.setQueryData<DepartmentDto[]>(orgKeys.departments, (old) => [
+        ...(old ?? []),
+        optimistic,
+      ]);
+      return { previous };
+    },
+    onError: (_err, _payload, context) => {
+      if (context?.previous) {
+        qc.setQueryData(orgKeys.departments, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.departments });
+    },
+  });
+}
+
+interface UpdateDeptVars {
+  id: string;
+  data: UpdateDepartmentDto;
+}
+
+/** Update (optimistic): patch the cached row, roll back on error. */
+export function useUpdateDepartment() {
+  const qc = useQueryClient();
+  return useMutation<
+    DepartmentDto,
+    NormalizedApiError,
+    UpdateDeptVars,
+    DepartmentsContext
+  >({
+    mutationFn: updateDepartment,
+    onMutate: async ({ id, data }) => {
+      await qc.cancelQueries({ queryKey: orgKeys.departments });
+      const previous = qc.getQueryData<DepartmentDto[]>(orgKeys.departments);
+      qc.setQueryData<DepartmentDto[]>(orgKeys.departments, (old) =>
+        (old ?? []).map((d) => (d.id === id ? { ...d, ...data } : d)),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(orgKeys.departments, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.departments });
+    },
+  });
+}
+
+/** Delete (optimistic): remove the row; also refresh teams (SetNull cascade). */
+export function useDeleteDepartment() {
+  const qc = useQueryClient();
+  return useMutation<void, NormalizedApiError, string, DepartmentsContext>({
+    mutationFn: deleteDepartment,
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: orgKeys.departments });
+      const previous = qc.getQueryData<DepartmentDto[]>(orgKeys.departments);
+      qc.setQueryData<DepartmentDto[]>(orgKeys.departments, (old) =>
+        (old ?? []).filter((d) => d.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(orgKeys.departments, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.departments });
+      // A department delete unassigns its teams (onDelete: SetNull).
+      void qc.invalidateQueries({ queryKey: orgKeys.teams });
+    },
+  });
+}
+
+// --- Teams -----------------------------------------------------------------
+
+export function useTeams() {
+  const accessToken = useSessionStore((s) => s.accessToken);
+  return useQuery<TeamDto[], NormalizedApiError>({
+    queryKey: orgKeys.teams,
+    queryFn: listTeams,
+    enabled: Boolean(accessToken),
+  });
+}
+
+interface TeamsContext {
+  previous?: TeamDto[];
+}
+
+/** Create (optimistic): append a temp team, roll back on error. */
+export function useCreateTeam() {
+  const qc = useQueryClient();
+  return useMutation<TeamDto, NormalizedApiError, CreateTeamDto, TeamsContext>({
+    mutationFn: createTeam,
+    onMutate: async (payload) => {
+      await qc.cancelQueries({ queryKey: orgKeys.teams });
+      const previous = qc.getQueryData<TeamDto[]>(orgKeys.teams);
+      const optimistic: TeamDto = {
+        id: `temp_${Date.now()}`,
+        companyId: '',
+        name: payload.name,
+        departmentId: payload.departmentId ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      qc.setQueryData<TeamDto[]>(orgKeys.teams, (old) => [
+        ...(old ?? []),
+        optimistic,
+      ]);
+      return { previous };
+    },
+    onError: (_err, _payload, context) => {
+      if (context?.previous) {
+        qc.setQueryData(orgKeys.teams, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.teams });
+    },
+  });
+}
+
+interface UpdateTeamVars {
+  id: string;
+  data: UpdateTeamDto;
+}
+
+/** Update (optimistic): patch the cached row, roll back on error. */
+export function useUpdateTeam() {
+  const qc = useQueryClient();
+  return useMutation<TeamDto, NormalizedApiError, UpdateTeamVars, TeamsContext>({
+    mutationFn: updateTeam,
+    onMutate: async ({ id, data }) => {
+      await qc.cancelQueries({ queryKey: orgKeys.teams });
+      const previous = qc.getQueryData<TeamDto[]>(orgKeys.teams);
+      qc.setQueryData<TeamDto[]>(orgKeys.teams, (old) =>
+        (old ?? []).map((t) => (t.id === id ? { ...t, ...data } : t)),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(orgKeys.teams, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.teams });
+    },
+  });
+}
+
+/** Delete (optimistic): remove the row immediately, roll back on error. */
+export function useDeleteTeam() {
+  const qc = useQueryClient();
+  return useMutation<void, NormalizedApiError, string, TeamsContext>({
+    mutationFn: deleteTeam,
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: orgKeys.teams });
+      const previous = qc.getQueryData<TeamDto[]>(orgKeys.teams);
+      qc.setQueryData<TeamDto[]>(orgKeys.teams, (old) =>
+        (old ?? []).filter((t) => t.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        qc.setQueryData(orgKeys.teams, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.teams });
+    },
+  });
+}
+
+// --- Security policy -------------------------------------------------------
+
+export function useSecurityPolicy() {
+  const accessToken = useSessionStore((s) => s.accessToken);
+  return useQuery<SecurityPolicyDto, NormalizedApiError>({
+    queryKey: orgKeys.securityPolicy,
+    queryFn: getSecurityPolicy,
+    enabled: Boolean(accessToken),
+  });
+}
+
+interface PolicyContext {
+  previous?: SecurityPolicyDto;
+}
+
+/** Update (optimistic merge): patch the cached policy, roll back on error. */
+export function useUpdateSecurityPolicy() {
+  const qc = useQueryClient();
+  return useMutation<
+    SecurityPolicyDto,
+    NormalizedApiError,
+    UpdateSecurityPolicyDto,
+    PolicyContext
+  >({
+    mutationFn: updateSecurityPolicy,
+    onMutate: async (payload) => {
+      await qc.cancelQueries({ queryKey: orgKeys.securityPolicy });
+      const previous = qc.getQueryData<SecurityPolicyDto>(orgKeys.securityPolicy);
+      if (previous) {
+        qc.setQueryData<SecurityPolicyDto>(orgKeys.securityPolicy, {
+          ...previous,
+          ...payload,
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _payload, context) => {
+      if (context?.previous) {
+        qc.setQueryData(orgKeys.securityPolicy, context.previous);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.securityPolicy });
+    },
+  });
+}

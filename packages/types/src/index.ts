@@ -269,6 +269,24 @@ export const createEmployeeSchema = z.object({
 });
 
 /**
+ * Configurable KPI targets for an AI employee (P1 #6). All optional; a computed
+ * "attainment" (actual vs target) is surfaced on the analytics EmployeeKpiDto.
+ * tasksPerWeek/approvalsMax are counts; successRatePct is a percent in [0,100].
+ */
+export interface KpiTargets {
+  tasksPerWeek?: number;
+  successRatePct?: number;
+  approvalsMax?: number;
+}
+
+/** Shared zod contract for KPI targets (web form + PATCH /employees/:id body). */
+export const kpiTargetsSchema = z.object({
+  tasksPerWeek: z.number().int().min(0).max(1000000).optional(),
+  successRatePct: z.number().min(0).max(100).optional(),
+  approvalsMax: z.number().int().min(0).max(1000000).optional(),
+});
+
+/**
  * Rich AI-employee configuration (Step 5). Shared by the employee settings
  * panel. All fields optional; folded into the PATCH /employees/:id body.
  */
@@ -283,6 +301,10 @@ export const employeeConfigSchema = z.object({
   budgetLimit: z.number().int().min(0).max(100000000).nullable().optional(),
   permissions: z.record(z.boolean()).optional(),
   approvalRules: z.record(z.unknown()).optional(),
+  // Goals + KPI targets (P1 #6). goals is a free-form checklist of objectives;
+  // kpiTargets configures the actual-vs-target attainment shown in analytics.
+  goals: z.array(z.string().min(1).max(200)).max(50).optional(),
+  kpiTargets: kpiTargetsSchema.nullable().optional(),
 });
 
 /** PATCH /employees/:id body (status pause/disable, persona, model, name, rich config). */
@@ -326,6 +348,10 @@ export interface AiEmployeeDto {
   budgetLimit: number | null;
   permissions: Record<string, boolean> | null;
   approvalRules: Record<string, unknown> | null;
+  /** Free-form list of objectives for this employee (P1 #6); null when unset. */
+  goals: string[] | null;
+  /** Configurable KPI targets driving analytics attainment (P1 #6); null when unset. */
+  kpiTargets: KpiTargets | null;
   createdAt: string;
 }
 
@@ -1175,6 +1201,23 @@ export interface OverviewDto {
   utilization: number;
 }
 
+/**
+ * Attainment of an employee's configured KPI targets (P1 #6): actual measured
+ * against target, as a percent. Each field is null when its target is unset (or,
+ * for successRate, when there are no tool actions to measure). The whole object
+ * is null when the employee has no kpiTargets configured. ILLUSTRATIVE.
+ */
+export interface KpiAttainmentDto {
+  /** tasksCompleted ÷ kpiTargets.tasksPerWeek × 100 (percent of target). */
+  tasksPct: number | null;
+  /** actual success rate ÷ kpiTargets.successRatePct × 100 (percent of target). */
+  successRatePct: number | null;
+  /** pendingApprovals ÷ kpiTargets.approvalsMax × 100 (percent of the cap used). */
+  approvalsPct: number | null;
+  /** Actual success rate in [0,100] for reference; null when no tool actions. */
+  successRateActual: number | null;
+}
+
 /** Per-employee KPI row. */
 export interface EmployeeKpiDto {
   employeeId: string;
@@ -1190,6 +1233,10 @@ export interface EmployeeKpiDto {
   // Derived ILLUSTRATIVE estimates (this employee only).
   tasksCompleted: number;
   hoursSaved: number;
+  // Configurable KPI targets + computed attainment (P1 #6). Both null when the
+  // employee has no targets set (null-safe: existing dashboards unaffected).
+  kpiTargets: KpiTargets | null;
+  attainment: KpiAttainmentDto | null;
 }
 
 /** One grouped activity count in the "Today's AI Activity" feed. */
@@ -1345,3 +1392,90 @@ export const installEmployeeSchema = z.object({
 });
 
 export type InstallEmployeeDto = z.infer<typeof installEmployeeSchema>;
+
+// ---------------------------------------------------------------------------
+// Organization module contracts (Security Policies / Teams / Departments, P1 #7).
+// ---------------------------------------------------------------------------
+// Company-scoped org structure: Departments group Teams; a single SecurityPolicy
+// per company holds tenant security settings. All tenant-scoped by companyId.
+// Mutations are OWNER/ADMIN only; reads are open to any authenticated member.
+// LIGHT enforcement today: passwordMinLength (POST /users + register default) and
+// allowedEmailDomains (POST /users). mfaRequired/sessionTimeoutMinutes/
+// dataRetentionDays are STORED only (enforcement = documented TODO).
+
+/** A department groups teams within a company. */
+export interface DepartmentDto {
+  id: string;
+  companyId: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+}
+
+/** A team, optionally belonging to a department (department delete → SetNull). */
+export interface TeamDto {
+  id: string;
+  companyId: string;
+  name: string;
+  departmentId: string | null;
+  createdAt: string;
+}
+
+/** The single security policy for a company (created with defaults on first read). */
+export interface SecurityPolicyDto {
+  id: string;
+  companyId: string;
+  /** Minimum password length enforced on user creation / registration. */
+  passwordMinLength: number;
+  /** Whether MFA is required (STORED only — enforcement is a TODO). */
+  mfaRequired: boolean;
+  /** Session timeout in minutes; 0 = no timeout (STORED only — TODO). */
+  sessionTimeoutMinutes: number;
+  /** Allowed email domains for new users; empty = no restriction. */
+  allowedEmailDomains: string[];
+  /** Data retention window in days; 0 = keep forever (STORED only — TODO). */
+  dataRetentionDays: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Zod schemas (shared with the web forms) -------------------------------
+
+/** POST /departments body. */
+export const createDepartmentSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(120),
+  description: z.string().max(2000).optional(),
+});
+
+/** PATCH /departments/:id body. */
+export const updateDepartmentSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(2000).nullable().optional(),
+});
+
+/** POST /teams body (optional departmentId). */
+export const createTeamSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(120),
+  departmentId: z.string().min(1).max(60).nullable().optional(),
+});
+
+/** PATCH /teams/:id body (optional name / departmentId). */
+export const updateTeamSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  departmentId: z.string().min(1).max(60).nullable().optional(),
+});
+
+/** PATCH /security-policy body (all fields optional). passwordMinLength floor 8. */
+export const updateSecurityPolicySchema = z.object({
+  passwordMinLength: z.number().int().min(8).max(128).optional(),
+  mfaRequired: z.boolean().optional(),
+  sessionTimeoutMinutes: z.number().int().min(0).max(100000).optional(),
+  allowedEmailDomains: z.array(z.string().min(1).max(255)).max(100).optional(),
+  dataRetentionDays: z.number().int().min(0).max(100000).optional(),
+});
+
+export type CreateDepartmentDto = z.infer<typeof createDepartmentSchema>;
+export type UpdateDepartmentDto = z.infer<typeof updateDepartmentSchema>;
+export type CreateTeamDto = z.infer<typeof createTeamSchema>;
+export type UpdateTeamDto = z.infer<typeof updateTeamSchema>;
+export type UpdateSecurityPolicyDto = z.infer<typeof updateSecurityPolicySchema>;

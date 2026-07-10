@@ -51,6 +51,10 @@ export class UsersService {
     if (dto.role === 'OWNER' && caller.role !== 'OWNER') {
       throw new ForbiddenException('Only an owner can create an owner');
     }
+    // Enforce the company's security policy (P1 #7): password length + allowed
+    // email domains. A missing policy → defaults (min length 8, no domain
+    // restriction), so existing companies/tests are unaffected.
+    await this.enforceSecurityPolicy(companyId, dto);
     const passwordHash = await this.auth.hash(dto.password);
     try {
       const user = await this.prisma.user.create({
@@ -151,5 +155,36 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  /**
+   * LIGHT security-policy enforcement on user creation (P1 #7). Reads the
+   * company's SecurityPolicy (falling back to safe defaults when none exists):
+   * rejects passwords shorter than `passwordMinLength` (default 8) and, when
+   * `allowedEmailDomains` is non-empty, emails whose domain isn't listed.
+   */
+  private async enforceSecurityPolicy(
+    companyId: string,
+    dto: CreateUserDto,
+  ): Promise<void> {
+    const policy = await this.prisma.securityPolicy.findUnique({
+      where: { companyId },
+    });
+    const minLength = policy?.passwordMinLength ?? 8;
+    if (dto.password.length < minLength) {
+      throw new BadRequestException(
+        `Password must be at least ${minLength} characters`,
+      );
+    }
+    const allowedDomains = policy?.allowedEmailDomains ?? [];
+    if (allowedDomains.length > 0) {
+      const domain = dto.email.split('@')[1]?.toLowerCase() ?? '';
+      const allowed = allowedDomains.map((d) => d.toLowerCase());
+      if (!allowed.includes(domain)) {
+        throw new BadRequestException(
+          `Email domain must be one of: ${allowedDomains.join(', ')}`,
+        );
+      }
+    }
   }
 }

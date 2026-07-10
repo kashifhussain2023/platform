@@ -89,6 +89,18 @@ export class EmployeesService {
           dto.approvalRules === undefined
             ? undefined
             : (dto.approvalRules as Prisma.InputJsonValue),
+        // Goals + KPI targets (P1 #6). goals is a string[]; kpiTargets is an
+        // object that can be cleared with an explicit null (→ Prisma.JsonNull).
+        goals:
+          dto.goals === undefined
+            ? undefined
+            : (dto.goals as Prisma.InputJsonValue),
+        kpiTargets:
+          dto.kpiTargets === undefined
+            ? undefined
+            : dto.kpiTargets === null
+              ? Prisma.JsonNull
+              : (dto.kpiTargets as Prisma.InputJsonValue),
       },
     });
     return toEmployeeDto(employee);

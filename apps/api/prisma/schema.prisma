@@ -166,6 +166,9 @@ model Company {
   workflows          Workflow[]
   approvalRequests   ApprovalRequest[]
   subscription       Subscription?
+  departments        Department[]
+  teams              Team[]
+  securityPolicy     SecurityPolicy?
 }
 
 model User {
@@ -245,6 +248,11 @@ model AiEmployee {
   // Free-form permission flags + approval rules (enforced by a future Approval Center).
   permissions       Json?
   approvalRules     Json?
+  // Goals + configurable KPI targets (P1 #6). goals is a string[]; kpiTargets is
+  // { tasksPerWeek?, successRatePct?, approvalsMax? }. Both nullable/optional so
+  // existing employees are unaffected; analytics computes attainment when set.
+  goals             Json?
+  kpiTargets        Json?
   createdAt DateTime       @default(now())
 
   conversations  Conversation[]
@@ -498,4 +506,50 @@ model Subscription {
   currentPeriodEnd      DateTime?
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
+}
+
+// --- Organization: Security Policies / Teams / Departments (P1 #7) ---------
+// Company-scoped org structure. Departments group Teams (a Team's departmentId
+// is SetNull on department delete). A single SecurityPolicy per company holds
+// tenant security settings; passwordMinLength + allowedEmailDomains are lightly
+// enforced (POST /users), the rest are STORED only (enforcement = TODO).
+
+model Department {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  teams Team[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model Team {
+  id           String      @id @default(cuid())
+  companyId    String
+  company      Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model SecurityPolicy {
+  id                    String   @id @default(cuid())
+  companyId             String   @unique
+  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  passwordMinLength     Int      @default(8)
+  mfaRequired           Boolean  @default(false)
+  sessionTimeoutMinutes Int      @default(0)
+  allowedEmailDomains   String[] @default([])
+  dataRetentionDays     Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
