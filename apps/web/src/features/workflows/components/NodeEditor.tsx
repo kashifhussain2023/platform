@@ -243,6 +243,20 @@ export function NodeEditor({
         </Field>
       )}
 
+      {node.type === 'APPROVAL' && (
+        <Field
+          label="Approval message"
+          hint="Shown to the approver. The run pauses (WAITING) until a manager approves (resume) or rejects (fail)."
+        >
+          <textarea
+            rows={2}
+            className={inputCls}
+            value={str(cfg.message)}
+            onChange={(e) => setConfig({ message: e.target.value })}
+          />
+        </Field>
+      )}
+
       {node.type === 'TRIGGER' && (
         <p className="text-xs text-gray-400">
           No configuration. The run trigger payload seeds the context.

@@ -100,6 +100,7 @@ enum TriggerType {
 enum WorkflowRunStatus {
   PENDING
   RUNNING
+  WAITING
   COMPLETED
   FAILED
 }
@@ -116,6 +117,15 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// What an approval request gates. TOOL (default) is a high-risk AI-employee tool
+// call (approving executes it). WORKFLOW is a paused workflow run at an APPROVAL
+// node (approving resumes it, rejecting fails it); such rows carry a workflowRunId
+// and null skillKey/tool. TOOL is the default so existing rows/tests are unchanged.
+enum ApprovalKind {
+  TOOL
+  WORKFLOW
 }
 
 // Subscription plan tiers (from the proposal pricing). STARTER is the default
@@ -403,6 +413,10 @@ model WorkflowRun {
   source     String            @default("MANUAL")
   trigger    Json?
   context    Json?
+  // When a run pauses at an APPROVAL node (status WAITING), the id of the node to
+  // continue from once approved (the approval node's outgoing edge target). Null
+  // otherwise. The persisted `context` is the seed for the resumed walk.
+  resumeNodeId String?
   error      String?
   startedAt  DateTime?
   finishedAt DateTime?
@@ -441,10 +455,15 @@ model ApprovalRequest {
   id             String         @id @default(cuid())
   companyId      String
   company        Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // TOOL (default) gates a high-risk tool call; WORKFLOW gates a paused run.
+  kind           ApprovalKind   @default(TOOL)
   employeeId     String?
   conversationId String?
-  skillKey       String
-  tool           String
+  // Set for WORKFLOW-kind rows: the paused WorkflowRun this decision resumes/fails.
+  workflowRunId  String?
+  // Nullable: WORKFLOW-kind approvals gate no tool (TOOL-kind rows still set both).
+  skillKey       String?
+  tool           String?
   args           Json
   result         Json?
   description    String?

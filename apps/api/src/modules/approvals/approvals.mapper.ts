@@ -6,8 +6,10 @@ export function toApprovalRequestDto(a: ApprovalRequest): ApprovalRequestDto {
   return {
     id: a.id,
     companyId: a.companyId,
+    kind: a.kind,
     employeeId: a.employeeId,
     conversationId: a.conversationId,
+    workflowRunId: a.workflowRunId,
     skillKey: a.skillKey,
     tool: a.tool,
     args: (a.args as Record<string, unknown>) ?? {},

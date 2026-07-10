@@ -11,8 +11,9 @@ import { WorkflowEngine } from './workflow-engine.service';
  * In-process BullMQ worker that executes queued workflow jobs by delegating to
  * the WorkflowEngine (same WorkerHost style as the knowledge IngestionProcessor).
  *
- * Two job shapes flow through the same queue:
+ * Job shapes that flow through the same queue:
  * - `{ runId }`     — an already-created run (MANUAL/EVENT/WEBHOOK). Existing path.
+ * - `{ runId, resume: true }` — resume a WAITING run whose APPROVAL was approved.
  * - `{ workflowId, source }` — a SCHEDULE/repeatable fire: create a run (with
  *   that source) then execute it.
  *
@@ -31,6 +32,11 @@ export class WorkflowProcessor extends WorkerHost {
   async process(job: Job<WorkflowRunJobData>): Promise<void> {
     const data = job.data;
     if ('runId' in data && data.runId) {
+      if (data.resume) {
+        this.logger.debug(`Resuming workflow run ${data.runId}`);
+        await this.engine.resume(data.runId);
+        return;
+      }
       this.logger.debug(`Executing workflow run ${data.runId}`);
       await this.engine.execute(data.runId);
       return;

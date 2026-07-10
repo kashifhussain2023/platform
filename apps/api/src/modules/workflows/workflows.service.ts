@@ -266,6 +266,54 @@ export class WorkflowsService {
     return toWorkflowRunDto(run);
   }
 
+  /**
+   * Resume a WAITING run whose APPROVAL was approved. Flip it to RUNNING and
+   * enqueue a `{runId, resume:true}` job so the engine continues from
+   * `resumeNodeId` with the persisted context. Idempotent: a run that is not
+   * WAITING is ignored (a double-approve cannot double-run). Called by
+   * ApprovalService when a WORKFLOW-kind request is approved.
+   */
+  async resumeRun(runId: string): Promise<void> {
+    const run = await this.prisma.workflowRun.findUnique({
+      where: { id: runId },
+    });
+    if (!run || run.status !== 'WAITING') {
+      return;
+    }
+    await this.prisma.workflowRun.update({
+      where: { id: runId },
+      data: { status: 'RUNNING', error: null },
+    });
+    await this.queue.add(
+      WORKFLOW_RUN_JOB,
+      { runId, resume: true },
+      { removeOnComplete: true, removeOnFail: 100 },
+    );
+  }
+
+  /**
+   * Cancel a non-terminal run (used when a WORKFLOW-kind approval is rejected):
+   * mark it FAILED with the reason and clear its resume pointer. A run already
+   * COMPLETED/FAILED is left untouched. Called by ApprovalService on reject.
+   */
+  async cancelRun(runId: string, reason: string): Promise<void> {
+    const run = await this.prisma.workflowRun.findUnique({
+      where: { id: runId },
+    });
+    if (!run || run.status === 'COMPLETED' || run.status === 'FAILED') {
+      return;
+    }
+    await this.prisma.workflowRun.update({
+      where: { id: runId },
+      data: {
+        status: 'FAILED',
+        finishedAt: new Date(),
+        error: reason,
+        resumeNodeId: null,
+      },
+    });
+  }
+
   /** Test/introspection hook: the queue's registered job schedulers. */
   listSchedulers() {
     return this.queue.getJobSchedulers();

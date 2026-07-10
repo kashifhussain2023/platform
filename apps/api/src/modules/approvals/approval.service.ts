@@ -13,6 +13,7 @@ import type {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { SkillCatalog } from '../skills/catalog';
 import { SkillsService } from '../skills/skills.service';
+import { WorkflowsService } from '../workflows/workflows.service';
 import { toApprovalRequestDto } from './approvals.mapper';
 
 /** Minimal shape needed to evaluate an employee's approval policy. */
@@ -34,15 +35,23 @@ export interface CreateApprovalInput {
 /**
  * Approval Center: decides whether a proposed tool call must pause for human
  * review, captures PENDING requests, and applies a manager's decision (approve /
- * reject / modify). Approve + modify EXECUTE the tool via SkillsService.runTool
- * (which writes the SkillExecution audit row); reject never executes. Every query
- * is scoped by companyId (from the JWT) so tenants never see each other's data.
+ * reject / modify). Two kinds of request are decided here:
+ * - TOOL (default): a high-risk AI-employee tool call. Approve/modify EXECUTE the
+ *   tool via SkillsService.runTool (which writes the SkillExecution audit row);
+ *   reject never executes.
+ * - WORKFLOW: a workflow run paused at an APPROVAL node. No tool is executed —
+ *   approve RESUMES the run (WorkflowsService.resumeRun) and reject FAILS it
+ *   (WorkflowsService.cancelRun); modify is treated as approve.
+ *
+ * Every query is scoped by companyId (from the JWT) so tenants never see each
+ * other's data.
  */
 @Injectable()
 export class ApprovalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly skills: SkillsService,
+    private readonly workflows: WorkflowsService,
   ) {}
 
   /**
@@ -100,7 +109,10 @@ export class ApprovalService {
     return toApprovalRequestDto(await this.findOwned(companyId, id));
   }
 
-  /** Approve → execute the stored tool call now, record the result. */
+  /**
+   * Approve. WORKFLOW → mark APPROVED and resume the paused run (no tool runs).
+   * TOOL → execute the stored tool call now and record the result.
+   */
   async approve(
     companyId: string,
     id: string,
@@ -108,18 +120,27 @@ export class ApprovalService {
     note?: string,
   ): Promise<ApprovalRequestDto> {
     const req = await this.findPending(companyId, id);
+    if (req.kind === 'WORKFLOW') {
+      return this.decideWorkflow(req, userId, note, true);
+    }
     const call = await this.execute(req);
     return this.finalize(id, call, userId, note);
   }
 
-  /** Reject → mark REJECTED without executing. */
+  /**
+   * Reject → mark REJECTED without executing. WORKFLOW → also FAIL the paused run
+   * (WorkflowsService.cancelRun) so it never reaches the steps after the approval.
+   */
   async reject(
     companyId: string,
     id: string,
     userId: string,
     note?: string,
   ): Promise<ApprovalRequestDto> {
-    await this.findPending(companyId, id);
+    const req = await this.findPending(companyId, id);
+    if (req.kind === 'WORKFLOW') {
+      return this.decideWorkflow(req, userId, note, false);
+    }
     const row = await this.prisma.approvalRequest.update({
       where: { id },
       data: {
@@ -132,7 +153,11 @@ export class ApprovalService {
     return toApprovalRequestDto(row);
   }
 
-  /** Modify → execute with the NEW args, record them, mark APPROVED. */
+  /**
+   * Modify. TOOL → execute with the NEW args, record them, mark APPROVED.
+   * WORKFLOW → modifying args is meaningless (no tool is gated), so treat it as a
+   * plain approve (resume the run).
+   */
   async modify(
     companyId: string,
     id: string,
@@ -141,6 +166,9 @@ export class ApprovalService {
     note?: string,
   ): Promise<ApprovalRequestDto> {
     const req = await this.findPending(companyId, id);
+    if (req.kind === 'WORKFLOW') {
+      return this.decideWorkflow(req, userId, note, true);
+    }
     const call = await this.execute({ ...req, args: args as Prisma.JsonValue });
     return this.finalize(id, call, userId, note ?? 'Modified before approval', {
       ...args,
@@ -149,7 +177,44 @@ export class ApprovalService {
 
   // --- Internals -----------------------------------------------------------
 
-  /** Run the stored tool call via the Skills module (logs a SkillExecution). */
+  /**
+   * Apply a decision to a WORKFLOW-kind request: persist APPROVED/REJECTED, then
+   * resume (approve) or cancel (reject) the paused run via WorkflowsService. No
+   * tool is executed and no SkillExecution is written.
+   */
+  private async decideWorkflow(
+    req: ApprovalRequest,
+    userId: string,
+    note: string | undefined,
+    approved: boolean,
+  ): Promise<ApprovalRequestDto> {
+    const row = await this.prisma.approvalRequest.update({
+      where: { id: req.id },
+      data: {
+        status: approved ? 'APPROVED' : 'REJECTED',
+        decidedById: userId,
+        decidedAt: new Date(),
+        note: note ?? null,
+      },
+    });
+    if (req.workflowRunId) {
+      if (approved) {
+        await this.workflows.resumeRun(req.workflowRunId);
+      } else {
+        await this.workflows.cancelRun(
+          req.workflowRunId,
+          note ?? 'Rejected by approver',
+        );
+      }
+    }
+    return toApprovalRequestDto(row);
+  }
+
+  /**
+   * Run the stored tool call via the Skills module (logs a SkillExecution). Only
+   * called for TOOL-kind requests, whose skillKey/tool are always set (they are
+   * nullable in the schema only so WORKFLOW-kind rows can omit them).
+   */
   private execute(req: ApprovalRequest): Promise<ToolCallDto> {
     return this.skills.runTool(
       {
@@ -157,8 +222,8 @@ export class ApprovalService {
         employeeId: req.employeeId,
         conversationId: req.conversationId,
       },
-      req.skillKey,
-      req.tool,
+      req.skillKey ?? '',
+      req.tool ?? '',
       (req.args as Record<string, unknown>) ?? {},
     );
   }

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type Workflow, type WorkflowRun } from '@prisma/client';
 import type {
   ConditionOp,
   WorkflowDefinition,
@@ -57,6 +57,17 @@ interface NodeResult {
   conditionResult?: boolean;
 }
 
+/** A WorkflowRun loaded with its parent Workflow (for the definition graph). */
+type RunWithWorkflow = WorkflowRun & { workflow: Workflow };
+
+/** Where a walk starts and what context it seeds — used to resume a WAITING run. */
+interface RunOptions {
+  /** Node id to begin from. Omitted → start at the TRIGGER (a fresh run). */
+  startNodeId?: string;
+  /** Seed context (a resumed run's persisted context). Omitted → { trigger }. */
+  context?: Record<string, unknown>;
+}
+
 /**
  * Walks a workflow graph for one WorkflowRun, threading a mutable `context`
  * object and writing a WorkflowStepRun per visited node. Starts at the TRIGGER
@@ -67,6 +78,15 @@ interface NodeResult {
  *
  * A node failure marks that step + the run FAILED and stops (no rethrow: a
  * failed run is a terminal domain outcome the poller reads, not a job crash).
+ *
+ * APPROVAL node: the walk PAUSES. The engine persists the current context, sets
+ * the run WAITING with `resumeNodeId` = the node after the approval, writes a
+ * (RUNNING) APPROVAL step marker, and creates a PENDING WORKFLOW-kind
+ * ApprovalRequest directly via PrismaService (the engine never imports the
+ * Approvals module — that keeps Approvals→Workflows one-directional/acyclic). A
+ * manager's decision drives WorkflowsService.resumeRun (→ engine.resume →
+ * COMPLETED) or cancelRun (→ FAILED). Workflows without an APPROVAL node behave
+ * exactly as before (run → COMPLETED).
  */
 @Injectable()
 export class WorkflowEngine {
@@ -104,6 +124,10 @@ export class WorkflowEngine {
     await this.execute(run.id);
   }
 
+  /**
+   * Fresh execution of a PENDING run: guard, flip to RUNNING, then walk from the
+   * TRIGGER with a fresh context. Only a PENDING run is eligible (idempotent).
+   */
   async execute(runId: string): Promise<void> {
     const run = await this.prisma.workflowRun.findUnique({
       where: { id: runId },
@@ -119,29 +143,81 @@ export class WorkflowEngine {
       return;
     }
 
-    const { companyId } = run;
-    const context: Record<string, unknown> = {
-      trigger: (run.trigger as Record<string, unknown> | null) ?? {},
-    };
-
     await this.prisma.workflowRun.update({
       where: { id: runId },
       data: { status: 'RUNNING', startedAt: new Date(), error: null },
     });
+
+    await this.run(run, {});
+  }
+
+  /**
+   * Resume a WAITING run after its APPROVAL was approved (a `{runId, resume}`
+   * job). WorkflowsService.resumeRun has already flipped the run to RUNNING; the
+   * engine continues from `resumeNodeId` with the persisted context, closing out
+   * the paused APPROVAL step first.
+   */
+  async resume(runId: string): Promise<void> {
+    const run = await this.prisma.workflowRun.findUnique({
+      where: { id: runId },
+      include: { workflow: true },
+    });
+    if (!run) {
+      this.logger.warn(`Workflow run ${runId} not found (resume)`);
+      return;
+    }
+    // Pass a defined context so `run` knows this is a resume (not a fresh start)
+    // even if resumeNodeId is null (the approval was the terminal node).
+    await this.run(run, {
+      startNodeId: run.resumeNodeId ?? undefined,
+      context: (run.context as Record<string, unknown> | null) ?? {},
+    });
+  }
+
+  /**
+   * Core resumable walk. A resume passes a (defined) `context`; a fresh run omits
+   * it. Fresh runs start at the TRIGGER with a fresh `{ trigger }`; resumes start
+   * at `opts.startNodeId` (or nowhere, if the approval was terminal) with the
+   * persisted context, after closing the paused APPROVAL step. Reaching an
+   * APPROVAL node PAUSES the run (WAITING) and returns WITHOUT completing; every
+   * other terminal path marks the run COMPLETED, and any node failure FAILED.
+   */
+  async run(run: RunWithWorkflow, opts: RunOptions = {}): Promise<void> {
+    const { companyId } = run;
+    // A defined context marks a resume; omitting it is a fresh start at TRIGGER.
+    const isResume = opts.context !== undefined;
+    const context: Record<string, unknown> =
+      opts.context ?? {
+        trigger: (run.trigger as Record<string, unknown> | null) ?? {},
+      };
 
     try {
       const definition = this.parseDefinition(run.workflow.definition);
       const nodesById = new Map<string, WorkflowNode>(
         definition.nodes.map((n) => [n.id, n]),
       );
-      const start =
-        definition.nodes.find((n) => n.type === 'TRIGGER') ??
-        definition.nodes[0];
-      if (!start) {
-        throw new Error('Workflow definition has no nodes to run');
+
+      // A resume closes the paused APPROVAL step (→ COMPLETED) before continuing.
+      if (isResume) {
+        await this.completePausedApproval(run.id, companyId);
       }
 
-      let current: WorkflowNode | undefined = start;
+      let current: WorkflowNode | undefined;
+      if (opts.startNodeId) {
+        current = nodesById.get(opts.startNodeId);
+      } else if (isResume) {
+        // Resumed past a terminal approval (no outgoing edge): nothing remains,
+        // so fall through to COMPLETED — never restart the walk from the TRIGGER.
+        current = undefined;
+      } else {
+        current =
+          definition.nodes.find((n) => n.type === 'TRIGGER') ??
+          definition.nodes[0];
+        if (!current) {
+          throw new Error('Workflow definition has no nodes to run');
+        }
+      }
+
       let visited = 0;
       while (current) {
         if (visited >= MAX_WORKFLOW_NODES) {
@@ -150,23 +226,37 @@ export class WorkflowEngine {
           );
         }
         visited += 1;
-        const result = await this.runNode(runId, companyId, current, context);
+
+        // APPROVAL pauses the run: persist state, open an approval, and STOP.
+        if (current.type === 'APPROVAL') {
+          await this.pauseForApproval(
+            run,
+            companyId,
+            current,
+            definition,
+            context,
+          );
+          return;
+        }
+
+        const result = await this.runNode(run.id, companyId, current, context);
         current = this.nextNode(current, definition.edges, nodesById, result);
       }
 
       await this.prisma.workflowRun.update({
-        where: { id: runId },
+        where: { id: run.id },
         data: {
           status: 'COMPLETED',
           finishedAt: new Date(),
           context: context as Prisma.InputJsonObject,
+          resumeNodeId: null,
         },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Run ${runId} failed: ${message}`);
+      this.logger.error(`Run ${run.id} failed: ${message}`);
       await this.prisma.workflowRun.update({
-        where: { id: runId },
+        where: { id: run.id },
         data: {
           status: 'FAILED',
           finishedAt: new Date(),
@@ -175,6 +265,92 @@ export class WorkflowEngine {
         },
       });
     }
+  }
+
+  // --- APPROVAL pause / resume ---------------------------------------------
+
+  /**
+   * Pause a run at an APPROVAL node: write a (RUNNING) APPROVAL step marker,
+   * persist the context + set WAITING with `resumeNodeId` (the approval node's
+   * outgoing edge target, or null if it is terminal), and create a PENDING
+   * WORKFLOW-kind ApprovalRequest DIRECTLY via Prisma (never importing the
+   * Approvals module — the dependency stays one-directional Approvals→Workflows).
+   */
+  private async pauseForApproval(
+    run: RunWithWorkflow,
+    companyId: string,
+    node: WorkflowNode,
+    definition: WorkflowDefinition,
+    context: Record<string, unknown>,
+  ): Promise<void> {
+    const outgoing = definition.edges.filter((e) => e.from === node.id);
+    const resumeNodeId = outgoing.length > 0 ? outgoing[0].to : null;
+
+    await this.prisma.workflowStepRun.create({
+      data: {
+        companyId,
+        runId: run.id,
+        nodeId: node.id,
+        type: node.type,
+        // Left RUNNING as a paused marker; resume flips it COMPLETED.
+        status: 'RUNNING',
+        input: (node.config ?? {}) as Prisma.InputJsonObject,
+        output: { awaitingApproval: true } as Prisma.InputJsonObject,
+        startedAt: new Date(),
+      },
+    });
+
+    await this.prisma.workflowRun.update({
+      where: { id: run.id },
+      data: {
+        status: 'WAITING',
+        context: context as Prisma.InputJsonObject,
+        resumeNodeId,
+      },
+    });
+
+    const rawMessage =
+      typeof node.config?.message === 'string' ? node.config.message.trim() : '';
+    await this.prisma.approvalRequest.create({
+      data: {
+        companyId,
+        kind: 'WORKFLOW',
+        workflowRunId: run.id,
+        description: rawMessage || 'Workflow approval required',
+        status: 'PENDING',
+        // Non-null Json column; a workflow approval gates no tool args.
+        args: {} as Prisma.InputJsonObject,
+        // skillKey / tool are null for WORKFLOW-kind requests.
+      },
+    });
+
+    this.logger.log(`Run ${run.id} paused at APPROVAL ${node.id} (WAITING)`);
+  }
+
+  /**
+   * On resume, mark the paused (RUNNING) APPROVAL step COMPLETED. Returns true
+   * when such a step existed (i.e. this was a resume), false on a fresh run.
+   */
+  private async completePausedApproval(
+    runId: string,
+    companyId: string,
+  ): Promise<boolean> {
+    const step = await this.prisma.workflowStepRun.findFirst({
+      where: { runId, companyId, type: 'APPROVAL', status: 'RUNNING' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!step) {
+      return false;
+    }
+    await this.prisma.workflowStepRun.update({
+      where: { id: step.id },
+      data: {
+        status: 'COMPLETED',
+        finishedAt: new Date(),
+        output: { approved: true } as Prisma.InputJsonObject,
+      },
+    });
+    return true;
   }
 
   // --- Graph walking -------------------------------------------------------

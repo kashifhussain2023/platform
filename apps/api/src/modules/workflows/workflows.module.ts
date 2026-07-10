@@ -1,7 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
-import { EmployeesModule } from '../employees/employees.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
+import { LlmModule } from '../employees/llm/llm.module';
 import { SkillsModule } from '../skills/skills.module';
 import { WorkflowEngine } from './engine/workflow-engine.service';
 import { WorkflowProcessor } from './engine/workflow.processor';
@@ -16,18 +16,21 @@ import { WORKFLOW_RUN_QUEUE } from './workflows.constants';
  * walk the graph. The shared BullMQ connection is registered globally by the
  * KnowledgeModule (BullModule.forRootAsync), so only registerQueue is needed.
  *
- * Reuses the other modules' singletons: KnowledgeModule (RETRIEVE),
- * SkillsModule (TOOL_ACTION), and EmployeesModule — imported so the engine can
- * inject the SAME LlmProvider singleton (LLM_PROVIDER_TOKEN, re-exported by
- * EmployeesModule) for AI_STEP. workflows → employees is acyclic (employees does
- * not import workflows), so there is no import cycle.
+ * Reuses other modules' singletons: KnowledgeModule (RETRIEVE), SkillsModule
+ * (TOOL_ACTION), and LlmModule for the shared LlmProvider (AI_STEP). It imports
+ * LlmModule directly rather than EmployeesModule so that ApprovalsModule can
+ * import WorkflowsModule (WORKFLOW-kind decisions call WorkflowsService) without
+ * closing a cycle: EmployeesModule imports ApprovalsModule, so a Workflows→
+ * Employees edge would form Approvals→Workflows→Employees→Approvals. Workflows
+ * does NOT import ApprovalsModule (the engine writes ApprovalRequest rows via
+ * PrismaService directly) — the dependency stays one-directional Approvals→Workflows.
  */
 @Module({
   imports: [
     BullModule.registerQueue({ name: WORKFLOW_RUN_QUEUE }),
     KnowledgeModule,
     SkillsModule,
-    EmployeesModule,
+    LlmModule,
   ],
   controllers: [WorkflowsController, WorkflowWebhooksController],
   providers: [WorkflowsService, WorkflowEngine, WorkflowProcessor],

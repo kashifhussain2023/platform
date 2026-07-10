@@ -12,14 +12,16 @@ export const WORKFLOW_RUN_JOB = 'run';
 export const WORKFLOW_TRIGGER_JOB = 'trigger';
 
 /**
- * Payload of a workflow-run job. Two shapes flow through the SAME queue:
+ * Payload of a workflow-run job. Shapes that flow through the SAME queue:
  * - `{ runId }` — an already-created run (MANUAL/EVENT/WEBHOOK enqueue this).
+ * - `{ runId, resume: true }` — resume a WAITING run whose APPROVAL was approved;
+ *   the engine continues from `WorkflowRun.resumeNodeId` with the saved context.
  * - `{ workflowId, source }` — a scheduled/triggered fire; the processor
  *   creates a run (with that source) then executes it.
  */
 export type WorkflowRunJobData =
-  | { runId: string; workflowId?: never; source?: never }
-  | { workflowId: string; source: string; runId?: never };
+  | { runId: string; resume?: boolean; workflowId?: never; source?: never }
+  | { workflowId: string; source: string; runId?: never; resume?: never };
 
 /** Minimum SCHEDULE interval (ms) — guards against runaway repeatable jobs. */
 export const MIN_SCHEDULE_MS = 15_000;

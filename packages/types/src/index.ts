@@ -785,12 +785,23 @@ export interface TriggerConfig {
   eventType?: string;
 }
 
-/** Terminal/interim status of a single workflow run. */
-export type WorkflowRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+/**
+ * Terminal/interim status of a single workflow run. WAITING is a paused state: a
+ * run that reached an APPROVAL node has created a PENDING approval request and is
+ * suspended until a manager approves (→ RUNNING again → COMPLETED) or rejects
+ * (→ FAILED). Runs without an APPROVAL node never enter WAITING.
+ */
+export type WorkflowRunStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'WAITING'
+  | 'COMPLETED'
+  | 'FAILED';
 
 export const WORKFLOW_RUN_STATUSES: readonly WorkflowRunStatus[] = [
   'PENDING',
   'RUNNING',
+  'WAITING',
   'COMPLETED',
   'FAILED',
 ] as const;
@@ -811,7 +822,8 @@ export type NodeType =
   | 'TOOL_ACTION'
   | 'WAIT'
   | 'CONDITION'
-  | 'NOTIFY';
+  | 'NOTIFY'
+  | 'APPROVAL';
 
 export const NODE_TYPES: readonly NodeType[] = [
   'TRIGGER',
@@ -821,6 +833,7 @@ export const NODE_TYPES: readonly NodeType[] = [
   'WAIT',
   'CONDITION',
   'NOTIFY',
+  'APPROVAL',
 ] as const;
 
 /** Comparison operators available to a CONDITION node. */
@@ -899,6 +912,15 @@ export interface NotifyNodeConfig {
   message: string;
 }
 
+/**
+ * APPROVAL: pause the run and open a WORKFLOW-kind approval request in the
+ * Approval Center. The run suspends (WAITING) until a manager approves (resume)
+ * or rejects (fail). `message` is shown to the approver (defaulted if absent).
+ */
+export interface ApprovalNodeConfig {
+  message?: string;
+}
+
 // --- Zod schemas (shared with the web forms) -------------------------------
 
 const workflowNodeSchema = z.object({
@@ -911,6 +933,7 @@ const workflowNodeSchema = z.object({
     'WAIT',
     'CONDITION',
     'NOTIFY',
+    'APPROVAL',
   ]),
   name: z.string().max(200).optional(),
   config: z.record(z.unknown()),
@@ -1048,6 +1071,19 @@ export const APPROVAL_STATUSES: readonly ApprovalStatus[] = [
 ] as const;
 
 /**
+ * What an approval request gates. TOOL (default) is a high-risk skill/tool call
+ * from an AI employee — approving EXECUTES it. WORKFLOW is a paused workflow run
+ * that reached an APPROVAL node — approving RESUMES the run, rejecting FAILS it
+ * (no tool is executed; `skillKey`/`tool` are null, `workflowRunId` is set).
+ */
+export type ApprovalKind = 'TOOL' | 'WORKFLOW';
+
+export const APPROVAL_KINDS: readonly ApprovalKind[] = [
+  'TOOL',
+  'WORKFLOW',
+] as const;
+
+/**
  * Per-employee approval policy (persisted on `AiEmployee.approvalRules`). A tool
  * needs approval when `requireApprovalForAllTools` is set, OR when
  * `requireApprovalForTools` includes its skill key (`"slack"`) or a fully
@@ -1062,10 +1098,16 @@ export interface ApprovalRules {
 export interface ApprovalRequestDto {
   id: string;
   companyId: string;
+  /** TOOL (high-risk tool call) or WORKFLOW (paused workflow run). */
+  kind: ApprovalKind;
   employeeId: string | null;
   conversationId: string | null;
-  skillKey: string;
-  tool: string;
+  /** Set for WORKFLOW-kind requests: the paused run this decision resumes/fails. */
+  workflowRunId: string | null;
+  /** Null for WORKFLOW-kind requests (no tool is gated). */
+  skillKey: string | null;
+  /** Null for WORKFLOW-kind requests (no tool is gated). */
+  tool: string | null;
   args: Record<string, unknown>;
   result: unknown;
   description: string | null;

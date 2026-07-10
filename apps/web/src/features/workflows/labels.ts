@@ -14,6 +14,7 @@ export const NODE_LABELS: Record<NodeType, string> = {
   WAIT: 'Wait',
   CONDITION: 'Condition',
   NOTIFY: 'Notify',
+  APPROVAL: 'Approval',
 };
 
 /** One-line description of what each node type does. */
@@ -25,6 +26,8 @@ export const NODE_HINTS: Record<NodeType, string> = {
   WAIT: 'Pause for a bounded number of milliseconds.',
   CONDITION: 'Compare two values to branch the flow (types/engine support branches).',
   NOTIFY: 'Record a message in the run log.',
+  APPROVAL:
+    'Pause the run for a manager decision (Approval Center). Approve resumes; reject fails.',
 };
 
 /** Tailwind badge classes for a workflow status. */
@@ -38,6 +41,7 @@ export const WORKFLOW_STATUS_STYLES: Record<WorkflowStatus, string> = {
 export const RUN_STATUS_STYLES: Record<WorkflowRunStatus, string> = {
   PENDING: 'bg-gray-100 text-gray-600',
   RUNNING: 'bg-blue-100 text-blue-700',
+  WAITING: 'bg-amber-100 text-amber-700',
   COMPLETED: 'bg-green-100 text-green-700',
   FAILED: 'bg-red-100 text-red-700',
 };
@@ -75,6 +79,8 @@ export function defaultConfig(type: NodeType): Record<string, unknown> {
       return { left: '{{trigger.value}}', op: 'eq', right: '' };
     case 'NOTIFY':
       return { message: 'Workflow completed: {{aiText}}' };
+    case 'APPROVAL':
+      return { message: 'Please review and approve this workflow step.' };
     case 'TRIGGER':
     default:
       return {};

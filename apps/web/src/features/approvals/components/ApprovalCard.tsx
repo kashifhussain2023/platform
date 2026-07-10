@@ -23,6 +23,7 @@ export function ApprovalCard({ request }: { request: ApprovalRequestDto }) {
   const [parseError, setParseError] = useState<string | null>(null);
 
   const isPending = request.status === 'PENDING';
+  const isWorkflow = request.kind === 'WORKFLOW';
   const busy = approve.isPending || reject.isPending || modify.isPending;
 
   const submitModify = () => {
@@ -44,8 +45,13 @@ export function ApprovalCard({ request }: { request: ApprovalRequestDto }) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-medium text-gray-800">
-              {request.skillKey} · {request.tool}
+              {isWorkflow
+                ? 'Workflow approval'
+                : `${request.skillKey} · ${request.tool}`}
             </p>
+            <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+              {isWorkflow ? 'Workflow' : 'Tool'}
+            </span>
             <span
               className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[request.status]}`}
             >
@@ -58,30 +64,34 @@ export function ApprovalCard({ request }: { request: ApprovalRequestDto }) {
             </p>
           )}
           <p className="mt-0.5 text-xs text-gray-400">
-            {request.employeeId
-              ? `Employee ${request.employeeId}`
-              : 'No employee'}{' '}
+            {isWorkflow
+              ? `Workflow run ${request.workflowRunId ?? '—'}`
+              : request.employeeId
+                ? `Employee ${request.employeeId}`
+                : 'No employee'}{' '}
             · {new Date(request.createdAt).toLocaleString()}
           </p>
         </div>
       </div>
 
-      {editing ? (
-        <div>
-          <textarea
-            className="h-40 w-full rounded-md border border-gray-300 p-2 font-mono text-xs"
-            value={argsText}
-            onChange={(e) => setArgsText(e.target.value)}
-          />
-          {parseError && (
-            <p className="mt-1 text-xs text-red-600">{parseError}</p>
-          )}
-        </div>
-      ) : (
-        <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-gray-100 bg-gray-50 p-2 text-xs text-gray-600">
-          {JSON.stringify(request.args, null, 2)}
-        </pre>
-      )}
+      {/* Tool args block: only TOOL-kind requests gate a tool call. */}
+      {!isWorkflow &&
+        (editing ? (
+          <div>
+            <textarea
+              className="h-40 w-full rounded-md border border-gray-300 p-2 font-mono text-xs"
+              value={argsText}
+              onChange={(e) => setArgsText(e.target.value)}
+            />
+            {parseError && (
+              <p className="mt-1 text-xs text-red-600">{parseError}</p>
+            )}
+          </div>
+        ) : (
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-gray-100 bg-gray-50 p-2 text-xs text-gray-600">
+            {JSON.stringify(request.args, null, 2)}
+          </pre>
+        ))}
 
       {request.result != null && (
         <div className="mt-2">
@@ -129,13 +139,16 @@ export function ApprovalCard({ request }: { request: ApprovalRequestDto }) {
               >
                 Reject
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setEditing(true)}
-                disabled={busy}
-              >
-                Modify
-              </Button>
+              {/* Modify edits tool args — not meaningful for a WORKFLOW approval. */}
+              {!isWorkflow && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setEditing(true)}
+                  disabled={busy}
+                >
+                  Modify
+                </Button>
+              )}
             </>
           )}
         </div>
