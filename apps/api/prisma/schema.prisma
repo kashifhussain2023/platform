@@ -355,11 +355,14 @@ model InstalledSkill {
   // consecutiveErrors: rolling egress/probe failure count; ≥N → DEGRADED.
   // tokenExpiresAt: cached OAuth access-token expiry (drives single-flight refresh).
   // disabledReason: why the connector was auto-DISCONNECTED (revoked/invalid_grant).
+  // inboundCursor: per-connector inbound polling watermark (e.g. Gmail historyId);
+  //   null → not yet baselined (first poll stores the current cursor, fires nothing).
   lastHealthCheckAt DateTime?
   lastHealthError   String?
   consecutiveErrors Int      @default(0)
   tokenExpiresAt    DateTime?
   disabledReason    String?
+  inboundCursor     String?
   createdAt   DateTime @default(now())
 
   employees EmployeeSkill[]

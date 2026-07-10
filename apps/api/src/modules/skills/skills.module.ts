@@ -83,6 +83,6 @@ function skillExecutorFactory(config: ConfigService): SkillExecutor {
       useValue: ((url, init) => fetch(url, init)) as FetchLike,
     },
   ],
-  exports: [SkillsService, ConnectorHealthService],
+  exports: [SkillsService, ConnectorHealthService, ConnectorTokenService],
 })
 export class SkillsModule {}

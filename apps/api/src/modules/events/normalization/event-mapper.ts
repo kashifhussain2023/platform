@@ -134,11 +134,37 @@ function mapGeneric(raw: RawEventInput): CanonicalMapping {
   };
 }
 
+/**
+ * Gmail mapper. Fed by the INBOUND polling driver (GmailInboundService), whose
+ * RawEvent payload already carries the flattened message metadata
+ * `{ messageId, from, subject, snippet, date }` (pulled via the Gmail REST API).
+ * Every inbound message maps to a `NEW_EMAIL` canonical event; the subject frames
+ * the sender as a candidate so the RecruitAI EVENT workflow can screen it.
+ * dedupeKey = `gmail:msg:<messageId>` (idempotent per Gmail message id).
+ */
+function mapGmail(raw: RawEventInput): CanonicalMapping {
+  const payload = raw.payload ?? {};
+  const messageId =
+    str(payload['messageId']) ?? raw.externalId ?? hashPayload(payload);
+  const from = str(payload['from']) ?? null;
+  const subject = str(payload['subject']) ?? null;
+  const snippet = str(payload['snippet']) ?? null;
+  return {
+    type: 'NEW_EMAIL',
+    dedupeKey: `gmail:msg:${messageId}`,
+    occurredAt: parseDate(payload['date']),
+    subject: { type: 'candidate', email: from },
+    data: { from, subject, snippet, messageId },
+  };
+}
+
 /** Dispatch to the provider's mapper (generic fallback). Pure + total. */
 export function mapRawEvent(raw: RawEventInput): CanonicalMapping {
   switch (raw.provider) {
     case 'github':
       return mapGithub(raw);
+    case 'gmail':
+      return mapGmail(raw);
     default:
       return mapGeneric(raw);
   }

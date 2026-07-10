@@ -9,10 +9,14 @@ import { EventsService } from './events.service';
 import {
   CONNECTOR_RECONCILE_QUEUE,
   EVENT_NORMALIZE_QUEUE,
+  GMAIL_INBOUND_QUEUE,
 } from './events.constants';
 import { EventNormalizeProcessor } from './ingestion/event-normalize.processor';
 import { ConnectorReconcileService } from './reconciliation/connector-reconcile.service';
 import { ConnectorReconcileProcessor } from './reconciliation/connector-reconcile.processor';
+import { ConnectorPollController } from './inbound/connector-poll.controller';
+import { GmailInboundService } from './inbound/gmail-inbound.service';
+import { GmailInboundProcessor } from './inbound/gmail-inbound.processor';
 
 /**
  * Connector Event Ingestion module (Unit A) — the per-provider event pipeline
@@ -30,6 +34,7 @@ import { ConnectorReconcileProcessor } from './reconciliation/connector-reconcil
   imports: [
     BullModule.registerQueue({ name: EVENT_NORMALIZE_QUEUE }),
     BullModule.registerQueue({ name: CONNECTOR_RECONCILE_QUEUE }),
+    BullModule.registerQueue({ name: GMAIL_INBOUND_QUEUE }),
     SkillsModule,
     WorkflowsModule,
   ],
@@ -37,12 +42,15 @@ import { ConnectorReconcileProcessor } from './reconciliation/connector-reconcil
     ConnectorWebhookController,
     ConnectorEventsController,
     EventsController,
+    ConnectorPollController,
   ],
   providers: [
     EventsService,
     EventNormalizeProcessor,
     ConnectorReconcileService,
     ConnectorReconcileProcessor,
+    GmailInboundService,
+    GmailInboundProcessor,
   ],
   exports: [EventsService],
 })

@@ -39,3 +39,27 @@ export const CONNECTOR_RECONCILE_EVERY_MS = 60 * 60 * 1000;
 
 /** Max connectors reconciled per sweep (batching / rate-limit guard). */
 export const CONNECTOR_RECONCILE_BATCH = 100;
+
+// --- Gmail inbound polling driver (real-time-ish inbound → NEW_EMAIL) --------
+// A per-connector poll of the Gmail REST history feed: new inbound messages →
+// RawEvent → CanonicalEvent(NEW_EMAIL) → fireEvent. A BullMQ repeatable sweeps
+// all CONNECTED gmail connectors on a short interval. Inert offline (no CONNECTED
+// gmail connectors in tests) and safe on any provider/API error (logs + no-op).
+
+/** Queue that drives the scheduled Gmail inbound poll sweep. */
+export const GMAIL_INBOUND_QUEUE = 'gmail-inbound';
+
+/** Repeatable job name for the inbound poll sweep. */
+export const GMAIL_INBOUND_JOB = 'gmail-inbound-sweep';
+
+/** Job-scheduler id (idempotent upsert, like the other repeatables). */
+export const GMAIL_INBOUND_SCHEDULER = 'gmail-inbound';
+
+/** Inbound polling runs frequently (~60s) — this is the near-real-time driver. */
+export const GMAIL_INBOUND_EVERY_MS = 60 * 1000;
+
+/** Max gmail connectors polled per sweep (batching / rate-limit guard). */
+export const GMAIL_INBOUND_BATCH = 100;
+
+/** Max Gmail history pages walked per poll (bounds a large catch-up). */
+export const GMAIL_HISTORY_MAX_PAGES = 10;
