@@ -10,6 +10,7 @@ import { EmployeesModule } from './modules/employees/employees.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
+import { EventsModule } from './modules/events/events.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BillingModule } from './modules/billing/billing.module';
@@ -29,6 +30,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
     OnboardingModule,
     SkillsModule,
     WorkflowsModule,
+    EventsModule,
     ApprovalsModule,
     AnalyticsModule,
     BillingModule,

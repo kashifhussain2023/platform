@@ -1,0 +1,38 @@
+import { BullModule } from '@nestjs/bullmq';
+import { Module } from '@nestjs/common';
+import { SkillsModule } from '../skills/skills.module';
+import { WorkflowsModule } from '../workflows/workflows.module';
+import { ConnectorEventsController } from './connector-events.controller';
+import { ConnectorWebhookController } from './connector-webhook.controller';
+import { EventsController } from './events.controller';
+import { EventsService } from './events.service';
+import { EVENT_NORMALIZE_QUEUE } from './events.constants';
+import { EventNormalizeProcessor } from './ingestion/event-normalize.processor';
+
+/**
+ * Connector Event Ingestion module (Unit A) — the per-provider event pipeline
+ * spine: a public signed webhook edge → RawEvent (append-only) → a BullMQ
+ * `event-normalize` queue + in-process WorkerHost → provider-agnostic
+ * CanonicalEvent → WorkflowsService.fireEvent → ACTIVE EVENT workflows.
+ *
+ * Reuses SkillsModule (the InstalledSkill IS the connector; getDecryptedCredentials
+ * yields the webhook secret) and WorkflowsModule (fireEvent drives the existing
+ * engine). The shared BullMQ connection is registered globally by KnowledgeModule
+ * (BullModule.forRootAsync), so only registerQueue is needed here. No dependency
+ * cycle: Events → {Workflows, Skills}; neither imports Events.
+ */
+@Module({
+  imports: [
+    BullModule.registerQueue({ name: EVENT_NORMALIZE_QUEUE }),
+    SkillsModule,
+    WorkflowsModule,
+  ],
+  controllers: [
+    ConnectorWebhookController,
+    ConnectorEventsController,
+    EventsController,
+  ],
+  providers: [EventsService, EventNormalizeProcessor],
+  exports: [EventsService],
+})
+export class EventsModule {}

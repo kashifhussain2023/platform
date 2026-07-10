@@ -553,3 +553,67 @@ model SecurityPolicy {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
+
+// --- Connector Event Ingestion (Unit A) ------------------------------------
+// The per-provider event pipeline (see docs/architecture/connector-event-
+// workflow-architecture.md §2.4/§3/§4). A signed webhook hits the "dumb, fast"
+// ingestion edge → a RawEvent is persisted append-only and a normalization job
+// enqueued → a provider mapper turns it into a provider-agnostic CanonicalEvent
+// → WorkflowsService.fireEvent drives ACTIVE EVENT workflows. Both tables are
+// append-only audit logs scoped by companyId (mirrors SkillExecution: a plain
+// companyId column + index, no company relation). No vector columns here.
+
+// Lifecycle of a raw provider event as it moves through normalization.
+enum RawEventStatus {
+  RECEIVED
+  NORMALIZED
+  FAILED
+  SKIPPED
+}
+
+// The untouched provider payload as received at the ingestion edge (audit/replay).
+// `externalId` is the provider delivery id (GitHub X-GitHub-Delivery, generic
+// X-Event-Id) used for at-least-once dedupe: the (connectorId, externalId) unique
+// index drops re-deliveries. Postgres treats NULLs as distinct, so a null
+// externalId is always allowed (dedupe only applies when it is present).
+model RawEvent {
+  id                String         @id @default(cuid())
+  companyId         String
+  // The InstalledSkill acting as the connector that received this event.
+  connectorId       String
+  provider          String
+  externalId        String?
+  signatureVerified Boolean
+  headers           Json?
+  payload           Json
+  status            RawEventStatus @default(RECEIVED)
+  error             String?
+  receivedAt        DateTime       @default(now())
+
+  @@unique([connectorId, externalId])
+  @@index([companyId])
+}
+
+// The provider-agnostic canonical envelope produced by a provider mapper. Idempotent
+// on (companyId, dedupeKey): re-normalizing the same logical event is a no-op.
+model CanonicalEvent {
+  id            String    @id @default(cuid())
+  companyId     String
+  connectorId   String
+  // Pointer back to the RawEvent this was normalized from (not an FK — the raw
+  // log is append-only and may be pruned independently).
+  rawEventId    String?
+  provider      String
+  // A CanonicalEventType value (e.g. NEW_GITHUB_PR); stored as text so the
+  // controlled vocabulary can evolve without a migration.
+  type          String
+  dedupeKey     String
+  occurredAt    DateTime?
+  receivedAt    DateTime  @default(now())
+  subject       Json?
+  data          Json?
+  schemaVersion String    @default("1.0")
+
+  @@unique([companyId, dedupeKey])
+  @@index([companyId, type])
+}

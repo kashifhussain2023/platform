@@ -12,6 +12,7 @@ import { CONNECTION_STATUS_STYLES, formatConnectionStatus } from '../labels';
 import type { InstalledSkillDto, SkillDefinitionDto } from '../schemas';
 import { ConfigureSkillForm } from './ConfigureSkillForm';
 import { ConnectSkillControl } from './ConnectSkillControl';
+import { RecentConnectorEvents } from '@/features/events/components/RecentConnectorEvents';
 
 /** One installed-skill row with enable/disable, connect, configure, uninstall. */
 function InstalledSkillRow({
@@ -24,6 +25,7 @@ function InstalledSkillRow({
   const update = useUpdateInstalledSkill();
   const uninstall = useUninstallSkill();
   const [showConfig, setShowConfig] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
   const isTemp = skill.id.startsWith('temp_');
 
   return (
@@ -59,6 +61,13 @@ function InstalledSkillRow({
           )}
           <Button
             variant="ghost"
+            onClick={() => setShowEvents((v) => !v)}
+            disabled={isTemp}
+          >
+            Events
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() =>
               update.mutate({
                 id: skill.id,
@@ -86,6 +95,13 @@ function InstalledSkillRow({
             def={def}
             onDone={() => setShowConfig(false)}
           />
+        </div>
+      )}
+
+      {showEvents && !isTemp && (
+        <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-4">
+          <p className="mb-2 text-xs font-medium text-gray-500">Recent Events</p>
+          <RecentConnectorEvents connectorId={skill.id} />
         </div>
       )}
     </li>

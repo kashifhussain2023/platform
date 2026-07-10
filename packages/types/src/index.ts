@@ -1479,3 +1479,110 @@ export type UpdateDepartmentDto = z.infer<typeof updateDepartmentSchema>;
 export type CreateTeamDto = z.infer<typeof createTeamSchema>;
 export type UpdateTeamDto = z.infer<typeof updateTeamSchema>;
 export type UpdateSecurityPolicyDto = z.infer<typeof updateSecurityPolicySchema>;
+
+// ---------------------------------------------------------------------------
+// Connector Event Ingestion (Unit A) contracts.
+// ---------------------------------------------------------------------------
+// The per-provider event pipeline (docs/architecture/connector-event-workflow-
+// architecture.md §2.4/§3/§4): a SIGNED provider webhook hits the "dumb, fast"
+// ingestion edge → a RawEvent is persisted append-only + a normalization job
+// enqueued (BullMQ `event-normalize`) → a provider MAPPER turns it into the
+// provider-agnostic CanonicalEvent below → WorkflowsService.fireEvent drives
+// ACTIVE EVENT workflows. Downstream code knows ONLY this canonical vocabulary,
+// never a provider's native shape.
+
+/**
+ * The controlled, versioned canonical vocabulary every provider mapper
+ * normalizes into. Workflows subscribe to these values (an EVENT trigger's
+ * `triggerConfig.eventType`), never to a provider's native event name. UNKNOWN
+ * is the catch-all for an event we received but do not (yet) map.
+ */
+export type CanonicalEventType =
+  | 'NEW_EMAIL'
+  | 'EMAIL_REPLIED'
+  | 'NEW_LEAD'
+  | 'LEAD_STAGE_CHANGED'
+  | 'NEW_PAYMENT'
+  | 'PAYMENT_FAILED'
+  | 'NEW_JIRA_ISSUE'
+  | 'JIRA_ISSUE_UPDATED'
+  | 'NEW_GITHUB_PR'
+  | 'NEW_GITHUB_ISSUE'
+  | 'NEW_TICKET'
+  | 'NEW_DOCUMENT'
+  | 'NEW_CANDIDATE'
+  | 'UNKNOWN';
+
+export const CANONICAL_EVENT_TYPES: readonly CanonicalEventType[] = [
+  'NEW_EMAIL',
+  'EMAIL_REPLIED',
+  'NEW_LEAD',
+  'LEAD_STAGE_CHANGED',
+  'NEW_PAYMENT',
+  'PAYMENT_FAILED',
+  'NEW_JIRA_ISSUE',
+  'JIRA_ISSUE_UPDATED',
+  'NEW_GITHUB_PR',
+  'NEW_GITHUB_ISSUE',
+  'NEW_TICKET',
+  'NEW_DOCUMENT',
+  'NEW_CANDIDATE',
+  'UNKNOWN',
+] as const;
+
+/** Lifecycle of a raw provider event as it moves through normalization. */
+export type RawEventStatus = 'RECEIVED' | 'NORMALIZED' | 'FAILED' | 'SKIPPED';
+
+export const RAW_EVENT_STATUSES: readonly RawEventStatus[] = [
+  'RECEIVED',
+  'NORMALIZED',
+  'FAILED',
+  'SKIPPED',
+] as const;
+
+/** Which append-only log the connector-events observability endpoint reads. */
+export type ConnectorEventKind = 'raw' | 'canonical';
+
+/**
+ * A raw provider event as received at the ingestion edge (append-only audit).
+ * The verbatim `headers`/`payload` are intentionally omitted from the list DTO —
+ * this is the lightweight shape the observability endpoints return.
+ */
+export interface RawEventDto {
+  id: string;
+  companyId: string;
+  connectorId: string;
+  provider: string;
+  externalId: string | null;
+  signatureVerified: boolean;
+  status: RawEventStatus;
+  error: string | null;
+  receivedAt: string;
+}
+
+/** A provider-agnostic canonical event envelope (§3.1). */
+export interface CanonicalEventDto {
+  id: string;
+  companyId: string;
+  connectorId: string;
+  rawEventId: string | null;
+  provider: string;
+  type: CanonicalEventType;
+  dedupeKey: string;
+  occurredAt: string | null;
+  receivedAt: string;
+  subject: Record<string, unknown> | null;
+  data: Record<string, unknown> | null;
+  schemaVersion: string;
+}
+
+/**
+ * Response from the ingestion edge (POST /connectors/:connectorId/webhook).
+ * A freshly-accepted event returns 202 with `deduped:false`; a re-delivery of an
+ * already-seen event returns 200 with `deduped:true` (idempotent no-op).
+ */
+export interface WebhookAcceptedDto {
+  received: boolean;
+  deduped: boolean;
+  rawEventId: string | null;
+}
