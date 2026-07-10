@@ -36,7 +36,7 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   private async getClient() {
     if (!this.client) {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error optional dep — installed only when EMBEDDINGS_PROVIDER=openai
+      // @ts-ignore optional dep — installed only when EMBEDDINGS_PROVIDER=openai
       const { default: OpenAI } = await import('openai');
       this.client = new OpenAI({
         apiKey: this.config.getOrThrow<string>('OPENAI_API_KEY'),

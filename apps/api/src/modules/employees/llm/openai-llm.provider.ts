@@ -104,7 +104,7 @@ export class OpenAiLlmProvider implements LlmProvider {
   private async getClient() {
     if (!this.client) {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error optional dep — installed only when LLM_PROVIDER=openai
+      // @ts-ignore optional dep — installed only when LLM_PROVIDER=openai
       const { default: OpenAI } = await import('openai');
       this.client = new OpenAI({
         apiKey: this.config.getOrThrow<string>('OPENAI_API_KEY'),
