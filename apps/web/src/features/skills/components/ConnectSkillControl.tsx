@@ -2,14 +2,18 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import type { NormalizedApiError } from '@/lib/apiClient';
+import { authorizeOAuth } from '../api';
 import { useConnectSkill, useDisconnectSkill } from '../hooks';
 import type { InstalledSkillDto, SkillDefinitionDto } from '../schemas';
 
 /**
  * Connect / disconnect control for an installed skill.
  * - `api_key` skills prompt inline for a secret key (stored in credentials).
- * - `oauth` skills use a STUBBED "Connect" button (real OAuth flow is a TODO)
- *   that just marks the skill connected with a placeholder token.
+ * - `oauth` skills start the REAL authorization-code flow: fetch the provider
+ *   URL from the API and redirect the browser there (the API callback stores the
+ *   tokens and returns to /skills?connected=…). If OAuth is not configured the
+ *   API returns 400 and we surface the message inline.
  * - `none` skills need no connection.
  */
 export function ConnectSkillControl({
@@ -23,6 +27,21 @@ export function ConnectSkillControl({
   const disconnect = useDisconnectSkill();
   const [apiKey, setApiKey] = useState('');
   const [open, setOpen] = useState(false);
+  const [authorizing, setAuthorizing] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  const startOAuth = async () => {
+    setOauthError(null);
+    setAuthorizing(true);
+    try {
+      const { url } = await authorizeOAuth(installed.id);
+      // Full-page redirect to the provider's consent screen.
+      window.location.href = url;
+    } catch (err) {
+      setOauthError((err as NormalizedApiError).message ?? 'OAuth failed');
+      setAuthorizing(false);
+    }
+  };
 
   const type = def.connection?.type ?? 'none';
   const isConnected = installed.connectionStatus === 'CONNECTED';
@@ -49,18 +68,16 @@ export function ConnectSkillControl({
       <div className="flex flex-col items-end gap-1">
         <Button
           variant="ghost"
-          onClick={() =>
-            connect.mutate({
-              id: installed.id,
-              // STUB: real OAuth authorization-code flow is a TODO.
-              data: { credentials: { token: 'stub-oauth-token' } },
-            })
-          }
-          disabled={isTemp || connect.isPending}
+          onClick={startOAuth}
+          disabled={isTemp || authorizing}
         >
-          {def.connection?.label ?? 'Connect'}
+          {authorizing ? 'Redirecting…' : def.connection?.label ?? 'Connect'}
         </Button>
-        <span className="text-[10px] text-gray-400">OAuth (stubbed)</span>
+        {oauthError ? (
+          <span className="text-[10px] text-red-500">{oauthError}</span>
+        ) : (
+          <span className="text-[10px] text-gray-400">OAuth</span>
+        )}
       </div>
     );
   }

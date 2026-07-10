@@ -21,13 +21,24 @@ export interface BillingProvider {
 
   /**
    * Apply a plan change to a subscription. Mock switches immediately; Stripe
-   * creates/updates the remote subscription (best-effort) and MAY return a
-   * hosted `checkoutUrl` (TODO: full checkout/webhook flow).
+   * creates a hosted Checkout Session for the target plan's price and returns its
+   * `checkoutUrl` WITHOUT changing the local plan (the webhook confirms it).
    */
   changePlan(
     subscription: Subscription,
     plan: Plan,
   ): Promise<ChangePlanResult>;
+
+  /**
+   * Verify + parse a provider webhook into a normalized event, or null for an
+   * event we ignore. OPTIONAL — providers without webhooks (mock) omit it, and
+   * the route then answers 400. Implementations MUST throw on an unverifiable
+   * signature so the route returns 400.
+   */
+  parseWebhookEvent?(
+    rawBody: Buffer | undefined,
+    signature: string | undefined,
+  ): Promise<BillingWebhookEvent | null>;
 }
 
 /** Minimal company shape a provider needs to create/lookup a customer. */
@@ -44,10 +55,28 @@ export interface EnsureCustomerResult {
 export interface ChangePlanResult {
   plan: Plan;
   status: SubscriptionStatus;
+  externalCustomerId?: string | null;
   externalSubscriptionId?: string | null;
   currentPeriodEnd?: Date | null;
   /** Hosted checkout URL (Stripe only; surfaced in the DTO). */
   checkoutUrl?: string | null;
+}
+
+/**
+ * Normalized subscription-affecting webhook event. A provider's parseWebhookEvent
+ * verifies the raw request and maps it to this shape; BillingService then applies
+ * it to the local Subscription (resolving the tenant by companyId, else by the
+ * stored external customer/subscription id).
+ */
+export interface BillingWebhookEvent {
+  /** Raw provider event type (e.g. checkout.session.completed) — for logging. */
+  type: string;
+  companyId?: string | null;
+  externalCustomerId?: string | null;
+  externalSubscriptionId?: string | null;
+  plan?: Plan | null;
+  status?: SubscriptionStatus | null;
+  currentPeriodEnd?: Date | null;
 }
 
 /** DI token for the active BillingProvider implementation. */

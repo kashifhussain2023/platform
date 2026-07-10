@@ -298,8 +298,14 @@ export class SkillsService {
     if (!SkillCatalog.getTool(skillKey, tool)) {
       outcome = { ok: false, error: `Unknown skill/tool: ${skillKey}/${tool}` };
     } else {
+      // Real/auto executors need the tenant's decrypted credentials + config +
+      // connection status. The default mock leaves usesInstalledCredentials
+      // falsy so its path does ZERO extra DB work (suite behaviour unchanged).
+      const execCtx = this.executor.usesInstalledCredentials
+        ? await this.resolveExecutorContext(ctx, skillKey)
+        : ctx;
       try {
-        outcome = await this.executor.execute(skillKey, tool, safeArgs, ctx);
+        outcome = await this.executor.execute(skillKey, tool, safeArgs, execCtx);
       } catch (err) {
         outcome = {
           ok: false,
@@ -351,12 +357,40 @@ export class SkillsService {
     return this.runTool({ companyId }, installed.skillKey, tool, args);
   }
 
+  // --- Runtime credential resolution (for real executors) ------------------
+
+  /**
+   * Build the ExecutorContext a real/auto executor needs: look up the tenant's
+   * InstalledSkill for `skillKey` and fold in its decrypted credentials, config
+   * and connectionStatus. Tenant-scoped by ctx.companyId. When the skill is not
+   * installed the original ctx is returned unchanged (executor falls back).
+   */
+  private async resolveExecutorContext(
+    ctx: ExecutorContext,
+    skillKey: string,
+  ): Promise<ExecutorContext> {
+    const installed = await this.prisma.installedSkill.findUnique({
+      where: { companyId_skillKey: { companyId: ctx.companyId, skillKey } },
+    });
+    if (!installed) {
+      return ctx;
+    }
+    return {
+      ...ctx,
+      installedSkillId: installed.id,
+      connectionStatus:
+        installed.connectionStatus as ExecutorContext['connectionStatus'],
+      config: (installed.config as Record<string, unknown> | null) ?? null,
+      credentials: this.readCredentials(installed.credentials),
+    };
+  }
+
   // --- Credentials at rest (encrypted) -------------------------------------
 
   /**
-   * INTERNAL accessor for future real executors (Unit 3): decrypt an installed
-   * skill's stored credentials into the raw secrets object. Returns `{}` when
-   * none are set. NEVER wired to an HTTP response — the mapper still only exposes
+   * INTERNAL accessor for real executors: decrypt an installed skill's stored
+   * credentials into the raw secrets object. Returns `{}` when none are set.
+   * NEVER wired to an HTTP response — the mapper still only exposes
    * `credentialsSet`. Callers must ensure the id belongs to the acting tenant.
    */
   async getDecryptedCredentials(
@@ -369,6 +403,39 @@ export class SkillsService {
       throw new NotFoundException('Installed skill not found');
     }
     return this.readCredentials(row.credentials);
+  }
+
+  // --- OAuth connection (used by the OAuth authorize/callback flow) ---------
+
+  /** Fetch an owned installed skill row (OAuth authorize needs its skillKey). */
+  getOwnedInstalled(companyId: string, id: string): Promise<InstalledSkill> {
+    return this.findOwnedInstalled(companyId, id);
+  }
+
+  /**
+   * Persist OAuth tokens (encrypted) onto an installed skill and mark it
+   * CONNECTED. Called by the public OAuth callback after the code→token
+   * exchange; scoped by the companyId carried in the signed state so a tenant
+   * can only connect its own skill.
+   */
+  async connectOAuth(
+    companyId: string,
+    installedSkillId: string,
+    tokens: Record<string, unknown>,
+  ): Promise<void> {
+    const installed = await this.findOwnedInstalled(companyId, installedSkillId);
+    const merged = {
+      ...this.readCredentials(installed.credentials),
+      ...tokens,
+    };
+    await this.prisma.installedSkill.update({
+      where: { id: installedSkillId },
+      data: {
+        credentials: this.sealCredentials(merged),
+        connectionType: this.defFor(installed.skillKey).connection.type,
+        connectionStatus: 'CONNECTED',
+      },
+    });
   }
 
   /**

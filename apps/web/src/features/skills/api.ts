@@ -5,6 +5,7 @@ import type {
   EmployeeSkillDto,
   InstallSkillDto,
   InstalledSkillDto,
+  OAuthAuthorizeDto,
   SkillDefinitionDto,
   UpdateInstalledSkillDto,
 } from '@vaep/types';
@@ -73,6 +74,19 @@ export async function disconnectSkill(id: string): Promise<InstalledSkillDto> {
   const { data } = await apiClient.post<InstalledSkillDto>(
     `/skills/installed/${id}/disconnect`,
     {},
+  );
+  return data;
+}
+
+/**
+ * Begin the real OAuth authorization-code flow for an `oauth` skill: ask the API
+ * for the provider authorize URL (carrying a signed state). The caller then
+ * redirects the browser there; the provider calls back to the API which stores
+ * the tokens and bounces to /skills?connected=<skillKey>.
+ */
+export async function authorizeOAuth(id: string): Promise<OAuthAuthorizeDto> {
+  const { data } = await apiClient.get<OAuthAuthorizeDto>(
+    `/skills/installed/${id}/oauth/authorize`,
   );
   return data;
 }

@@ -28,4 +28,5 @@ export type {
   ExecuteToolDto,
   ConfigureSkillDto,
   ConnectSkillDto,
+  OAuthAuthorizeDto,
 } from '@vaep/types';

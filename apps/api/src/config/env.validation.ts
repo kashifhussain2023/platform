@@ -91,10 +91,61 @@ export class EnvVars {
   ANTHROPIC_API_KEY?: string;
 
   // --- Skills module ----------------------------------------------------
-  /** 'mock' (default, offline/deterministic sandbox executor). */
+  /**
+   * Skill-execution backend: 'mock' (DEFAULT, offline sandbox) | 'real' (live
+   * network calls with the tenant's decrypted credentials) | 'auto' (real when
+   * connected-with-creds / connectionless, else mock).
+   */
   @IsString()
   @IsOptional()
   SKILL_EXECUTOR?: string;
+
+  /**
+   * When 'true', the real `http.request` executor may reach private/loopback
+   * addresses (SSRF guard bypass). Local dev only — leave unset in production.
+   */
+  @IsString()
+  @IsOptional()
+  HTTP_SKILL_ALLOW_PRIVATE?: string;
+
+  // --- Skills OAuth (authorization-code) --------------------------------
+  /** Public API origin used to build the OAuth redirect URI (…/skills/oauth/callback). */
+  @IsString()
+  @IsOptional()
+  OAUTH_REDIRECT_BASE?: string;
+
+  /** Per-provider client credentials (only the providers you enable need these). */
+  @IsString()
+  @IsOptional()
+  OAUTH_GOOGLE_CLIENT_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  OAUTH_GOOGLE_CLIENT_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  OAUTH_SLACK_CLIENT_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  OAUTH_SLACK_CLIENT_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  OAUTH_HUBSPOT_CLIENT_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  OAUTH_HUBSPOT_CLIENT_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  OAUTH_ATLASSIAN_CLIENT_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  OAUTH_ATLASSIAN_CLIENT_SECRET?: string;
 
   // --- Billing & Subscription module ------------------------------------
   /** 'mock' (default, offline/deterministic) | 'stripe' (lazy SDK). */
@@ -106,6 +157,28 @@ export class EnvVars {
   @IsString()
   @IsOptional()
   STRIPE_SECRET_KEY?: string;
+
+  /** Stripe webhook signing secret (required for POST /billing/webhook). */
+  @IsString()
+  @IsOptional()
+  STRIPE_WEBHOOK_SECRET?: string;
+
+  /** Per-plan Stripe Price IDs (used to build a Checkout Session on plan change). */
+  @IsString()
+  @IsOptional()
+  STRIPE_PRICE_STARTER?: string;
+
+  @IsString()
+  @IsOptional()
+  STRIPE_PRICE_PRO?: string;
+
+  @IsString()
+  @IsOptional()
+  STRIPE_PRICE_BUSINESS?: string;
+
+  @IsString()
+  @IsOptional()
+  STRIPE_PRICE_ENTERPRISE?: string;
 
   // --- Secrets encryption (at rest) -------------------------------------
   /**

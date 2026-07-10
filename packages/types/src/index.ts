@@ -730,6 +730,15 @@ export type ExecuteToolDto = z.infer<typeof executeToolSchema>;
 export type ConfigureSkillDto = z.infer<typeof configureSkillSchema>;
 export type ConnectSkillDto = z.infer<typeof connectSkillSchema>;
 
+/**
+ * GET /skills/installed/:id/oauth/authorize response. `url` is the provider
+ * authorization-code URL (with a signed, stateless `state`) that the browser is
+ * redirected to; the provider then calls back to the public /skills/oauth/callback.
+ */
+export interface OAuthAuthorizeDto {
+  url: string;
+}
+
 // ---------------------------------------------------------------------------
 // Workflow builder module contracts.
 // ---------------------------------------------------------------------------

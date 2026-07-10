@@ -59,9 +59,11 @@ interface ChangePlanContext {
 }
 
 /**
- * Change plan (optimistic): patch the cached subscription's plan immediately,
- * roll back on error, and refetch subscription + usage on settle (usage limits
- * shift with the plan).
+ * Change plan. With the mock provider the switch is immediate (optimistic:
+ * patch the cached plan, roll back on error). With Stripe the response carries a
+ * hosted `checkoutUrl` and the switch only applies after the webhook confirms —
+ * so we roll back the optimistic patch and redirect the browser to checkout.
+ * Refetches subscription + usage on settle (limits shift with the plan).
  */
 export function useChangePlan() {
   const qc = useQueryClient();
@@ -84,6 +86,14 @@ export function useChangePlan() {
         });
       }
       return { previous };
+    },
+    onSuccess: (data, _vars, context) => {
+      // Stripe: nothing changed server-side yet — undo the optimistic patch and
+      // send the user to the hosted checkout page (webhook applies the switch).
+      if (data.checkoutUrl) {
+        rollback(qc, context);
+        window.location.href = data.checkoutUrl;
+      }
     },
     onError: (_err, _vars, context) => {
       rollback(qc, context);

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BillingController } from './billing.controller';
+import { BillingWebhookController } from './billing-webhook.controller';
 import { BillingService } from './billing.service';
 import {
   BILLING_PROVIDER_TOKEN,
@@ -33,7 +34,7 @@ function billingProviderFactory(config: ConfigService): BillingProvider {
  * JWT passport strategy is registered globally by AuthModule.
  */
 @Module({
-  controllers: [BillingController],
+  controllers: [BillingController, BillingWebhookController],
   providers: [
     BillingService,
     {

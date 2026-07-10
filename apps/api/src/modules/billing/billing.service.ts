@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type {
   ChangePlanDto,
@@ -10,6 +10,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   BILLING_PROVIDER_TOKEN,
   type BillingProvider,
+  type BillingWebhookEvent,
 } from './billing.provider';
 import { toSubscriptionDto } from './billing.mapper';
 import { PLAN_LIST, maxEmployeesFor } from './billing.plans';
@@ -93,8 +94,12 @@ export class BillingService {
     const updated = await this.prisma.subscription.update({
       where: { companyId },
       data: {
+        // Stripe returns the CURRENT plan/status (checkout pending) — the switch
+        // is applied later by the webhook. Mock returns the target immediately.
         plan: result.plan,
         status: result.status,
+        externalCustomerId:
+          result.externalCustomerId ?? current.externalCustomerId,
         externalSubscriptionId:
           result.externalSubscriptionId ?? current.externalSubscriptionId,
         currentPeriodEnd:
@@ -102,11 +107,70 @@ export class BillingService {
       },
     });
     const dtoOut = toSubscriptionDto(updated);
-    // Surface a hosted checkout url when a provider returns one (Stripe; TODO).
+    // Surface a hosted checkout url when a provider returns one (Stripe).
     if (result.checkoutUrl) {
       dtoOut.checkoutUrl = result.checkoutUrl;
     }
     return dtoOut;
+  }
+
+  /**
+   * Verify + apply a provider webhook (Stripe). The provider verifies the raw
+   * body/signature (throwing → 400 on an unverifiable request) and normalizes the
+   * event; we then reconcile the local Subscription. A provider without webhook
+   * support (mock) yields a 400. Unknown/ignored events are a no-op.
+   */
+  async handleWebhook(
+    rawBody: Buffer | undefined,
+    signature: string | undefined,
+  ): Promise<{ received: boolean }> {
+    if (!this.provider.parseWebhookEvent) {
+      throw new BadRequestException(
+        'Billing provider does not support webhooks',
+      );
+    }
+    const event = await this.provider.parseWebhookEvent(rawBody, signature);
+    if (event) {
+      await this.applyWebhookEvent(event);
+    }
+    return { received: true };
+  }
+
+  /** Reconcile one normalized webhook event onto the local Subscription. */
+  private async applyWebhookEvent(event: BillingWebhookEvent): Promise<void> {
+    // Resolve the tenant: prefer the companyId in the event metadata, then the
+    // stored external subscription/customer id.
+    let subscription = event.companyId
+      ? await this.prisma.subscription.findUnique({
+          where: { companyId: event.companyId },
+        })
+      : null;
+    if (!subscription && event.externalSubscriptionId) {
+      subscription = await this.prisma.subscription.findFirst({
+        where: { externalSubscriptionId: event.externalSubscriptionId },
+      });
+    }
+    if (!subscription && event.externalCustomerId) {
+      subscription = await this.prisma.subscription.findFirst({
+        where: { externalCustomerId: event.externalCustomerId },
+      });
+    }
+    if (!subscription) {
+      return; // unknown subscription — nothing to reconcile
+    }
+    await this.prisma.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        plan: event.plan ?? subscription.plan,
+        status: event.status ?? subscription.status,
+        externalCustomerId:
+          event.externalCustomerId ?? subscription.externalCustomerId,
+        externalSubscriptionId:
+          event.externalSubscriptionId ?? subscription.externalSubscriptionId,
+        currentPeriodEnd:
+          event.currentPeriodEnd ?? subscription.currentPeriodEnd,
+      },
+    });
   }
 
   /**

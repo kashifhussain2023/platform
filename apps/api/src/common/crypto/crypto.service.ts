@@ -4,7 +4,9 @@ import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  createHmac,
   randomBytes,
+  timingSafeEqual,
 } from 'node:crypto';
 
 const ALGORITHM = 'aes-256-gcm';
@@ -82,6 +84,30 @@ export class CryptoService {
   /** Decrypt an envelope back into a JSON value. */
   decryptJson<T = unknown>(envelope: string): T {
     return JSON.parse(this.decrypt(envelope)) as T;
+  }
+
+  /**
+   * HMAC-SHA256 signature (hex) of `data` under the service key. Used for signed,
+   * STATELESS tokens (e.g. the OAuth `state` parameter) — nothing is stored; the
+   * signature proves the token was minted by us and was not tampered with.
+   */
+  sign(data: string): string {
+    return createHmac('sha256', this.key).update(data).digest('hex');
+  }
+
+  /** Constant-time verification of a hex signature produced by {@link sign}. */
+  verify(data: string, signature: string): boolean {
+    const expected = Buffer.from(this.sign(data), 'hex');
+    let provided: Buffer;
+    try {
+      provided = Buffer.from(signature, 'hex');
+    } catch {
+      return false;
+    }
+    return (
+      expected.length === provided.length &&
+      timingSafeEqual(expected, provided)
+    );
   }
 
   /** Resolve a 32-byte key from env, or derive an insecure dev key (warn once). */
