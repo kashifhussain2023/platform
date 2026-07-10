@@ -258,13 +258,23 @@ export class GmailInboundService {
     let firedRuns = 0;
     if (created && canonical) {
       try {
+        // Flatten the email fields to the TOP LEVEL of the trigger payload so
+        // workflow templates can use {{trigger.subject}} / {{trigger.body}} /
+        // {{trigger.from}} / {{trigger.snippet}} naturally. The canonical
+        // aggregate `subject:{type,email}` stays on the CanonicalEvent row; we
+        // also keep `data` so {{trigger.data.*}} continues to resolve.
+        const email = (canonical.data ?? {}) as Record<string, unknown>;
         const result = await this.workflows.fireEvent(
           connector.companyId,
           canonical.type,
           {
             eventId: canonical.id,
-            subject: canonical.subject ?? null,
-            data: canonical.data ?? null,
+            from: email.from ?? null,
+            subject: email.subject ?? null,
+            snippet: email.snippet ?? null,
+            body: email.snippet ?? null,
+            messageId: email.messageId ?? null,
+            data: email,
           },
         );
         firedRuns = result.count;
