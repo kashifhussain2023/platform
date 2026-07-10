@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import { CryptoService } from '../src/common/crypto/crypto.service';
 
 // Skill configuration + connection e2e: needs a live Postgres + Redis. Skipped
 // when DATABASE_URL is unset so it never blocks the build. Run it with:
@@ -108,13 +109,22 @@ describeIfDb('Skill config + connection e2e', () => {
       .expect(200);
     expect(JSON.stringify(list.body)).not.toContain('sk_test_x');
 
-    // But the secret IS persisted (just not exposed).
+    // The secret IS persisted, but ENCRYPTED — the DB column holds a versioned
+    // envelope, not the plaintext key.
     const dbRow = await prisma.installedSkill.findUnique({
       where: { id: installedSkillId },
     });
-    expect((dbRow?.credentials as Record<string, unknown>).apiKey).toBe(
-      'sk_test_x',
-    );
+    const stored = dbRow?.credentials as { enc?: string };
+    expect(typeof stored.enc).toBe('string');
+    expect(stored.enc).toMatch(/^v1:/); // AES-256-GCM envelope
+    // The plaintext key must not appear anywhere in the stored ciphertext.
+    expect(JSON.stringify(stored)).not.toContain('sk_test_x');
+    expect(stored).not.toHaveProperty('apiKey');
+
+    // ...but it round-trips back to the original via CryptoService.
+    const crypto = app.get(CryptoService);
+    const decrypted = crypto.decryptJson<{ apiKey: string }>(stored.enc as string);
+    expect(decrypted.apiKey).toBe('sk_test_x');
   });
 
   it('accepts a valid config value (currency:usd) and persists it', async () => {

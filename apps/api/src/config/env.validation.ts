@@ -106,6 +106,17 @@ export class EnvVars {
   @IsString()
   @IsOptional()
   STRIPE_SECRET_KEY?: string;
+
+  // --- Secrets encryption (at rest) -------------------------------------
+  /**
+   * 32-byte AES-256 key for encrypting stored secrets (e.g. skill credentials):
+   * 64 hex chars or base64 of 32 bytes. OPTIONAL — if unset, an insecure dev key
+   * is derived (with a one-time warning) so local dev/tests work. MUST be set in
+   * production.
+   */
+  @IsString()
+  @IsOptional()
+  ENCRYPTION_KEY?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {

@@ -15,6 +15,7 @@ import type {
   ToolDefinitionDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CryptoService } from '../../common/crypto/crypto.service';
 import { SkillCatalog, type SkillDefinition } from './catalog';
 import { ConfigureSkillDto } from './dto/configure-skill.dto';
 import { ConnectSkillDto } from './dto/connect-skill.dto';
@@ -38,6 +39,7 @@ import { toEmployeeSkillDto, toInstalledSkillDto } from './skills.mapper';
 export class SkillsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly crypto: CryptoService,
     @Inject(SKILL_EXECUTOR_TOKEN) private readonly executor: SkillExecutor,
   ) {}
 
@@ -121,8 +123,9 @@ export class SkillsService {
    * Set company-specific configuration. Each provided field is validated against
    * the skill's catalog `configSchema` (type / required / select-options).
    * Non-secret fields are stored in `config`; `secret:true` fields go to
-   * `credentials` (masked in responses). Config/connection is OPTIONAL and
-   * NON-BLOCKING — the mock executor runs without either.
+   * `credentials`, ENCRYPTED at rest (only a masked boolean is ever returned).
+   * Config/connection is OPTIONAL and NON-BLOCKING — the mock executor runs
+   * without either.
    */
   async configureSkill(
     companyId: string,
@@ -137,8 +140,10 @@ export class SkillsService {
       ...((installed.config as Record<string, unknown> | null) ?? {}),
       ...config,
     };
+    // Merge new secrets into any already-stored (decrypted) creds, then re-seal
+    // as an encrypted envelope. Leave the column untouched when there are none.
     const mergedCreds = {
-      ...((installed.credentials as Record<string, unknown> | null) ?? {}),
+      ...this.readCredentials(installed.credentials),
       ...secrets,
     };
 
@@ -148,7 +153,7 @@ export class SkillsService {
         config: mergedConfig as Prisma.InputJsonObject,
         credentials:
           Object.keys(mergedCreds).length > 0
-            ? (mergedCreds as Prisma.InputJsonObject)
+            ? this.sealCredentials(mergedCreds)
             : undefined,
       },
     });
@@ -159,9 +164,10 @@ export class SkillsService {
    * Connect an installed skill. For `api_key` skills the provided key(s) are
    * stored in `credentials`; for `oauth` skills this is a STUB that just marks
    * the skill connected (accepting whatever token is passed). Sets
-   * connectionStatus=CONNECTED and connectionType from the catalog.
+   * connectionStatus=CONNECTED and connectionType from the catalog. The provided
+   * credentials are ENCRYPTED at rest (never returned raw).
    *
-   * TODO: real OAuth authorization-code flow; encrypt credentials at rest.
+   * TODO: real OAuth authorization-code flow.
    */
   async connectSkill(
     companyId: string,
@@ -171,15 +177,16 @@ export class SkillsService {
     const installed = await this.findOwnedInstalled(companyId, id);
     const def = this.defFor(installed.skillKey);
 
+    // Merge with any existing (decrypted) creds, then persist only the ciphertext.
     const mergedCreds = {
-      ...((installed.credentials as Record<string, unknown> | null) ?? {}),
+      ...this.readCredentials(installed.credentials),
       ...dto.credentials,
     };
 
     const row = await this.prisma.installedSkill.update({
       where: { id },
       data: {
-        credentials: mergedCreds as Prisma.InputJsonObject,
+        credentials: this.sealCredentials(mergedCreds),
         connectionType: def.connection.type,
         connectionStatus: 'CONNECTED',
       },
@@ -342,6 +349,57 @@ export class SkillsService {
       throw new NotFoundException(`Unknown tool: ${tool}`);
     }
     return this.runTool({ companyId }, installed.skillKey, tool, args);
+  }
+
+  // --- Credentials at rest (encrypted) -------------------------------------
+
+  /**
+   * INTERNAL accessor for future real executors (Unit 3): decrypt an installed
+   * skill's stored credentials into the raw secrets object. Returns `{}` when
+   * none are set. NEVER wired to an HTTP response — the mapper still only exposes
+   * `credentialsSet`. Callers must ensure the id belongs to the acting tenant.
+   */
+  async getDecryptedCredentials(
+    installedSkillId: string,
+  ): Promise<Record<string, unknown>> {
+    const row = await this.prisma.installedSkill.findUnique({
+      where: { id: installedSkillId },
+    });
+    if (!row) {
+      throw new NotFoundException('Installed skill not found');
+    }
+    return this.readCredentials(row.credentials);
+  }
+
+  /**
+   * Decrypt/unwrap stored credentials into the raw secrets object. Handles the
+   * `{ enc: <envelope> }` shape, an empty/null column (→ `{}`), and legacy
+   * plaintext objects written before encryption was introduced (→ used as-is).
+   */
+  private readCredentials(
+    stored: Prisma.JsonValue | null,
+  ): Record<string, unknown> {
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) {
+      return {};
+    }
+    const obj = stored as Record<string, unknown>;
+    if (typeof obj.enc === 'string') {
+      return this.crypto.decryptJson<Record<string, unknown>>(obj.enc);
+    }
+    // Back-compat: pre-encryption plaintext credentials — treat as raw secrets.
+    return obj;
+  }
+
+  /**
+   * Encrypt a raw secrets object into the `{ enc: <envelope> }` shape stored in
+   * `InstalledSkill.credentials`. Returns `{}` for an empty object so
+   * `credentialsSet` stays false (no ciphertext for "no secrets").
+   */
+  private sealCredentials(raw: Record<string, unknown>): Prisma.InputJsonObject {
+    if (Object.keys(raw).length === 0) {
+      return {};
+    }
+    return { enc: this.crypto.encryptJson(raw) };
   }
 
   // --- Config validation helpers -------------------------------------------

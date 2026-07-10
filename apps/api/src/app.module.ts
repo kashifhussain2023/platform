@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppConfigModule } from './config/config.module';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { CryptoModule } from './common/crypto/crypto.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { TenantModule } from './modules/tenant/tenant.module';
@@ -18,6 +19,7 @@ import { MarketplaceModule } from './modules/marketplace/marketplace.module';
   imports: [
     AppConfigModule,
     PrismaModule,
+    CryptoModule,
     AuthModule,
     UsersModule,
     TenantModule,

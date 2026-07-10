@@ -12,7 +12,9 @@ import type {
 /** Prisma row → public DTO mappers for the skills module. */
 
 export function toInstalledSkillDto(s: InstalledSkill): InstalledSkillDto {
-  // SECRETS: credentials are never returned raw — only a masked boolean flag.
+  // SECRETS: credentials are stored as an encrypted envelope ({ enc: ... }) and
+  // are NEVER returned — neither the plaintext nor the envelope. Only a masked
+  // boolean flag (true when any credentials are present) is exposed.
   const creds = s.credentials as Record<string, unknown> | null;
   const credentialsSet = Boolean(
     creds && typeof creds === 'object' && Object.keys(creds).length > 0,
