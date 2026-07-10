@@ -48,3 +48,48 @@ owner** above. Adminer (DB browser) is at http://localhost:8080.
 1. **Grounded chat** — "How do we hire a Senior Backend Developer? Use our policy." → grounded reply citing 2 knowledge sources.
 2. **Approval-gated Slack** — "Post a message to #hiring in Slack…" → slack:send_message routed to a PENDING approval (NOT executed) → approved → executed (SkillExecution logged), status APPROVED.
 3. **Workflow approval** — fired `NEW_CANDIDATE` event → run paused at APPROVAL node (**WAITING**) with a WORKFLOW PENDING approval → approved → run **COMPLETED** (NOTIFY ran).
+
+---
+
+# Kashif Recruiting (live Gmail)
+
+Seeded by `platform/scripts/seed-gmail-live.mjs` (real HTTP API, mock LLM/embeddings/billing,
+`SKILL_EXECUTOR=auto`). A single real company owned by real Gmail addresses, with the **Gmail
+connector INSTALLED but left `NOT_CONNECTED`** — the real Google OAuth flow is completed later
+by the user. Sends are approval-gated for a safe first live test. NOT re-runnable as-is (fixed
+real emails → a second `/auth/register` 409s).
+
+## Company
+- **Name:** Kashif Recruiting  (industry: Recruiting · country: India · tz: Asia/Kolkata)
+- **Company id / slug:** `cmrf5iewn0003cs6wap8fwpkd` / `kashif-recruiting`
+
+## Logins (password `Kashif@V-AEP2026`)
+| Role  | Email                              |
+|-------|------------------------------------|
+| OWNER | `kashifhussain146@gmail.com`       |
+| ADMIN | `kashifhussain.jaipur@gmail.com`   |
+
+## Key IDs
+- **RecruitAI employee id:** `cmrf5if03000bcs6wjvbvfd22` (role RECRUITER)
+- **Gmail connector id (for OAuth connect):** `cmrf5if09000dcs6wxw8zuwcw`
+- **Calendar connector id:** `cmrf5if0m000fcs6w32xoxipa`
+- **Knowledge doc (Hiring Policy) id:** `cmrf5if1k000lcs6w4er9ppkz` (READY, 1 chunk)
+- **Workflow id:** `cmrf5ifg9000ncs6w6op01apq` — "New Candidate Email -> Screen -> Notify"
+  (TRIGGER→RETRIEVE→AI_STEP→APPROVAL→NOTIFY), EVENT trigger `NEW_EMAIL`, **ACTIVE**
+
+## Gmail connector state & OAuth
+- `InstalledSkill.connectionStatus = NOT_CONNECTED` (Gmail NOT fake-connected; OAuth is real).
+- Gmail config: `companyEmail=kashifhussain146@gmail.com` (the catalog's send-address field —
+  there is no `fromAddress` key on the gmail skill), `dailyEmailLimit=50`, signature set,
+  canSend/canRead true.
+- RecruitAI `approvalRules.requireApprovalForTools = ["gmail:send_email"]` → live sends are
+  approval-gated.
+- **`GET /skills/installed/cmrf5if09000dcs6wxw8zuwcw/oauth/authorize` (as owner) → HTTP 400**
+  with message **`OAuth not configured for google`** (expected until `OAUTH_GOOGLE_CLIENT_ID` /
+  `OAUTH_GOOGLE_CLIENT_SECRET` / `OAUTH_REDIRECT_BASE` env are set on the API; then this
+  endpoint returns the Google authorize `url` the browser is sent to, and the public
+  `GET /skills/oauth/callback` completes the connect → `CONNECTED`).
+
+## DB-verified counts (company-scoped)
+company 1 · users 2 · RecruitAI (RECRUITER) 1 · gmail InstalledSkill NOT_CONNECTED 1 ·
+installed skills 2 (gmail+calendar) · EmployeeSkill 2 · knowledge READY 1 · ACTIVE workflow 1.
