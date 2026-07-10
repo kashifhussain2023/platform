@@ -149,12 +149,21 @@ function mapGmail(raw: RawEventInput): CanonicalMapping {
   const from = str(payload['from']) ?? null;
   const subject = str(payload['subject']) ?? null;
   const snippet = str(payload['snippet']) ?? null;
+  // Full-body + attachment text supplied by the INBOUND driver's format=full
+  // fetch (null/absent for a metadata-only or webhook-sourced payload).
+  const body = str(payload['body']) ?? null;
+  const cv = str(payload['cv']) ?? null;
+  const attachments = Array.isArray(payload['attachments'])
+    ? (payload['attachments'] as unknown[])
+    : [];
   return {
     type: 'NEW_EMAIL',
     dedupeKey: `gmail:msg:${messageId}`,
     occurredAt: parseDate(payload['date']),
     subject: { type: 'candidate', email: from },
-    data: { from, subject, snippet, messageId },
+    // `body` (full text) + `cv` (attachment text) drive the RecruitAI screen;
+    // `attachments` carries metadata only (filename + chars) to stay bounded.
+    data: { from, subject, snippet, body, cv, attachments, messageId },
   };
 }
 

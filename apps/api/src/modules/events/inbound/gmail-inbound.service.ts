@@ -3,7 +3,15 @@ import { Prisma, type CanonicalEvent, type InstalledSkill } from '@prisma/client
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { ConnectorTokenService } from '../../skills/connectors/connector-token.service';
 import { WorkflowsService } from '../../workflows/workflows.service';
-import { GMAIL_HISTORY_MAX_PAGES, GMAIL_INBOUND_BATCH } from '../events.constants';
+import { extractText } from '../../knowledge/knowledge.util';
+import {
+  GMAIL_ATTACHMENT_MAX_BYTES,
+  GMAIL_ATTACHMENT_MAX_CHARS,
+  GMAIL_BODY_MAX_CHARS,
+  GMAIL_HISTORY_MAX_PAGES,
+  GMAIL_INBOUND_BATCH,
+  GMAIL_MAX_ATTACHMENTS,
+} from '../events.constants';
 import { mapRawEvent } from '../normalization/event-mapper';
 
 /** Prisma Json helper: JS null → the DB JSON-null sentinel. */
@@ -25,6 +33,12 @@ export interface PollResult {
   rebaselined?: boolean;
 }
 
+/** Bounded attachment metadata carried into the payload (never the full text). */
+interface InboundAttachment {
+  filename: string;
+  chars: number;
+}
+
 /** Flattened inbound message metadata a RawEvent payload carries. */
 interface InboundMessage {
   messageId: string;
@@ -32,9 +46,53 @@ interface InboundMessage {
   subject: string | null;
   snippet: string | null;
   date: string | null;
+  /** Full email body text (text/plain, or stripped text/html). */
+  body: string | null;
+  /** Concatenated extracted text from parseable attachments (PDF/plain). */
+  cv: string | null;
+  /** Metadata (filename + extracted char count) for each parsed attachment. */
+  attachments: InboundAttachment[];
+}
+
+/** A single MIME part of a Gmail `format=full` message payload. */
+interface GmailPart {
+  mimeType?: string;
+  filename?: string;
+  headers?: Array<{ name?: string; value?: string }>;
+  body?: { data?: string; size?: number; attachmentId?: string };
+  parts?: GmailPart[];
 }
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
+
+/** Decode a Gmail base64url payload chunk to a Buffer (empty on bad input). */
+function decodeB64Url(data: string | undefined): Buffer {
+  if (!data) {
+    return Buffer.alloc(0);
+  }
+  try {
+    return Buffer.from(data, 'base64url');
+  } catch {
+    return Buffer.alloc(0);
+  }
+}
+
+/** Strip HTML tags/entities to plain-ish text (best-effort, no DOM). */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
+    .trim();
+}
 
 /**
  * GmailInboundService — the INBOUND polling driver (the real-time-ish counterpart
@@ -272,7 +330,12 @@ export class GmailInboundService {
             from: email.from ?? null,
             subject: email.subject ?? null,
             snippet: email.snippet ?? null,
-            body: email.snippet ?? null,
+            // FULL body now (was the snippet); falls back to snippet when a
+            // metadata-only payload carried no parsed body (offline-safe).
+            body: email.body ?? email.snippet ?? null,
+            // Attachment (CV) text extracted from the email's PDF/text parts.
+            cv: email.cv ?? null,
+            attachments: email.attachments ?? [],
             messageId: email.messageId ?? null,
             data: email,
           },
@@ -400,36 +463,184 @@ export class GmailInboundService {
     return { messageIds: ordered, newestHistoryId, stale: false };
   }
 
-  /** Fetch one message's metadata (From/Subject/Date headers + snippet). */
+  /**
+   * Fetch one message with `format=full`, extract the full body text (text/plain
+   * or stripped text/html) and the text of each parseable attachment (PDF via
+   * pdf-parse, text/plain via utf8). Header/snippet extraction is unchanged. Any
+   * attachment download/parse error is swallowed (that attachment is skipped);
+   * fetchMessage itself only returns null when the message fetch failed.
+   */
   private async fetchMessage(
     token: string,
     messageId: string,
   ): Promise<InboundMessage | null> {
-    const params = new URLSearchParams({ format: 'metadata' });
-    params.append('metadataHeaders', 'From');
-    params.append('metadataHeaders', 'Subject');
-    params.append('metadataHeaders', 'Date');
     const msg = await this.gapi<{
       snippet?: string;
-      payload?: { headers?: Array<{ name?: string; value?: string }> };
-    }>(token, `/messages/${messageId}?${params.toString()}`);
+      payload?: GmailPart;
+    }>(token, `/messages/${messageId}?format=full`);
     if (!msg) {
       return null;
     }
-    const headers = msg.payload?.headers ?? [];
+    const payload = msg.payload ?? {};
+    const headers = payload.headers ?? [];
     const header = (name: string): string | null => {
       const found = headers.find(
         (h) => (h.name ?? '').toLowerCase() === name.toLowerCase(),
       );
       return typeof found?.value === 'string' ? found.value : null;
     };
+
+    const parts = this.flattenParts(payload);
+    const body = this.extractBody(parts);
+    const { cv, attachments } = await this.extractAttachments(
+      token,
+      messageId,
+      parts,
+    );
+
     return {
       messageId,
       from: header('From'),
       subject: header('Subject'),
       snippet: typeof msg.snippet === 'string' ? msg.snippet : null,
       date: header('Date'),
+      body,
+      cv,
+      attachments,
     };
+  }
+
+  /** Depth-first flatten of the (recursive) MIME part tree, root included. */
+  private flattenParts(root: GmailPart): GmailPart[] {
+    const out: GmailPart[] = [];
+    const stack: GmailPart[] = [root];
+    while (stack.length > 0) {
+      const part = stack.pop();
+      if (!part) {
+        continue;
+      }
+      out.push(part);
+      for (const child of part.parts ?? []) {
+        stack.push(child);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Build the full body text: prefer the concatenated text/plain parts; fall back
+   * to stripped text/html. Attachment parts (those with a filename) are excluded.
+   * Bounded to GMAIL_BODY_MAX_CHARS.
+   */
+  private extractBody(parts: GmailPart[]): string | null {
+    const isInline = (p: GmailPart) => !p.filename && !p.body?.attachmentId;
+    const collect = (mime: string): string =>
+      parts
+        .filter((p) => isInline(p) && (p.mimeType ?? '').startsWith(mime))
+        .map((p) => decodeB64Url(p.body?.data).toString('utf8'))
+        .join('\n')
+        .trim();
+
+    let text = collect('text/plain');
+    if (!text) {
+      const html = collect('text/html');
+      text = html ? stripHtml(html) : '';
+    }
+    if (!text) {
+      return null;
+    }
+    return text.slice(0, GMAIL_BODY_MAX_CHARS);
+  }
+
+  /**
+   * Download + extract text from each attachment part (filename + attachmentId).
+   * PDFs → pdf-parse; text/plain → utf8; other types skipped. Size-bounded
+   * (GMAIL_ATTACHMENT_MAX_BYTES) and per-attachment char-capped. Returns the
+   * concatenated CV text plus bounded metadata. Never throws (per-attachment
+   * errors are logged + skipped), so a poll is never failed by a bad attachment.
+   */
+  private async extractAttachments(
+    token: string,
+    messageId: string,
+    parts: GmailPart[],
+  ): Promise<{ cv: string | null; attachments: InboundAttachment[] }> {
+    const attachmentParts = parts
+      .filter((p) => p.filename && p.body?.attachmentId)
+      .slice(0, GMAIL_MAX_ATTACHMENTS);
+
+    const texts: string[] = [];
+    const attachments: InboundAttachment[] = [];
+    for (const part of attachmentParts) {
+      const filename = part.filename as string;
+      try {
+        const declaredSize = Number(part.body?.size ?? 0);
+        if (declaredSize > GMAIL_ATTACHMENT_MAX_BYTES) {
+          this.logger.warn(
+            `Gmail attachment "${filename}" skipped: ${declaredSize}B > cap`,
+          );
+          continue;
+        }
+        const mime = (part.mimeType ?? '').toLowerCase();
+        const isPdf =
+          mime === 'application/pdf' || filename.toLowerCase().endsWith('.pdf');
+        const isText =
+          mime.startsWith('text/') || filename.toLowerCase().endsWith('.txt');
+        if (!isPdf && !isText) {
+          continue; // Unsupported type — skip (metadata not recorded).
+        }
+
+        const bytes = await this.downloadAttachment(
+          token,
+          messageId,
+          part.body!.attachmentId as string,
+        );
+        if (!bytes || bytes.length === 0) {
+          continue;
+        }
+        if (bytes.length > GMAIL_ATTACHMENT_MAX_BYTES) {
+          this.logger.warn(
+            `Gmail attachment "${filename}" skipped: ${bytes.length}B > cap`,
+          );
+          continue;
+        }
+
+        // Reuse the knowledge module's extractor (PDF → pdf-parse, else utf8).
+        const raw = await extractText(
+          bytes,
+          isPdf ? 'application/pdf' : 'text/plain',
+          filename,
+        );
+        const text = (raw ?? '').trim().slice(0, GMAIL_ATTACHMENT_MAX_CHARS);
+        if (!text) {
+          continue;
+        }
+        texts.push(`# ${filename}\n${text}`);
+        attachments.push({ filename, chars: text.length });
+      } catch (err) {
+        this.logger.warn(
+          `Gmail attachment "${filename}" parse skipped: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+    return { cv: texts.length > 0 ? texts.join('\n\n') : null, attachments };
+  }
+
+  /** Download one attachment (base64url) and decode to a Buffer, or null. */
+  private async downloadAttachment(
+    token: string,
+    messageId: string,
+    attachmentId: string,
+  ): Promise<Buffer | null> {
+    const att = await this.gapi<{ data?: string; size?: number }>(
+      token,
+      `/messages/${messageId}/attachments/${attachmentId}`,
+    );
+    if (!att) {
+      return null;
+    }
+    return decodeB64Url(att.data);
   }
 
   /** GET a Gmail API path with the bearer token; parsed JSON or null on error. */

@@ -63,3 +63,15 @@ export const GMAIL_INBOUND_BATCH = 100;
 
 /** Max Gmail history pages walked per poll (bounds a large catch-up). */
 export const GMAIL_HISTORY_MAX_PAGES = 10;
+
+/** Skip attachments larger than this (bytes) — bounds download + parse cost. */
+export const GMAIL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Cap extracted text (chars) PER attachment so a huge CV can't bloat the payload. */
+export const GMAIL_ATTACHMENT_MAX_CHARS = 20_000;
+
+/** Cap the full email body text (chars) carried into the trigger payload. */
+export const GMAIL_BODY_MAX_CHARS = 20_000;
+
+/** Max attachment parts inspected per message (defensive bound). */
+export const GMAIL_MAX_ATTACHMENTS = 10;
