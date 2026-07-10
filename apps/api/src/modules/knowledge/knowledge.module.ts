@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeService } from './knowledge.service';
 import { KNOWLEDGE_INGEST_QUEUE } from './knowledge.constants';
+import { RESILIENT_JOB_OPTIONS } from '../../common/resilience/queue-retry';
 import { IngestionProcessor } from './ingestion/ingestion.processor';
 import {
   EMBEDDING_PROVIDER,
@@ -62,6 +63,9 @@ function storageFactory(config: ConfigService): StorageProvider {
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         connection: redisConnection(config),
+        // Bounded attempts + exponential-with-jitter backoff + keep-failed (=DLQ)
+        // for EVERY queue (docs §4.4). Per-`add()` opts still merge over these.
+        defaultJobOptions: RESILIENT_JOB_OPTIONS,
       }),
     }),
     BullModule.registerQueue({ name: KNOWLEDGE_INGEST_QUEUE }),

@@ -1619,3 +1619,73 @@ export interface WebhookAcceptedDto {
   deduped: boolean;
   rawEventId: string | null;
 }
+
+// ============================================================================
+// Resilience (Unit C) — circuit breakers, DLQ + replay, rate limiting.
+// Backend infra in apps/api `common/resilience`; these are the shared shapes the
+// admin DLQ/health surface returns. See docs §4.4 (retries/DLQ/idempotency) and
+// §9 (circuit breakers, rate limiting).
+// ============================================================================
+
+/**
+ * Per-connector circuit-breaker state (egress, docs §9). CLOSED = healthy;
+ * OPEN = failing fast (provider is shedding load, calls are NOT made); HALF_OPEN
+ * = a single probe is allowed after the cooldown to test recovery.
+ */
+export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+
+export const CIRCUIT_STATES: readonly CircuitState[] = [
+  'CLOSED',
+  'OPEN',
+  'HALF_OPEN',
+] as const;
+
+/**
+ * A single dead-lettered (failed, retries-exhausted) BullMQ job, as surfaced by
+ * the admin DLQ endpoints. `companyId` is read from the job payload and is used
+ * to tenant-scope the view (an admin only ever sees their own company's jobs).
+ * `data` carries the (non-secret) job payload — connector/document/run ids.
+ */
+export interface DlqJobDto {
+  /** BullMQ job id. */
+  id: string;
+  /** Which queue the job belongs to (e.g. `workflow-run`). */
+  queue: string;
+  /** Job name within the queue (e.g. `run`, `ingest`, `normalize`). */
+  name: string;
+  /** Tenant the job belongs to (from the payload); null when the payload has none. */
+  companyId: string | null;
+  /** How many attempts were made before the job was dead-lettered. */
+  attemptsMade: number;
+  /** The last failure reason recorded by BullMQ. */
+  failedReason: string | null;
+  /** Enqueue time (epoch ms), null if unavailable. */
+  timestamp: number | null;
+  /** When the job last finished/failed (epoch ms), null if unavailable. */
+  finishedOn: number | null;
+  /** The (non-secret) job payload. */
+  data: Record<string, unknown> | null;
+}
+
+/**
+ * Circuit-breaker state for one connector (InstalledSkill), surfaced by the
+ * admin health panel. Read-only snapshot; the reported `state` reflects an
+ * elapsed cooldown (OPEN→HALF_OPEN) without mutating the stored value.
+ */
+export interface ConnectorCircuitDto {
+  connectorId: string;
+  skillKey: string;
+  state: CircuitState;
+}
+
+/**
+ * Per-queue count of dead-lettered (failed) jobs for the caller's company,
+ * surfaced by `GET /admin/dlq/summary` for monitoring / alerting on DLQ growth
+ * (docs §9). Counts are company-scoped (a bounded scan of each queue's failed
+ * set filtered by payload companyId — BullMQ's own counters are not tenant-aware).
+ */
+export interface DlqSummaryEntryDto {
+  queue: string;
+  /** Failed jobs belonging to the company in this queue. */
+  failed: number;
+}

@@ -10,6 +10,7 @@ import {
   type NormalizeJobData,
 } from '../events.constants';
 import { mapRawEvent } from '../normalization/event-mapper';
+import { toQueueError } from '../../../common/resilience/queue-retry';
 
 /** Prisma Json helper: JS null → the DB JSON-null sentinel. */
 function toJson(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull {
@@ -142,7 +143,8 @@ export class EventNormalizeProcessor extends WorkerHost {
         where: { id: raw.id },
         data: { status: 'FAILED', error: message },
       });
-      throw err;
+      // Terminal (unmappable/validation) → DLQ immediately; transient → backoff.
+      throw toQueueError(err);
     }
   }
 }

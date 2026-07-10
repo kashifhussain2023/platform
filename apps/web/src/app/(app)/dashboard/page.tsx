@@ -115,6 +115,14 @@ export default function DashboardPage() {
               Organization
             </Link>
           )}
+          {canManageOrg && (
+            <Link
+              href="/admin/health"
+              className="text-sm font-medium text-brand-700"
+            >
+              System health
+            </Link>
+          )}
           <Button variant="ghost" onClick={onLogout} disabled={logout.isPending}>
             {logout.isPending ? 'Signing out…' : 'Log out'}
           </Button>

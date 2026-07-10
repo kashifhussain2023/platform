@@ -9,9 +9,10 @@ export const EVENT_NORMALIZE_QUEUE = 'event-normalize';
 /** Job name enqueued for each RawEvent awaiting normalization. */
 export const EVENT_NORMALIZE_JOB = 'normalize';
 
-/** Payload of an event-normalize job: the RawEvent to normalize. */
+/** Payload of an event-normalize job. `companyId` scopes the DLQ view (Unit C). */
 export interface NormalizeJobData {
   rawEventId: string;
+  companyId?: string;
 }
 
 /** Default + max number of rows the observability endpoints return. */

@@ -20,8 +20,20 @@ export const WORKFLOW_TRIGGER_JOB = 'trigger';
  *   creates a run (with that source) then executes it.
  */
 export type WorkflowRunJobData =
-  | { runId: string; resume?: boolean; workflowId?: never; source?: never }
-  | { workflowId: string; source: string; runId?: never; resume?: never };
+  | {
+      runId: string;
+      resume?: boolean;
+      workflowId?: never;
+      source?: never;
+      companyId?: string;
+    }
+  | {
+      workflowId: string;
+      source: string;
+      runId?: never;
+      resume?: never;
+      companyId?: string;
+    };
 
 /** Minimum SCHEDULE interval (ms) — guards against runaway repeatable jobs. */
 export const MIN_SCHEDULE_MS = 15_000;

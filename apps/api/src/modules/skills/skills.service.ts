@@ -17,6 +17,10 @@ import type {
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CryptoService } from '../../common/crypto/crypto.service';
+import { CircuitBreakerRegistry } from '../../common/resilience/circuit-breaker.registry';
+import { CircuitOpenError } from '../../common/resilience/circuit-breaker';
+import { RateLimiter } from '../../common/resilience/rate-limiter';
+import { countsTowardCircuit } from '../../common/resilience/error-classifier';
 import { SkillCatalog, type SkillDefinition } from './catalog';
 import { ConnectorHealthService } from './connectors/connector-health.service';
 import { ConnectorTokenService } from './connectors/connector-token.service';
@@ -52,6 +56,8 @@ export class SkillsService {
     private readonly crypto: CryptoService,
     private readonly health: ConnectorHealthService,
     private readonly tokens: ConnectorTokenService,
+    private readonly breakers: CircuitBreakerRegistry,
+    private readonly rateLimiter: RateLimiter,
     @Inject(SKILL_EXECUTOR_TOKEN) private readonly executor: SkillExecutor,
   ) {}
 
@@ -325,13 +331,35 @@ export class SkillsService {
       const execCtx = this.executor.usesInstalledCredentials
         ? await this.resolveExecutorContext(ctx, skillKey)
         : ctx;
-      try {
-        outcome = await this.executor.execute(skillKey, tool, safeArgs, execCtx);
-      } catch (err) {
-        outcome = {
-          ok: false,
-          error: err instanceof Error ? err.message : 'Tool execution failed',
-        };
+      // Resilience (Unit C, docs §9): wrap ONLY real/auto provider calls against a
+      // resolved connector with the per-connector circuit breaker + rate limiter.
+      // The mock path (usesInstalledCredentials falsy) and connector-less calls run
+      // UNWRAPPED, so the offline suite is never throttled or circuit-broken.
+      const connectorId = this.executor.usesInstalledCredentials
+        ? (execCtx.installedSkillId ?? null)
+        : null;
+      if (connectorId) {
+        outcome = await this.runGuardedEgress(
+          connectorId,
+          skillKey,
+          tool,
+          safeArgs,
+          execCtx,
+        );
+      } else {
+        try {
+          outcome = await this.executor.execute(
+            skillKey,
+            tool,
+            safeArgs,
+            execCtx,
+          );
+        } catch (err) {
+          outcome = {
+            ok: false,
+            error: err instanceof Error ? err.message : 'Tool execution failed',
+          };
+        }
       }
       // Passive connector health signal (docs §1.8): a real egress outcome feeds
       // the state machine. No-op when the skill isn't installed as a connector or
@@ -363,6 +391,69 @@ export class SkillsService {
       result: outcome.result ?? null,
       ok: outcome.ok,
     };
+  }
+
+  /**
+   * Run a real/auto provider tool call through the per-connector circuit breaker
+   * + rate limiter (docs §9). A tripped breaker fast-fails WITHOUT calling the
+   * provider and returns a clear "temporarily unavailable" error (which then feeds
+   * ConnectorHealthService via recordEgressHealth → DEGRADED). A rate-limit denial
+   * surfaces a retryable "rate limit exceeded" error (no provider call, and NOT a
+   * breaker failure — it's our throttle, not the provider's fault). Provider
+   * failures that indicate the connector is unhealthy (RETRYABLE, or auth) advance
+   * the breaker; plain validation (4xx) failures leave it untouched.
+   */
+  private async runGuardedEgress(
+    connectorId: string,
+    skillKey: string,
+    tool: string,
+    args: Record<string, unknown>,
+    execCtx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    // 1) Circuit gate — OPEN → fast-fail; the provider is NOT called.
+    try {
+      await this.breakers.guard(connectorId);
+    } catch (err) {
+      if (err instanceof CircuitOpenError) {
+        return {
+          ok: false,
+          error: `${skillKey} is temporarily unavailable (circuit open); please retry shortly`,
+        };
+      }
+      throw err;
+    }
+
+    // 2) Per-connector rate limit — deny → retryable tool error (no provider call).
+    const allowed = await this.rateLimiter.acquireForConnector(connectorId);
+    if (!allowed) {
+      return {
+        ok: false,
+        error: `${skillKey} rate limit exceeded; please retry shortly`,
+      };
+    }
+
+    // 3) The provider call (executor returns {ok:false} rather than throwing, but
+    //    guard against an unexpected throw and record it against the breaker).
+    let outcome: SkillExecutionResult;
+    try {
+      outcome = await this.executor.execute(skillKey, tool, args, execCtx);
+    } catch (err) {
+      if (countsTowardCircuit(err)) {
+        await this.breakers.recordFailure(connectorId);
+      }
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Tool execution failed',
+      };
+    }
+
+    // 4) Feed the breaker from the outcome.
+    if (outcome.ok) {
+      await this.breakers.recordSuccess(connectorId);
+    } else if (countsTowardCircuit(outcome.error)) {
+      await this.breakers.recordFailure(connectorId);
+    }
+    return outcome;
   }
 
   /** Manual execution of a tool on an installed skill (logs a SkillExecution). */

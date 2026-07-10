@@ -139,7 +139,7 @@ export class EventsService {
 
     await this.queue.add(
       EVENT_NORMALIZE_JOB,
-      { rawEventId: raw.id },
+      { rawEventId: raw.id, companyId: connector.companyId },
       { removeOnComplete: true, removeOnFail: 100 },
     );
 

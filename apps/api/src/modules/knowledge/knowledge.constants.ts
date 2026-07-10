@@ -4,7 +4,8 @@ export const KNOWLEDGE_INGEST_QUEUE = 'knowledge-ingest';
 /** Job name enqueued on upload. */
 export const INGEST_JOB = 'ingest';
 
-/** Payload of a knowledge-ingest job. */
+/** Payload of a knowledge-ingest job. `companyId` scopes the DLQ view (Unit C). */
 export interface IngestJobData {
   documentId: string;
+  companyId?: string;
 }

@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { AppConfigModule } from './config/config.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { CryptoModule } from './common/crypto/crypto.module';
+import { ResilienceModule } from './common/resilience/resilience.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { UsersModule } from './modules/users/users.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
@@ -22,6 +24,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
     AppConfigModule,
     PrismaModule,
     CryptoModule,
+    ResilienceModule,
     AuthModule,
     UsersModule,
     TenantModule,
@@ -36,6 +39,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
     BillingModule,
     MarketplaceModule,
     OrganizationModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

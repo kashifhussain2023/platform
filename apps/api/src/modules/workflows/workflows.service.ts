@@ -165,7 +165,7 @@ export class WorkflowsService {
     });
 
     if (type === 'SCHEDULE') {
-      await this.addSchedule(id, config);
+      await this.addSchedule(companyId, id, config);
     }
 
     return toWorkflowDto(workflow);
@@ -286,7 +286,7 @@ export class WorkflowsService {
     });
     await this.queue.add(
       WORKFLOW_RUN_JOB,
-      { runId, resume: true },
+      { runId, resume: true, companyId: run.companyId },
       { removeOnComplete: true, removeOnFail: 100 },
     );
   }
@@ -343,7 +343,7 @@ export class WorkflowsService {
 
     await this.queue.add(
       WORKFLOW_RUN_JOB,
-      { runId: run.id },
+      { runId: run.id, companyId },
       { removeOnComplete: true, removeOnFail: 100 },
     );
 
@@ -384,6 +384,7 @@ export class WorkflowsService {
 
   /** Add/refresh the repeatable SCHEDULE job for a workflow. */
   private async addSchedule(
+    companyId: string,
     workflowId: string,
     config: TriggerConfig | null,
   ): Promise<void> {
@@ -393,7 +394,8 @@ export class WorkflowsService {
         : { every: Number(config?.everyMs) };
     await this.queue.upsertJobScheduler(schedulerId(workflowId), repeat, {
       name: WORKFLOW_TRIGGER_JOB,
-      data: { workflowId, source: 'SCHEDULE' },
+      // companyId scopes the DLQ view (Unit C) if a scheduled fire ever fails.
+      data: { workflowId, source: 'SCHEDULE', companyId },
       opts: { removeOnComplete: true, removeOnFail: 100 },
     });
   }

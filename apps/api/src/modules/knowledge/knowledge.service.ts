@@ -68,7 +68,7 @@ export class KnowledgeService {
 
     await this.queue.add(
       INGEST_JOB,
-      { documentId: doc.id },
+      { documentId: doc.id, companyId },
       { removeOnComplete: true, removeOnFail: 100 },
     );
 

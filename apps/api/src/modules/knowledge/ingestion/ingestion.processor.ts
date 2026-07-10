@@ -17,6 +17,7 @@ import {
   type IngestJobData,
 } from '../knowledge.constants';
 import { chunkText, extractText, toVectorLiteral } from '../knowledge.util';
+import { toQueueError } from '../../../common/resilience/queue-retry';
 
 const EMBED_BATCH = 16;
 
@@ -92,7 +93,9 @@ export class IngestionProcessor extends WorkerHost {
         where: { id: documentId },
         data: { status: 'FAILED', error: message },
       });
-      throw err;
+      // Terminal errors (bad file, validation) go straight to the DLQ; transient
+      // ones (I/O, provider) use the queue's bounded backoff (docs §4.4).
+      throw toQueueError(err);
     }
   }
 }
