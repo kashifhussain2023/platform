@@ -14,18 +14,25 @@ import type {
   ConversationDto,
 } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeesService } from './employees.service';
 
-/** All routes are tenant-scoped by companyId from the JWT and JWT-guarded. */
+/**
+ * All routes are tenant-scoped by companyId from the JWT and JWT-guarded.
+ * Managing employees (create/update/delete) is @Roles('OWNER','ADMIN'); reads
+ * and starting/continuing conversations (chat) stay open to any member.
+ */
 @Controller('employees')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class EmployeesController {
   constructor(private readonly employees: EmployeesService) {}
 
   @Post()
+  @Roles('OWNER', 'ADMIN')
   create(
     @CurrentTenant() companyId: string,
     @Body() dto: CreateEmployeeDto,
@@ -47,6 +54,7 @@ export class EmployeesController {
   }
 
   @Patch(':id')
+  @Roles('OWNER', 'ADMIN')
   update(
     @CurrentTenant() companyId: string,
     @Param('id') id: string,
@@ -56,6 +64,7 @@ export class EmployeesController {
   }
 
   @Delete(':id')
+  @Roles('OWNER', 'ADMIN')
   @HttpCode(204)
   remove(
     @CurrentTenant() companyId: string,

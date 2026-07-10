@@ -10,17 +10,20 @@ import {
 } from '@nestjs/common';
 import type { EmployeeSkillDto } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { AssignSkillDto } from './dto/assign-skill.dto';
 import { SkillsService } from './skills.service';
 
 /**
  * Employee ↔ installed-skill assignments. Lives in the skills module (routes are
  * nested under /employees/:id/skills but don't overlap the EmployeesController's
- * own routes). Tenant-scoped + JWT-guarded.
+ * own routes). Tenant-scoped + JWT-guarded. Assign/unassign is
+ * @Roles('OWNER','ADMIN'); listing an employee's skills stays open.
  */
 @Controller('employees/:id/skills')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class EmployeeSkillsController {
   constructor(private readonly skills: SkillsService) {}
 
@@ -33,6 +36,7 @@ export class EmployeeSkillsController {
   }
 
   @Post()
+  @Roles('OWNER', 'ADMIN')
   assign(
     @CurrentTenant() companyId: string,
     @Param('id') employeeId: string,
@@ -42,6 +46,7 @@ export class EmployeeSkillsController {
   }
 
   @Delete(':installedSkillId')
+  @Roles('OWNER', 'ADMIN')
   @HttpCode(204)
   unassign(
     @CurrentTenant() companyId: string,

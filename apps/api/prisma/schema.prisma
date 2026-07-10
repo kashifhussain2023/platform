@@ -16,6 +16,13 @@ enum Role {
   MEMBER
 }
 
+// Whether a user account may authenticate. DISABLED users are rejected at login
+// (RBAC + user management, P0 governance). Company creators are always ACTIVE.
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
 enum DocumentStatus {
   PENDING
   PROCESSING
@@ -160,6 +167,7 @@ model User {
   name         String
   phone        String?
   role         Role     @default(MEMBER)
+  status       UserStatus @default(ACTIVE)
   createdAt    DateTime @default(now())
 
   @@unique([companyId, email])

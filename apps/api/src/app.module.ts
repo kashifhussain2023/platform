@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppConfigModule } from './config/config.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { EmployeesModule } from './modules/employees/employees.module';
@@ -18,6 +19,7 @@ import { MarketplaceModule } from './modules/marketplace/marketplace.module';
     AppConfigModule,
     PrismaModule,
     AuthModule,
+    UsersModule,
     TenantModule,
     KnowledgeModule,
     EmployeesModule,

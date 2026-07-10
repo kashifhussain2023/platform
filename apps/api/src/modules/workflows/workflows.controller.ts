@@ -15,20 +15,27 @@ import type {
   WorkflowRunDto,
 } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { FireEventDto } from './dto/fire-event.dto';
 import { RunWorkflowDto } from './dto/run-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import { WorkflowsService } from './workflows.service';
 
-/** All routes are tenant-scoped by companyId from the JWT and JWT-guarded. */
+/**
+ * All routes are tenant-scoped by companyId from the JWT and JWT-guarded.
+ * Authoring workflows (create/update/delete/activate/deactivate) is
+ * @Roles('OWNER','ADMIN'); reads + running/firing stay open to any member.
+ */
 @Controller('workflows')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkflowsController {
   constructor(private readonly workflows: WorkflowsService) {}
 
   @Post()
+  @Roles('OWNER', 'ADMIN')
   create(
     @CurrentTenant() companyId: string,
     @Body() dto: CreateWorkflowDto,
@@ -76,6 +83,7 @@ export class WorkflowsController {
   }
 
   @Patch(':id')
+  @Roles('OWNER', 'ADMIN')
   update(
     @CurrentTenant() companyId: string,
     @Param('id') id: string,
@@ -85,6 +93,7 @@ export class WorkflowsController {
   }
 
   @Delete(':id')
+  @Roles('OWNER', 'ADMIN')
   @HttpCode(204)
   remove(
     @CurrentTenant() companyId: string,
@@ -113,6 +122,7 @@ export class WorkflowsController {
 
   /** Activate a workflow (requires runnable steps); arms its trigger. */
   @Post(':id/activate')
+  @Roles('OWNER', 'ADMIN')
   @HttpCode(200)
   activate(
     @CurrentTenant() companyId: string,
@@ -123,6 +133,7 @@ export class WorkflowsController {
 
   /** Deactivate a workflow (PAUSED); disarms any SCHEDULE job. */
   @Post(':id/deactivate')
+  @Roles('OWNER', 'ADMIN')
   @HttpCode(200)
   deactivate(
     @CurrentTenant() companyId: string,

@@ -13,6 +13,11 @@ export type Role = 'OWNER' | 'ADMIN' | 'MEMBER';
 
 export const ROLES: readonly Role[] = ['OWNER', 'ADMIN', 'MEMBER'] as const;
 
+/** Whether a user account may authenticate. DISABLED users are rejected at login. */
+export type UserStatus = 'ACTIVE' | 'DISABLED';
+
+export const USER_STATUSES: readonly UserStatus[] = ['ACTIVE', 'DISABLED'] as const;
+
 // ---------------------------------------------------------------------------
 // Zod schemas (shared validation contract) — web uses these directly.
 // ---------------------------------------------------------------------------
@@ -69,6 +74,7 @@ export interface UserDto {
   name: string;
   phone: string | null;
   role: Role;
+  status: UserStatus;
   createdAt: string;
 }
 
@@ -115,6 +121,35 @@ export interface AuthResponse {
   company: CompanyDto;
   tokens: AuthTokens;
 }
+
+// ---------------------------------------------------------------------------
+// User Management module contracts (RBAC, P0 governance).
+// ---------------------------------------------------------------------------
+// Company-scoped team management: an OWNER/ADMIN invites (adds) users, edits
+// their role, enables/disables (blocks login), and deletes them. Guardrails:
+// only an OWNER may create/grant OWNER; you cannot change your own role; the
+// last OWNER cannot be demoted, disabled or deleted. Never exposes passwordHash.
+
+/** POST /users body — add a user to the caller's company. */
+export const createUserSchema = z.object({
+  email: z.string().email('Enter a valid email'),
+  name: z.string().min(1, 'Name is required').max(120),
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER']),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(200),
+});
+
+/** PATCH /users/:id body — update name/role/status (all optional). */
+export const updateUserSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER']).optional(),
+  status: z.enum(['ACTIVE', 'DISABLED']).optional(),
+});
+
+export type CreateUserDto = z.infer<typeof createUserSchema>;
+export type UpdateUserDto = z.infer<typeof updateUserSchema>;
 
 // ---------------------------------------------------------------------------
 // Knowledge / RAG module contracts.

@@ -86,6 +86,10 @@ export class AuthService {
     if (!ok) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    // Disabled accounts may hold valid credentials but must not authenticate.
+    if (user.status === 'DISABLED') {
+      throw new UnauthorizedException('Account is disabled');
+    }
     const company = await this.prisma.company.findUniqueOrThrow({
       where: { id: user.companyId },
     });
@@ -169,6 +173,7 @@ function toUserDto(user: User): UserDto {
     name: user.name,
     phone: user.phone,
     role: user.role,
+    status: user.status,
     createdAt: user.createdAt.toISOString(),
   };
 }

@@ -19,6 +19,8 @@ import { BillingModule } from '../billing/billing.module';
     // Swap this useClass to change the auth backend (Clerk/Auth0) later.
     { provide: AUTH_PROVIDER, useClass: JwtAuthProvider },
   ],
-  exports: [AuthService],
+  // Export AUTH_PROVIDER so UsersModule can reuse the SAME password hashing
+  // (argon2) when creating users — no duplicate hashing implementation.
+  exports: [AuthService, AUTH_PROVIDER],
 })
 export class AuthModule {}
