@@ -75,6 +75,8 @@ export function toWorkflowRunDto(
     source: r.source,
     trigger: (r.trigger as Record<string, unknown> | null) ?? null,
     context: (r.context as Record<string, unknown> | null) ?? null,
+    triggerEventId: r.triggerEventId ?? null,
+    correlationId: r.correlationId ?? null,
     error: r.error,
     startedAt: r.startedAt?.toISOString() ?? null,
     finishedAt: r.finishedAt?.toISOString() ?? null,

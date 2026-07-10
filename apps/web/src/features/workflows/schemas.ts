@@ -8,10 +8,13 @@ export {
   WORKFLOW_STATUSES,
   WORKFLOW_RUN_STATUSES,
   CONDITION_OPS,
+  EVENT_CONDITION_OPS,
 } from '@vaep/types';
 export type {
   NodeType,
   ConditionOp,
+  EventConditionOp,
+  Condition,
   WorkflowStatus,
   WorkflowRunStatus,
   StepRunStatus,

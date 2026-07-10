@@ -831,9 +831,50 @@ export const TRIGGER_TYPES: readonly TriggerType[] = [
 ] as const;
 
 /**
+ * Comparison operators for the EVENT condition DSL (docs §5.2 — "richer filters").
+ * Distinct from `ConditionOp` (the narrower CONDITION-node operator set) because
+ * this DSL adds gte/lte/exists/in and is evaluated against a fired event payload,
+ * not a workflow run context. See `Condition` + the server `evaluateConditions`.
+ */
+export type EventConditionOp =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'contains'
+  | 'exists'
+  | 'in';
+
+export const EVENT_CONDITION_OPS: readonly EventConditionOp[] = [
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'contains',
+  'exists',
+  'in',
+] as const;
+
+/**
+ * One predicate an EVENT-triggered workflow evaluates against a fired event
+ * payload (`{ eventId, subject, data }`). `path` is a safe dotted lookup (no eval,
+ * prototype-pollution guarded); a workflow fires only if ALL of its conditions
+ * pass. `value` is omitted for the `exists` op (which only checks truthy presence).
+ */
+export interface Condition {
+  path: string;
+  op: EventConditionOp;
+  value?: unknown;
+}
+
+/**
  * Trigger configuration persisted on a workflow. Shape depends on triggerType:
- * SCHEDULE needs `everyMs` (≥15000) OR `cron`; EVENT needs `eventType`;
- * WEBHOOK/MANUAL carry no config.
+ * SCHEDULE needs `everyMs` (≥15000) OR `cron`; EVENT needs `eventType` (+ optional
+ * `conditions` for richer payload filtering); WEBHOOK/MANUAL carry no config.
  */
 export interface TriggerConfig {
   /** SCHEDULE: repeat interval in ms (min 15000). */
@@ -842,6 +883,11 @@ export interface TriggerConfig {
   cron?: string;
   /** EVENT: the internal event name this workflow listens for. */
   eventType?: string;
+  /**
+   * EVENT: optional predicate list — the workflow fires only when every condition
+   * passes against the fired payload. Empty/absent → always fire (back-compat).
+   */
+  conditions?: Condition[];
 }
 
 /**
@@ -1017,11 +1063,32 @@ export const createWorkflowSchema = z.object({
   definition: workflowDefinitionSchema.optional(),
 });
 
-/** Shared trigger-config contract (SCHEDULE everyMs/cron · EVENT eventType). */
+/** One EVENT-DSL predicate (path · op · optional value). Unknown op → invalid. */
+export const conditionSchema = z.object({
+  path: z.string().min(1).max(200),
+  op: z.enum([
+    'eq',
+    'neq',
+    'gt',
+    'gte',
+    'lt',
+    'lte',
+    'contains',
+    'exists',
+    'in',
+  ]),
+  value: z.unknown().optional(),
+});
+
+/**
+ * Shared trigger-config contract (SCHEDULE everyMs/cron · EVENT eventType +
+ * optional condition DSL). `conditions` is capped so a filter list stays sane.
+ */
 export const triggerConfigSchema = z.object({
   everyMs: z.number().int().min(15000).optional(),
   cron: z.string().min(1).max(120).optional(),
   eventType: z.string().min(1).max(120).optional(),
+  conditions: z.array(conditionSchema).max(25).optional(),
 });
 
 /** PATCH /workflows/:id body (name/description/definition/status/trigger). */
@@ -1103,11 +1170,31 @@ export interface WorkflowRunDto {
   source: string;
   trigger: Record<string, unknown> | null;
   context: Record<string, unknown> | null;
+  /**
+   * The CanonicalEvent id that triggered this run (EVENT source, join key for
+   * lineage); null for manual/schedule/webhook runs.
+   */
+  triggerEventId: string | null;
+  /**
+   * Correlation id tying event→run→steps in logs/tracing (docs §9). Defaults to
+   * the triggering eventId for EVENT runs; a generated id otherwise.
+   */
+  correlationId: string | null;
   error: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   createdAt: string;
   steps?: WorkflowStepRunDto[];
+}
+
+/**
+ * Event→run lineage (docs §9, eventId↔runId correlation): a CanonicalEvent plus
+ * the WorkflowRun(s) it triggered (joined on `triggerEventId`), each carrying its
+ * status and step summary. Full OTel span propagation across queue hops = TARGET.
+ */
+export interface EventLineageDto {
+  event: CanonicalEventDto;
+  runs: WorkflowRunDto[];
 }
 
 // ---------------------------------------------------------------------------

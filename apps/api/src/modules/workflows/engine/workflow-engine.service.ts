@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, type Workflow, type WorkflowRun } from '@prisma/client';
 import type {
@@ -119,6 +120,8 @@ export class WorkflowEngine {
         status: 'PENDING',
         source,
         trigger: Prisma.JsonNull,
+        // A generated correlationId keeps SCHEDULE-triggered runs traceable too.
+        correlationId: randomUUID(),
       },
     });
     await this.execute(run.id);
@@ -190,8 +193,14 @@ export class WorkflowEngine {
       opts.context ?? {
         trigger: (run.trigger as Record<string, unknown> | null) ?? {},
       };
+    // Correlation id (docs §9): ties event→run→steps in the logs below. Falls back
+    // to the run id for any legacy run created before the column existed.
+    const correlationId = run.correlationId ?? run.id;
 
     try {
+      this.logger.log(
+        `workflow.run ${isResume ? 'resume' : 'start'} run=${run.id} corr=${correlationId} wf=${run.workflowId} company=${companyId} source=${run.source}`,
+      );
       const definition = this.parseDefinition(run.workflow.definition);
       const nodesById = new Map<string, WorkflowNode>(
         definition.nodes.map((n) => [n.id, n]),
@@ -239,7 +248,13 @@ export class WorkflowEngine {
           return;
         }
 
-        const result = await this.runNode(run.id, companyId, current, context);
+        const result = await this.runNode(
+          run.id,
+          companyId,
+          current,
+          context,
+          correlationId,
+        );
         current = this.nextNode(current, definition.edges, nodesById, result);
       }
 
@@ -252,9 +267,14 @@ export class WorkflowEngine {
           resumeNodeId: null,
         },
       });
+      this.logger.log(
+        `workflow.run completed run=${run.id} corr=${correlationId}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Run ${run.id} failed: ${message}`);
+      this.logger.error(
+        `workflow.run failed run=${run.id} corr=${correlationId}: ${message}`,
+      );
       await this.prisma.workflowRun.update({
         where: { id: run.id },
         data: {
@@ -324,7 +344,9 @@ export class WorkflowEngine {
       },
     });
 
-    this.logger.log(`Run ${run.id} paused at APPROVAL ${node.id} (WAITING)`);
+    this.logger.log(
+      `workflow.run paused run=${run.id} corr=${run.correlationId ?? run.id} node=${node.id} (WAITING at APPROVAL)`,
+    );
   }
 
   /**
@@ -361,6 +383,7 @@ export class WorkflowEngine {
     companyId: string,
     node: WorkflowNode,
     context: Record<string, unknown>,
+    correlationId: string,
   ): Promise<NodeResult> {
     const step = await this.prisma.workflowStepRun.create({
       data: {
@@ -373,6 +396,10 @@ export class WorkflowEngine {
         startedAt: new Date(),
       },
     });
+    // Structured step line sharing the run's correlationId (docs §9).
+    this.logger.log(
+      `workflow.step run=${runId} corr=${correlationId} node=${node.id} type=${node.type}`,
+    );
 
     try {
       const result = await this.executeNode(companyId, node, context);

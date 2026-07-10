@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
@@ -8,6 +8,7 @@ import {
 import { Prisma, type Workflow } from '@prisma/client';
 import type { Queue } from 'bullmq';
 import type {
+  Condition,
   FireEventResultDto,
   TriggerConfig,
   TriggerType,
@@ -16,6 +17,7 @@ import type {
   WorkflowRunDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { evaluateConditions } from './engine/conditions';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import {
@@ -188,7 +190,14 @@ export class WorkflowsService {
 
   /**
    * Fire an internal event: enqueue a run for every ACTIVE EVENT workflow whose
-   * triggerConfig.eventType matches. Returns the matched count + created runIds.
+   * triggerConfig.eventType matches AND whose optional condition DSL (docs §5.2)
+   * passes against the fired payload. Returns the matched count + created runIds.
+   *
+   * Correlation/lineage (docs §9): when the payload carries an `eventId` (the
+   * CanonicalEvent id, set by the normalization pipeline), each created run gets
+   * `triggerEventId` = that id and `correlationId` = that id, so a single
+   * correlationId ties event→run→steps. A manual fire (no eventId) still gets a
+   * generated correlationId so every run is traceable.
    */
   async fireEvent(
     companyId: string,
@@ -204,12 +213,32 @@ export class WorkflowsService {
       },
     });
 
+    const safePayload = payload ?? {};
+    const eventId =
+      typeof safePayload.eventId === 'string' ? safePayload.eventId : null;
+
     const runIds: string[] = [];
     for (const wf of workflows) {
-      const run = await this.enqueueRun(wf.companyId, wf.id, 'EVENT', payload);
+      // Richer EVENT filtering: a workflow fires only if ALL its conditions pass
+      // (empty/absent → always fire, so existing EVENT workflows are unaffected).
+      const conditions = this.extractConditions(wf.triggerConfig);
+      if (!evaluateConditions(conditions, safePayload)) {
+        continue;
+      }
+      const run = await this.enqueueRun(wf.companyId, wf.id, 'EVENT', payload, {
+        triggerEventId: eventId,
+        // undefined → enqueueRun generates one (manual fire with no eventId).
+        correlationId: eventId ?? undefined,
+      });
       runIds.push(run.id);
     }
     return { eventType, count: runIds.length, runIds };
+  }
+
+  /** Read a workflow's EVENT condition list from its persisted triggerConfig. */
+  private extractConditions(config: Prisma.JsonValue): Condition[] {
+    const cfg = (config ?? null) as TriggerConfig | null;
+    return Array.isArray(cfg?.conditions) ? (cfg.conditions as Condition[]) : [];
   }
 
   /**
@@ -321,12 +350,19 @@ export class WorkflowsService {
 
   // --- Internals -----------------------------------------------------------
 
-  /** Create a run with the given source + enqueue a `{runId}` job. */
+  /**
+   * Create a run with the given source + enqueue a `{runId}` job. Every run gets
+   * a `correlationId` (docs §9): the caller supplies the triggering eventId for
+   * EVENT runs; otherwise a crypto-random id is generated so manual/schedule/
+   * webhook runs are equally traceable. `triggerEventId` is the CanonicalEvent id
+   * for EVENT runs (the lineage join key) and null for the rest.
+   */
   private async enqueueRun(
     companyId: string,
     workflowId: string,
     source: string,
     trigger?: Record<string, unknown>,
+    opts?: { triggerEventId?: string | null; correlationId?: string },
   ): Promise<WorkflowRunDto> {
     const run = await this.prisma.workflowRun.create({
       data: {
@@ -338,6 +374,8 @@ export class WorkflowsService {
           trigger === undefined
             ? Prisma.JsonNull
             : (trigger as Prisma.InputJsonObject),
+        triggerEventId: opts?.triggerEventId ?? null,
+        correlationId: opts?.correlationId ?? randomUUID(),
       },
     });
 

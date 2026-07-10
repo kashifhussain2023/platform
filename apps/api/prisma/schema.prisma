@@ -438,6 +438,12 @@ model WorkflowRun {
   source     String            @default("MANUAL")
   trigger    Json?
   context    Json?
+  // Correlation & lineage (docs §9). triggerEventId = the CanonicalEvent id that
+  // fired this run (EVENT source; the lineage join key), null for other sources.
+  // correlationId ties event→run→steps in logs/tracing: it defaults to the
+  // triggering eventId for EVENT runs and is a generated id otherwise.
+  triggerEventId String?
+  correlationId  String?
   // When a run pauses at an APPROVAL node (status WAITING), the id of the node to
   // continue from once approved (the approval node's outgoing edge target). Null
   // otherwise. The persisted `context` is the seed for the resumed walk.
@@ -450,6 +456,8 @@ model WorkflowRun {
   steps WorkflowStepRun[]
 
   @@index([companyId])
+  // Lineage lookups: WorkflowRun(s) triggered by a given CanonicalEvent.
+  @@index([companyId, triggerEventId])
 }
 
 model WorkflowStepRun {

@@ -99,6 +99,13 @@ export function RunPanel({
         )}
       </div>
 
+      {current?.correlationId && (
+        <p className="mt-2 font-mono text-xs text-gray-400">
+          corr: {current.correlationId}
+          {current.triggerEventId ? ` · event: ${current.triggerEventId}` : ''}
+        </p>
+      )}
+
       {run.isError && (
         <p className="mt-2 text-sm text-red-600">
           {run.error?.message ?? 'Could not start run'}

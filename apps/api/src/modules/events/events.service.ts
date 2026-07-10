@@ -10,10 +10,12 @@ import type { Queue } from 'bullmq';
 import type {
   CanonicalEventDto,
   ConnectorEventKind,
+  EventLineageDto,
   RawEventDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { SkillsService } from '../skills/skills.service';
+import { toWorkflowRunDto } from '../workflows/workflows.mapper';
 import {
   DEFAULT_EVENTS_LIMIT,
   EVENT_NORMALIZE_JOB,
@@ -179,6 +181,32 @@ export class EventsService {
       take,
     });
     return rows.map(toCanonicalEventDto);
+  }
+
+  /**
+   * Event→run lineage (docs §9): one owned CanonicalEvent plus the WorkflowRun(s)
+   * it triggered, joined on `WorkflowRun.triggerEventId`. Each run carries its
+   * status + step summary (steps included). 404 if the event isn't the tenant's.
+   */
+  async getCanonicalLineage(
+    companyId: string,
+    id: string,
+  ): Promise<EventLineageDto> {
+    const event = await this.prisma.canonicalEvent.findFirst({
+      where: { id, companyId },
+    });
+    if (!event) {
+      throw new NotFoundException('Canonical event not found');
+    }
+    const runs = await this.prisma.workflowRun.findMany({
+      where: { companyId, triggerEventId: id },
+      orderBy: { createdAt: 'asc' },
+      include: { steps: { orderBy: { createdAt: 'asc' } } },
+    });
+    return {
+      event: toCanonicalEventDto(event),
+      runs: runs.map((r) => toWorkflowRunDto(r)),
+    };
   }
 
   /** Recent canonical events for the company (a global feed), optionally by type. */
