@@ -138,7 +138,12 @@ export class GmailInboundService {
     try {
       const token = await this.tokens.getAccessToken(connector.id);
       if (!token) {
-        this.logger.warn(
+        // Expected for demo/seed connectors marked CONNECTED with mock
+        // credentials (no real accessToken/refreshToken) — debug, not warn,
+        // so the ~60s sweep doesn't spam logs for something that will never
+        // resolve. A REAL connector losing its grant instead flows through
+        // ConnectorHealthService (refresh failure -> DISCONNECTED) below.
+        this.logger.debug(
           `Gmail poll skipped for ${connector.id}: no access token`,
         );
         return { baseline: false, newMessages: 0, firedRuns: 0, noop: true };
