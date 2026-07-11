@@ -88,6 +88,10 @@ interface RunOptions {
  * manager's decision drives WorkflowsService.resumeRun (→ engine.resume →
  * COMPLETED) or cancelRun (→ FAILED). Workflows without an APPROVAL node behave
  * exactly as before (run → COMPLETED).
+ *
+ * EXCEPTION: an APPROVAL node configured `config.autoApprove: true` never
+ * pauses — it resolves immediately (no ApprovalRequest) and the walk continues,
+ * for companies that want criteria-matched runs to act with no human gate.
  */
 @Injectable()
 export class WorkflowEngine {
@@ -236,8 +240,11 @@ export class WorkflowEngine {
         }
         visited += 1;
 
-        // APPROVAL pauses the run: persist state, open an approval, and STOP.
-        if (current.type === 'APPROVAL') {
+        // APPROVAL pauses the run: persist state, open an approval, and STOP —
+        // UNLESS this node is configured autoApprove:true, in which case it
+        // falls through to runNode() below like any other step (resolves
+        // immediately, no PENDING ApprovalRequest, no pause).
+        if (current.type === 'APPROVAL' && !this.isAutoApprove(current)) {
           await this.pauseForApproval(
             run,
             companyId,
@@ -285,6 +292,11 @@ export class WorkflowEngine {
         },
       });
     }
+  }
+
+  /** APPROVAL nodes configured `autoApprove: true` skip the human gate (docs on ApprovalNodeConfig). */
+  private isAutoApprove(node: WorkflowNode): boolean {
+    return node.config?.autoApprove === true;
   }
 
   // --- APPROVAL pause / resume ---------------------------------------------
@@ -477,6 +489,10 @@ export class WorkflowEngine {
         return this.execCondition(node, context);
       case 'NOTIFY':
         return this.execNotify(node, context);
+      case 'APPROVAL':
+        // Only reached when isAutoApprove(node) is true — the run loop pauses
+        // (never calling runNode/executeNode) for a regular gated approval.
+        return this.execAutoApproval(node, context);
       default:
         throw new Error(`Unknown node type: ${String(node.type)}`);
     }
@@ -619,6 +635,17 @@ export class WorkflowEngine {
     const right = cfg.right == null ? '' : String(cfg.right);
     const result = compare(left, op, right);
     return { output: { left, op, right, result }, conditionResult: result };
+  }
+
+  /** Auto-approved APPROVAL (config.autoApprove: true): resolves immediately —
+   * no ApprovalRequest, no pause — but still leaves an auditable step in the run log. */
+  private execAutoApproval(
+    node: WorkflowNode,
+    context: Record<string, unknown>,
+  ): NodeResult {
+    const cfg = node.config ?? {};
+    const message = resolveTemplate(cfg.message, context);
+    return { output: { approved: true, auto: true, message } };
   }
 
   /** NOTIFY: record a templated message in the step output (log-style). */

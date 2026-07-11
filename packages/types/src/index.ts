@@ -1021,9 +1021,16 @@ export interface NotifyNodeConfig {
  * APPROVAL: pause the run and open a WORKFLOW-kind approval request in the
  * Approval Center. The run suspends (WAITING) until a manager approves (resume)
  * or rejects (fail). `message` is shown to the approver (defaulted if absent).
+ *
+ * `autoApprove: true` skips the human gate entirely — the step still runs and
+ * appears in the run log (for audit), but resolves immediately with no PENDING
+ * ApprovalRequest and no pause. Lets a company that trusts its upstream
+ * CONDITION ("criteria matched") go straight to the downstream action, while a
+ * company that wants a manager in the loop leaves this off (the default).
  */
 export interface ApprovalNodeConfig {
   message?: string;
+  autoApprove?: boolean;
 }
 
 // --- Zod schemas (shared with the web forms) -------------------------------

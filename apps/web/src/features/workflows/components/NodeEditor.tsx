@@ -244,17 +244,32 @@ export function NodeEditor({
       )}
 
       {node.type === 'APPROVAL' && (
-        <Field
-          label="Approval message"
-          hint="Shown to the approver. The run pauses (WAITING) until a manager approves (resume) or rejects (fail)."
-        >
-          <textarea
-            rows={2}
-            className={inputCls}
-            value={str(cfg.message)}
-            onChange={(e) => setConfig({ message: e.target.value })}
-          />
-        </Field>
+        <>
+          <Field
+            label="Approval message"
+            hint="Shown to the approver. The run pauses (WAITING) until a manager approves (resume) or rejects (fail)."
+          >
+            <textarea
+              rows={2}
+              className={inputCls}
+              value={str(cfg.message)}
+              onChange={(e) => setConfig({ message: e.target.value })}
+            />
+          </Field>
+          <Field
+            label="Approval mode"
+            hint="On: this step is skipped entirely — no approval queue, no pause; the run continues straight to the next step the moment it's reached. Off (default): pauses and waits for a manager in Approvals."
+          >
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={cfg.autoApprove === true}
+                onChange={(e) => setConfig({ autoApprove: e.target.checked })}
+              />
+              Skip approval — auto-approve when reached
+            </label>
+          </Field>
+        </>
       )}
 
       {node.type === 'TRIGGER' && (
