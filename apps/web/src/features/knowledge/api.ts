@@ -32,6 +32,14 @@ export async function deleteDocument(id: string): Promise<void> {
   await apiClient.delete(`/knowledge/documents/${id}`);
 }
 
+export async function getDocumentContent(id: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(
+    `/knowledge/documents/${id}/content`,
+    { responseType: 'blob' },
+  );
+  return data;
+}
+
 export async function searchKnowledge(
   payload: SearchQueryDto,
 ): Promise<SearchResultDto[]> {

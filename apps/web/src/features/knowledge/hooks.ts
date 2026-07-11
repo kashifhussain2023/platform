@@ -10,6 +10,7 @@ import type { NormalizedApiError } from '@/lib/apiClient';
 import { useSessionStore } from '@/stores/session.store';
 import {
   deleteDocument,
+  getDocumentContent,
   listDocuments,
   searchKnowledge,
   uploadDocument,
@@ -114,6 +115,34 @@ export function useDeleteDocument() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: knowledgeKeys.documents });
+    },
+  });
+}
+
+/**
+ * View mutation — opens a document's raw bytes in a new browser tab (native
+ * PDF viewer / text render), so a plain <a href> can't be used (the API route
+ * is JWT-guarded, not cookie-auth). We open a blank tab SYNCHRONOUSLY inside
+ * the click handler (before the async fetch) so popup blockers don't block it,
+ * then navigate that tab to a blob: URL once the authenticated fetch resolves.
+ */
+export function useViewDocument() {
+  return useMutation<void, NormalizedApiError, string>({
+    mutationFn: async (id) => {
+      const tab = window.open('', '_blank');
+      try {
+        const blob = await getDocumentContent(id);
+        const url = URL.createObjectURL(blob);
+        if (tab) {
+          tab.location.href = url;
+        } else {
+          window.location.href = url;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch (err) {
+        tab?.close();
+        throw err;
+      }
     },
   });
 }

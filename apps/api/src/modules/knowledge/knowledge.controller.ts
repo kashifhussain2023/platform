@@ -6,11 +6,14 @@ import {
   HttpCode,
   Param,
   Post,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import type { KnowledgeDocumentDto, SearchResultDto } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -44,6 +47,24 @@ export class KnowledgeController {
     @Param('id') id: string,
   ): Promise<KnowledgeDocumentDto> {
     return this.knowledge.get(companyId, id);
+  }
+
+  /** Raw file bytes (inline disposition) for a "View" button / opening in a new tab. */
+  @Get('documents/:id/content')
+  async content(
+    @CurrentTenant() companyId: string,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, mimeType, filename } = await this.knowledge.getContent(
+      companyId,
+      id,
+    );
+    res.set({
+      'Content-Type': mimeType || 'application/octet-stream',
+      'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Delete('documents/:id')

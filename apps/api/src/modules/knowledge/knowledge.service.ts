@@ -88,6 +88,16 @@ export class KnowledgeService {
     return toDocumentDto(doc);
   }
 
+  /** Raw stored bytes for the "View file" action (tenant-scoped). */
+  async getContent(
+    companyId: string,
+    id: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; filename: string }> {
+    const doc = await this.findOwned(companyId, id);
+    const buffer = await this.storage.get(doc.storageKey);
+    return { buffer, mimeType: doc.mimeType, filename: doc.filename };
+  }
+
   async remove(companyId: string, id: string): Promise<void> {
     const doc = await this.findOwned(companyId, id);
     // Best-effort blob delete; the row (and cascaded chunks) go regardless.

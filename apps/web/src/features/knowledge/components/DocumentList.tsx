@@ -2,7 +2,7 @@
 
 import type { DocumentStatus } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
-import { useDeleteDocument, useDocuments } from '../hooks';
+import { useDeleteDocument, useDocuments, useViewDocument } from '../hooks';
 
 const STATUS_STYLES: Record<DocumentStatus, string> = {
   PENDING: 'bg-gray-100 text-gray-600',
@@ -24,6 +24,7 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
 export function DocumentList() {
   const { data: docs, isLoading } = useDocuments();
   const del = useDeleteDocument();
+  const view = useViewDocument();
 
   if (isLoading) {
     return <p className="text-sm text-gray-500">Loading documents…</p>;
@@ -58,6 +59,13 @@ export function DocumentList() {
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <StatusBadge status={doc.status} />
+              <Button
+                variant="ghost"
+                onClick={() => view.mutate(doc.id)}
+                disabled={isTemp || view.isPending}
+              >
+                View
+              </Button>
               <Button
                 variant="ghost"
                 onClick={() => del.mutate(doc.id)}
