@@ -163,6 +163,13 @@ export function NodeList({ workflow }: { workflow: WorkflowDto }) {
       {update.isSuccess && !update.isPending && (
         <p className="mb-3 text-sm text-green-700">Saved.</p>
       )}
+      {workflow.warnings.length > 0 && (
+        <ul className="mb-3 space-y-1 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+          {workflow.warnings.map((w) => (
+            <li key={w}>⚠ {w}</li>
+          ))}
+        </ul>
+      )}
 
       <ol className="space-y-3">
         {nodes.map((node, index) => {

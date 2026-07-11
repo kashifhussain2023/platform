@@ -119,12 +119,13 @@ export class ApprovalService {
     userId: string,
     note?: string,
   ): Promise<ApprovalRequestDto> {
-    const req = await this.findPending(companyId, id);
+    const req = await this.findOwned(companyId, id);
+    await this.claim(companyId, id, 'APPROVED', userId, note);
     if (req.kind === 'WORKFLOW') {
-      return this.decideWorkflow(req, userId, note, true);
+      return this.decideWorkflow(req, true, note);
     }
     const call = await this.execute(req);
-    return this.finalize(id, call, userId, note);
+    return this.finalize(id, call);
   }
 
   /**
@@ -137,19 +138,11 @@ export class ApprovalService {
     userId: string,
     note?: string,
   ): Promise<ApprovalRequestDto> {
-    const req = await this.findPending(companyId, id);
+    const req = await this.findOwned(companyId, id);
+    const row = await this.claim(companyId, id, 'REJECTED', userId, note);
     if (req.kind === 'WORKFLOW') {
-      return this.decideWorkflow(req, userId, note, false);
+      return this.decideWorkflow(req, false, note);
     }
-    const row = await this.prisma.approvalRequest.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        decidedById: userId,
-        decidedAt: new Date(),
-        note: note ?? null,
-      },
-    });
     return toApprovalRequestDto(row);
   }
 
@@ -165,38 +158,70 @@ export class ApprovalService {
     args: Record<string, unknown>,
     note?: string,
   ): Promise<ApprovalRequestDto> {
-    const req = await this.findPending(companyId, id);
+    const req = await this.findOwned(companyId, id);
+    await this.claim(
+      companyId,
+      id,
+      'APPROVED',
+      userId,
+      note ?? 'Modified before approval',
+    );
     if (req.kind === 'WORKFLOW') {
-      return this.decideWorkflow(req, userId, note, true);
+      return this.decideWorkflow(req, true, note);
     }
     const call = await this.execute({ ...req, args: args as Prisma.JsonValue });
-    return this.finalize(id, call, userId, note ?? 'Modified before approval', {
-      ...args,
-    });
+    return this.finalize(id, call, { ...args });
   }
 
   // --- Internals -----------------------------------------------------------
 
   /**
-   * Apply a decision to a WORKFLOW-kind request: persist APPROVED/REJECTED, then
-   * resume (approve) or cancel (reject) the paused run via WorkflowsService. No
-   * tool is executed and no SkillExecution is written.
+   * Atomically claim a PENDING request by flipping its status — race-safe via a
+   * conditional UPDATE (`WHERE status = 'PENDING'`): Postgres row-locks the first
+   * writer, and a concurrent second writer's WHERE re-evaluates against the
+   * now-committed row and matches zero rows. This is what actually prevents two
+   * managers approving+rejecting (or double-approving) the SAME request at once —
+   * the previous code only checked status with a separate SELECT (`findPending`)
+   * BEFORE executing a tool/resuming a run, which both concurrent calls could
+   * pass, leading to a tool executing twice or a run being both resumed and
+   * cancelled. Throws ConflictException (same message as before) if the claim
+   * is lost.
    */
-  private async decideWorkflow(
-    req: ApprovalRequest,
+  private async claim(
+    companyId: string,
+    id: string,
+    status: 'APPROVED' | 'REJECTED',
     userId: string,
-    note: string | undefined,
-    approved: boolean,
-  ): Promise<ApprovalRequestDto> {
-    const row = await this.prisma.approvalRequest.update({
-      where: { id: req.id },
+    note?: string,
+  ): Promise<ApprovalRequest> {
+    const result = await this.prisma.approvalRequest.updateMany({
+      where: { id, companyId, status: 'PENDING' },
       data: {
-        status: approved ? 'APPROVED' : 'REJECTED',
+        status,
         decidedById: userId,
         decidedAt: new Date(),
         note: note ?? null,
       },
     });
+    if (result.count === 0) {
+      const existing = await this.findOwned(companyId, id);
+      throw new ConflictException(
+        `Approval request is already ${existing.status.toLowerCase()}`,
+      );
+    }
+    return this.prisma.approvalRequest.findUniqueOrThrow({ where: { id } });
+  }
+
+  /**
+   * Apply a decision to an ALREADY-CLAIMED WORKFLOW-kind request: resume
+   * (approve) or cancel (reject) the paused run via WorkflowsService. No tool is
+   * executed and no SkillExecution is written.
+   */
+  private async decideWorkflow(
+    req: ApprovalRequest,
+    approved: boolean,
+    note: string | undefined,
+  ): Promise<ApprovalRequestDto> {
     if (req.workflowRunId) {
       if (approved) {
         await this.workflows.resumeRun(req.workflowRunId);
@@ -207,6 +232,9 @@ export class ApprovalService {
         );
       }
     }
+    const row = await this.prisma.approvalRequest.findUniqueOrThrow({
+      where: { id: req.id },
+    });
     return toApprovalRequestDto(row);
   }
 
@@ -228,25 +256,22 @@ export class ApprovalService {
     );
   }
 
-  /** Persist an APPROVED decision with the tool result (and optionally new args). */
+  /**
+   * Record the tool result (and optionally new args) on an ALREADY-CLAIMED
+   * (status:APPROVED, decidedBy/At/note already set by `claim`) request.
+   */
   private async finalize(
     id: string,
     call: ToolCallDto,
-    userId: string,
-    note?: string,
     args?: Record<string, unknown>,
   ): Promise<ApprovalRequestDto> {
     const row = await this.prisma.approvalRequest.update({
       where: { id },
       data: {
-        status: 'APPROVED',
         result:
           call.result == null
             ? Prisma.JsonNull
             : (call.result as Prisma.InputJsonValue),
-        decidedById: userId,
-        decidedAt: new Date(),
-        note: note ?? null,
         ...(args ? { args: args as Prisma.InputJsonObject } : {}),
       },
     });
@@ -273,16 +298,4 @@ export class ApprovalService {
     return row;
   }
 
-  private async findPending(
-    companyId: string,
-    id: string,
-  ): Promise<ApprovalRequest> {
-    const row = await this.findOwned(companyId, id);
-    if (row.status !== 'PENDING') {
-      throw new ConflictException(
-        `Approval request is already ${row.status.toLowerCase()}`,
-      );
-    }
-    return row;
-  }
 }

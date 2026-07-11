@@ -35,7 +35,10 @@ export function chunkText(text: string, size = 1000, overlap = 150): string[] {
 /**
  * Extract plain text from an uploaded document. txt/md/plain are decoded as
  * utf-8; PDFs are parsed with a lazily-imported `pdf-parse` (the internal lib
- * path avoids its debug harness that reads a bundled test file at import time).
+ * path avoids its debug harness that reads a bundled test file at import time);
+ * DOCX (docs/test-cases REC-10 — previously a resume in this format was
+ * invisible to scoring, same failure mode as an unsupported CV attachment) is
+ * parsed with a lazily-imported `mammoth`.
  */
 export async function extractText(
   bytes: Buffer,
@@ -53,6 +56,15 @@ export async function extractText(
     ) => Promise<{ text: string }>;
     const parsed = await pdfParse(bytes);
     return parsed.text;
+  }
+  const isDocx =
+    mimeType ===
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    name.endsWith('.docx');
+  if (isDocx) {
+    const mammoth = await import('mammoth');
+    const parsed = await mammoth.extractRawText({ buffer: bytes });
+    return parsed.value;
   }
   return bytes.toString('utf8');
 }

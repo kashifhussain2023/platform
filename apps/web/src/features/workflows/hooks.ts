@@ -79,6 +79,7 @@ export function useCreateWorkflow() {
         triggerConfig: null,
         webhookToken: null,
         activatedAt: null,
+        warnings: [],
         createdAt: now,
         updatedAt: now,
       };

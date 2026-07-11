@@ -128,6 +128,7 @@ export function useInstallWorkflowTemplate() {
         triggerConfig: null,
         webhookToken: null,
         activatedAt: null,
+        warnings: [],
         createdAt: now,
         updatedAt: now,
       };

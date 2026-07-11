@@ -75,9 +75,12 @@ decide if that's the desired behavior.
 **Scenario:** Two managers open the same approval and one clicks Approve while the other clicks
 Reject within the same second.
 **Expected:** exactly one outcome wins; the run doesn't end up in a corrupt/ambiguous state.
-**Status:** 🧪 **Untested** — no advisory-lock-style guard was found on the approval
-resolve path (unlike the employee-hire race we fixed this session). Worth a concurrent-request
-test similar to the 5-parallel-hire test that verified the seat-limit fix.
+**Status:** ✅ **Fixed** — `ApprovalService` now atomically CLAIMS a request (a conditional
+`UPDATE ... WHERE status = 'PENDING'`, checked via affected-row count) before executing any tool
+or resuming/cancelling a run — the previous code checked status with a separate SELECT
+(`findPending`) that two concurrent calls could both pass, letting a tool execute twice or a run
+get both resumed AND cancelled. Live-verified: 5 concurrent decisions (mixed approve/reject) on
+the same request → exactly 1 succeeded (201), the other 4 got 409, the run completed exactly once.
 
 ### WF-B3 — Approval message references a template var that was never set
 **Scenario:** The AI_STEP before CONDITION fails (LLM error) so `{{score}}` never gets written to
@@ -150,8 +153,11 @@ unambiguous. 🧪 for a live confirmation.
 ### WF-D2 — Orphaned node (unreachable from TRIGGER)
 **Scenario:** A step exists in `nodes` but no edge points to it.
 **Expected:** either a build-time warning, or documented silent no-op.
-**Status:** ❌ **Gap (minor)** — it just never executes; no validation warns the builder that a
-step is dead code.
+**Status:** ✅ **Fixed** — `WorkflowDto` gains a `warnings: string[]` field (computed by
+`computeWarnings()` from the definition's edges); a non-TRIGGER node with no incoming edge
+produces `Step "X" (TYPE) has no incoming edge — it will never run.` Non-blocking (never rejects
+the save, unlike the WF-D3 duplicate-id/unknown-edge checks) — shown as an amber banner in the
+builder. Live-verified.
 
 ### WF-D3 — Duplicate node ids in one definition
 **Scenario:** Two nodes share `id: "a1"` (possible via direct API/DB edit, not via the builder

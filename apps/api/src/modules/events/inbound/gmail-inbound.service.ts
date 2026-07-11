@@ -19,6 +19,16 @@ function toJson(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull 
   return value == null ? Prisma.JsonNull : (value as Prisma.InputJsonValue);
 }
 
+/** Extract the bare address from a raw `From` header (angle-bracket or plain form). */
+function extractEmailAddress(from: unknown): string | null {
+  if (typeof from !== 'string' || !from.trim()) {
+    return null;
+  }
+  const match = from.match(/<([^>]+)>/);
+  const addr = (match ? match[1] : from).trim().toLowerCase();
+  return addr || null;
+}
+
 /** Outcome of a single connector poll (surfaced by the manual poll endpoint). */
 export interface PollResult {
   /** True when this poll only established the baseline cursor (fired nothing). */
@@ -33,10 +43,20 @@ export interface PollResult {
   rebaselined?: boolean;
 }
 
-/** Bounded attachment metadata carried into the payload (never the full text). */
+/**
+ * Bounded attachment metadata carried into the payload (never the full text).
+ * A skipped attachment (over the size cap, or an unsupported type) is now
+ * recorded here too (docs/test-cases REC-13) — previously it was ONLY a
+ * server log line, invisible to anyone looking at the run/candidate: a good
+ * candidate whose CV happened to be an unsupported format could be silently
+ * scored on nothing but their email body with no visible explanation why.
+ */
 interface InboundAttachment {
   filename: string;
   chars: number;
+  /** Present only for a skipped attachment; absent means it was parsed fine. */
+  skipped?: boolean;
+  skipReason?: string;
 }
 
 /** Flattened inbound message metadata a RawEvent payload carries. */
@@ -370,6 +390,25 @@ export class GmailInboundService {
         // aggregate `subject:{type,email}` stays on the CanonicalEvent row; we
         // also keep `data` so {{trigger.data.*}} continues to resolve.
         const email = (canonical.data ?? {}) as Record<string, unknown>;
+
+        // Repeat-sender signal (docs/test-cases REC-12/SALES-03): count prior
+        // NEW_EMAIL submissions from the SAME address for this company. Never
+        // blocks/dedupes anything by itself — just exposes the fact so a
+        // workflow's Approval message or AI_STEP prompt can reference it (e.g.
+        // "this candidate applied before, score N"), instead of silently
+        // treating a resubmission as if it were the person's first contact.
+        const senderEmail = extractEmailAddress(email.from);
+        const priorSubmissionCount = senderEmail
+          ? await this.prisma.canonicalEvent.count({
+              where: {
+                companyId: connector.companyId,
+                type: 'NEW_EMAIL',
+                id: { not: canonical.id },
+                data: { path: ['from'], string_contains: senderEmail },
+              },
+            })
+          : 0;
+
         const result = await this.workflows.fireEvent(
           connector.companyId,
           canonical.type,
@@ -389,6 +428,8 @@ export class GmailInboundService {
             // workflow's own EVENT trigger conditions can opt into filtering
             // out spam/newsletters via this (docs/test-cases REC-07).
             looksLikeApplication: message.looksLikeApplication,
+            isRepeatSender: priorSubmissionCount > 0,
+            priorSubmissionCount,
             data: email,
           },
         );
@@ -626,23 +667,33 @@ export class GmailInboundService {
 
     const texts: string[] = [];
     const attachments: InboundAttachment[] = [];
+    // Record a skip (docs/test-cases REC-13) instead of only logging it — a
+    // candidate whose CV happened to be an unsupported format previously got
+    // scored on their email body alone with nothing anywhere visible to
+    // explain why; now `{{trigger.attachments}}` carries the skip + reason.
+    const skip = (filename: string, reason: string) => {
+      this.logger.warn(`Gmail attachment "${filename}" skipped: ${reason}`);
+      attachments.push({ filename, chars: 0, skipped: true, skipReason: reason });
+    };
     for (const part of attachmentParts) {
       const filename = part.filename as string;
       try {
         const declaredSize = Number(part.body?.size ?? 0);
         if (declaredSize > GMAIL_ATTACHMENT_MAX_BYTES) {
-          this.logger.warn(
-            `Gmail attachment "${filename}" skipped: ${declaredSize}B > cap`,
-          );
+          skip(filename, `${declaredSize}B over the size cap`);
           continue;
         }
         const mime = (part.mimeType ?? '').toLowerCase();
-        const isPdf =
-          mime === 'application/pdf' || filename.toLowerCase().endsWith('.pdf');
-        const isText =
-          mime.startsWith('text/') || filename.toLowerCase().endsWith('.txt');
-        if (!isPdf && !isText) {
-          continue; // Unsupported type — skip (metadata not recorded).
+        const lowerName = filename.toLowerCase();
+        const isPdf = mime === 'application/pdf' || lowerName.endsWith('.pdf');
+        const isDocx =
+          mime ===
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+          lowerName.endsWith('.docx');
+        const isText = mime.startsWith('text/') || lowerName.endsWith('.txt');
+        if (!isPdf && !isDocx && !isText) {
+          skip(filename, `unsupported file type (${mime || 'unknown'})`);
+          continue;
         }
 
         const bytes = await this.downloadAttachment(
@@ -651,32 +702,36 @@ export class GmailInboundService {
           part.body!.attachmentId as string,
         );
         if (!bytes || bytes.length === 0) {
+          skip(filename, 'download returned no data');
           continue;
         }
         if (bytes.length > GMAIL_ATTACHMENT_MAX_BYTES) {
-          this.logger.warn(
-            `Gmail attachment "${filename}" skipped: ${bytes.length}B > cap`,
-          );
+          skip(filename, `${bytes.length}B over the size cap`);
           continue;
         }
 
-        // Reuse the knowledge module's extractor (PDF → pdf-parse, else utf8).
+        // Reuse the knowledge module's extractor (PDF -> pdf-parse, DOCX ->
+        // mammoth, else utf8).
         const raw = await extractText(
           bytes,
-          isPdf ? 'application/pdf' : 'text/plain',
+          isPdf
+            ? 'application/pdf'
+            : isDocx
+              ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+              : 'text/plain',
           filename,
         );
         const text = (raw ?? '').trim().slice(0, GMAIL_ATTACHMENT_MAX_CHARS);
         if (!text) {
+          skip(filename, 'no extractable text (possibly a scanned/image-only file)');
           continue;
         }
         texts.push(`# ${filename}\n${text}`);
         attachments.push({ filename, chars: text.length });
       } catch (err) {
-        this.logger.warn(
-          `Gmail attachment "${filename}" parse skipped: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
+        skip(
+          filename,
+          `parse error: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

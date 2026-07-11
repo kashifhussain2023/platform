@@ -1,6 +1,11 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Prisma, type AiEmployee, type Conversation } from '@prisma/client';
-import type { MessageMetadataDto, RunResultDto, ToolCallDto } from '@vaep/types';
+import type {
+  EmployeeRole,
+  MessageMetadataDto,
+  RunResultDto,
+  ToolCallDto,
+} from '@vaep/types';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import {
   CONTEXT_CLOSE,
@@ -22,6 +27,13 @@ import { ValidationService } from './validation.service';
 function clip(text: string, n: number): string {
   const clean = text.replace(/\s+/g, ' ').trim();
   return clean.length <= n ? clean : `${clean.slice(0, n).trimEnd()}…`;
+}
+
+/** Minimal shape of a sibling (other) employee, used to build named redirect targets. */
+interface OtherEmployee {
+  name: string;
+  role: EmployeeRole;
+  persona: string | null;
 }
 
 /**
@@ -82,6 +94,10 @@ export class AgentRuntimeService {
       conversation.id,
       employee.id,
     );
+    const otherEmployees = await this.prisma.aiEmployee.findMany({
+      where: { companyId, status: 'ACTIVE', id: { not: employee.id } },
+      select: { name: true, role: true, persona: true },
+    });
 
     // ACT: resolve the employee's tools, then run a BOUNDED tool-calling loop.
     // Each iteration drafts with the LLM; if it returns a tool call we execute
@@ -93,7 +109,13 @@ export class AgentRuntimeService {
       `run: employee=${employee.id} tools=${tools.length} sources=${sources.length}`,
     );
 
-    const system = this.buildSystemPrompt(employee, plan, sources, memory);
+    const system = this.buildSystemPrompt(
+      employee,
+      plan,
+      sources,
+      memory,
+      otherEmployees,
+    );
     const ctx: ExecutorContext = {
       companyId,
       employeeId: employee.id,
@@ -206,6 +228,7 @@ export class AgentRuntimeService {
     plan: string[],
     sources: RunResultDto['sources'],
     memory: LoadedMemory,
+    otherEmployees: OtherEmployee[],
   ): string {
     const lines: string[] = [
       `You are ${employee.name}, a ${employee.role} AI employee working for this company.`,
@@ -214,12 +237,33 @@ export class AgentRuntimeService {
         'technically know how to do it or the user insists.',
       "If the user's request belongs to a different role (e.g. recruiting/CV " +
         'screening is RECRUITER work, bookkeeping/expenses is ACCOUNTANT work, ' +
-        'people-ops policy is HR work, customer issues are SUPPORT work) you ' +
-        'MUST refuse to perform it, even partially. Reply with ONLY a short, ' +
-        'polite decline explaining this is outside your role and naming the ' +
-        'correct AI employee/role for it — do not produce the requested ' +
-        'output, an estimate, or a "however, in general..." answer.',
+        'people-ops policy is HR work, customer issues are SUPPORT work — or ' +
+        'any role listed below) you MUST refuse to perform it, even partially. ' +
+        'Reply with ONLY a short, polite decline explaining this is outside ' +
+        'your role and naming the correct AI employee/role for it — do not ' +
+        'produce the requested output, an estimate, or a "however, in ' +
+        'general..." answer.',
     ];
+    // Named, per-company redirect targets — generalizes the refusal above
+    // beyond the 4 hardcoded example categories (RECRUITER/ACCOUNTANT/HR/
+    // SUPPORT), which previously left CUSTOM-role employees (Marketing/
+    // Procurement/Operations/Legal, or any future custom persona) with no
+    // explicit "redirect to X" mapping — only general reasoning to fall back
+    // on. A CUSTOM role's scope line is its persona, so use that as the
+    // one-line description instead of the generic ROLE_SCOPE.CUSTOM filler.
+    if (otherEmployees.length > 0) {
+      lines.push(
+        '',
+        'Other AI employees at this company — redirect off-role requests to the right one:',
+      );
+      otherEmployees.forEach((e) => {
+        const scope =
+          e.role === 'CUSTOM' && e.persona
+            ? clip(e.persona, 140)
+            : ROLE_SCOPE[e.role];
+        lines.push(`- ${e.name} (${e.role}): ${scope}`);
+      });
+    }
     if (employee.persona) {
       lines.push(`Persona and guidelines: ${employee.persona}`);
     }

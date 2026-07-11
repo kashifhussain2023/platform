@@ -32,7 +32,10 @@ follow-up emails.
 **Depends on:** the same de-duplication gap as REC-12 (no cross-event "is this the same person"
 linkage) — would apply identically here. A lead getting two slightly different follow-ups reads
 worse for sales than for recruiting (looks disorganized to a prospect).
-**Status:** ❌ **Gap (shared with REC-12)**.
+**Status:** ⚠️ **Partial (shared with REC-12)** — the same `isRepeatSender`/
+`priorSubmissionCount` signal fixed this session applies here too (it's computed generically per
+sender address, not recruiting-specific), so a Sales workflow CAN reference "this lead already
+contacted us Nx" — still no automatic dedup/merge of the requests themselves.
 
 ### SALES-04 — Role-scope guardrail: SalesAI asked to do recruiting/HR work
 **Scenario:** in chat, ask the Sales employee to "screen this candidate CV and score them."

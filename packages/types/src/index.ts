@@ -1160,6 +1160,12 @@ export interface WorkflowDto {
   activatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Non-blocking structural warnings computed from `definition` (e.g. a step
+   * with no incoming edge — dead code, unreachable from the TRIGGER). Never
+   * prevents a save; purely informational for the builder UI.
+   */
+  warnings: string[];
 }
 
 /** Result of firing an internal event (POST /workflows/events). */

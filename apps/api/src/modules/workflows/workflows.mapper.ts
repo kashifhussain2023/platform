@@ -28,20 +28,37 @@ export const STARTER_DEFINITION: WorkflowDefinition = {
   edges: [],
 };
 
+/**
+ * Non-blocking structural warnings (docs/test-cases WF-D2): a node other than
+ * TRIGGER with no incoming edge is unreachable — dead code the run will never
+ * visit, with no error anywhere today. Purely informational; never rejects a
+ * save (unlike validateDefinition's duplicate-id / unknown-edge-ref checks).
+ */
+export function computeWarnings(definition: WorkflowDefinition): string[] {
+  const reachableTargets = new Set(definition.edges.map((e) => e.to));
+  return definition.nodes
+    .filter((n) => n.type !== 'TRIGGER' && !reachableTargets.has(n.id))
+    .map(
+      (n) =>
+        `Step "${n.name || n.id}" (${n.type}) has no incoming edge — it will never run.`,
+    );
+}
+
 export function toWorkflowDto(w: Workflow): WorkflowDto {
+  const definition =
+    (w.definition as unknown as WorkflowDefinition | null) ?? EMPTY_DEFINITION;
   return {
     id: w.id,
     companyId: w.companyId,
     name: w.name,
     description: w.description,
     status: w.status,
-    definition:
-      (w.definition as unknown as WorkflowDefinition | null) ??
-      EMPTY_DEFINITION,
+    definition,
     triggerType: w.triggerType as TriggerType,
     triggerConfig: (w.triggerConfig as TriggerConfig | null) ?? null,
     webhookToken: w.webhookToken ?? null,
     activatedAt: w.activatedAt?.toISOString() ?? null,
+    warnings: computeWarnings(definition),
     createdAt: w.createdAt.toISOString(),
     updatedAt: w.updatedAt.toISOString(),
   };

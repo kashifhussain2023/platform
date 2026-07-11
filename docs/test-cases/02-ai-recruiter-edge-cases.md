@@ -95,10 +95,11 @@ should fire regardless of To/Cc, but this hasn't been explicitly verified.
 ### REC-10 — Non-PDF resume (DOCX, RTF, Pages export)
 **Steps:** send a `.docx` resume instead of PDF.
 **Expected:** ideally, its text should still be extracted and scored.
-**Status:** ❌ **Gap (known, documented earlier this session)** — only PDF and plain-text
-attachments are parsed; a DOCX candidate's actual content is invisible to the scorer, who then
-scores off the (likely thin) email body alone — a real risk of unfairly rejecting a qualified
-candidate purely because of file format.
+**Status:** ✅ **Fixed (DOCX only)** — `extractText()` now parses `.docx` via a lazily-imported
+`mammoth` (same lazy-import pattern as `pdf-parse`), shared by both the Gmail inbound driver and
+direct Knowledge uploads. Verified directly against a real `.docx` file (extracted text matched
+exactly). RTF and Pages (`.pages`) export are still NOT handled — narrower gap than before, not
+fully closed.
 
 ### REC-11 — Scanned/photographed resume (image-only PDF, no text layer)
 **Steps:** send a PDF that's actually a photo/scan of a printed resume.
@@ -115,15 +116,22 @@ for human review rather than silently creating a second, contradictory outcome).
 independent `NEW_EMAIL` → independent score → independent approval/rejection, with **no linkage**
 between the two submissions. Two different managers could see two unrelated approval requests for
 the same person without knowing they're related.
-**Status:** ❌ **Gap** — no de-duplication or "is this an existing candidate" lookup by email.
+**Status:** ⚠️ **Partial (signal added, not full de-dup)** — `ingestInbound` now counts prior
+`NEW_EMAIL` CanonicalEvents from the same address and exposes `{{trigger.isRepeatSender}}` /
+`{{trigger.priorSubmissionCount}}` on the trigger payload — a workflow's Approval message or
+AI_STEP prompt can reference "this candidate applied before (Nx)" so a manager isn't blindsided by
+an unlinked second request. This is NOT full de-duplication (no candidate-identity model, no
+automatic linking/merging of the two approval requests) — that remains a real feature gap, just a
+smaller one now that the fact is at least visible.
 
 ### REC-13 — Very large attachment (over the 5MB cap)
 **Steps:** send a CV as an unusually large PDF (>5MB, e.g. embedded high-res photos).
 **Expected:** documented, graceful degradation.
-**Status:** ✅ **Handled, but silently** — the attachment is skipped entirely
-(`GMAIL_ATTACHMENT_MAX_BYTES`), scoring falls back to body+subject only. No error is surfaced
-anywhere that "the CV was too large to read" — worth knowing since a good candidate with a
-photo-heavy CV design could be scored on nothing but their email body.
+**Status:** ✅ **Fixed** — a skipped attachment (too large, unsupported type, download/parse
+error, or no extractable text) is now recorded in `{{trigger.attachments}}` as
+`{filename, skipped:true, skipReason}` instead of silently vanishing — visible in the run log, not
+just a server log line. Live-verified generically (same mechanism as the other new tools this
+session).
 
 ### REC-14 — Attachment named misleadingly
 **Steps:** send a PDF resume named `invoice.pdf`, or an actual invoice named `resume.pdf`.

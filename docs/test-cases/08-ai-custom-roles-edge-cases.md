@@ -9,21 +9,22 @@ same platform-level nuances apply to all four.
 ## Cross-cutting note: the role-scope guardrail for `CUSTOM`
 
 `ROLE_SCOPE.CUSTOM = 'the tasks described in your persona below'` — unlike named roles
-(RECRUITER/SALES/SUPPORT/HR/ACCOUNTANT/PROJECT_MANAGER), **all four CUSTOM-role employees share
-this identical, generic scope line**; the actual boundary comes entirely from each one's distinct
-`persona` text. The hardcoded "known off-role categories" in the guardrail instruction
-(`agent-runtime.service.ts`) only names RECRUITER/ACCOUNTANT/HR/SUPPORT explicitly — Marketing/
-Procurement/Operations/Legal are NOT named as their own categories anywhere in that instruction.
+(RECRUITER/SALES/SUPPORT/HR/ACCOUNTANT/PROJECT_MANAGER), all four CUSTOM-role employees share
+this identical, generic scope line; the actual boundary comes entirely from each one's distinct
+`persona` text.
 
-**CUSTOM-01 — Does the guardrail still work without an explicit named category?**
+**CUSTOM-01 — Does the guardrail work without an explicit named category?**
 **Steps:** ask LegalAI to "draft a marketing campaign," or ask MarketingAI to "review this
 contract."
-**Expected:** should still decline (the general instruction says refuse ANY off-role request, not
-just the 4 explicitly-named ones) — but this relies on the model generalizing correctly rather
-than an explicit rule.
-**Status:** 🧪 **Untested** — the mechanism was verified with SUPPORT→RECRUITER (an explicitly
-named pair) this session; the SAME test hasn't been run for a CUSTOM↔CUSTOM pair, which is a
-meaningfully weaker guarantee (relies on general reasoning, not a named mapping).
+**Expected:** should still decline, AND name the correct sibling employee to redirect to.
+**Status:** ✅ **Fixed** — the guardrail no longer relies solely on the 4 hardcoded example
+categories generalizing by chance. `buildSystemPrompt` now queries the company's OTHER active
+employees (name + role, and for CUSTOM roles a clipped persona snippet as the scope description)
+and lists them by name in the system prompt: `"Other AI employees at this company — redirect
+off-role requests to: - LegalAI (CUSTOM): reviews contracts..."`. Live-verified with real GPT: a
+MarketingAI (CUSTOM) asked to review a contract replied *"...I recommend consulting...a
+specialized legal AI assistant like LegalAI"* — correctly naming the actual hired sibling
+employee, not a generic deflection.
 
 ---
 
