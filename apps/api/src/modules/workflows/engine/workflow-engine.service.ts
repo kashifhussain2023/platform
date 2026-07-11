@@ -8,6 +8,7 @@ import type {
   WorkflowNode,
 } from '@vaep/types';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { BillingService } from '../../billing/billing.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { SkillsService } from '../../skills/skills.service';
 import {
@@ -26,8 +27,25 @@ function toJson(
   return value == null ? Prisma.JsonNull : (value as Prisma.InputJsonValue);
 }
 
+/**
+ * Strict numeric parse for a CONDITION's gt/lt operands. Unlike the EVENT
+ * trigger DSL (conditions.ts), where a non-numeric operand safely means
+ * "don't fire" (fail-closed, no side effect yet), an in-graph CONDITION node
+ * sits mid-run: silently treating a bad operand as `NaN`/`0` would silently
+ * route an ALREADY-STARTED run down the wrong branch (e.g. an LLM reply like
+ * "around 85" instead of "85" would previously read as `NaN > 79 === false`
+ * and silently auto-reject a strong candidate). Throwing here fails the step
+ * (and the run) with a clear message instead.
+ */
 function toNumber(value: string): number {
-  return Number(value);
+  const trimmed = value.trim();
+  const n = Number(trimmed);
+  if (trimmed === '' || Number.isNaN(n)) {
+    throw new Error(
+      `CONDITION expected a number but got ${JSON.stringify(value)}`,
+    );
+  }
+  return n;
 }
 
 /** Manual (no-eval) comparison used by CONDITION nodes. */
@@ -101,8 +119,33 @@ export class WorkflowEngine {
     private readonly prisma: PrismaService,
     private readonly knowledge: KnowledgeService,
     private readonly skills: SkillsService,
+    private readonly billing: BillingService,
     @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
   ) {}
+
+  /**
+   * A cancelled/past-due company shouldn't keep consuming paid LLM/tool calls
+   * just because a workflow is already ACTIVE (docs/specs/hiring-and-
+   * subscription-linkage.md Part D #4 / test-cases WF-E4). Checked at every
+   * fresh-execution and resume entry point so it's watertight regardless of
+   * trigger type (MANUAL/EVENT/WEBHOOK/SCHEDULE) or approval timing.
+   */
+  private async blockedBySubscription(companyId: string): Promise<string | null> {
+    const subscription = await this.billing.getSubscription(companyId);
+    if (subscription.status === 'ACTIVE') {
+      return null;
+    }
+    return `Subscription is ${subscription.status.toLowerCase().replace('_', ' ')} — workflow execution is paused until billing is resolved.`;
+  }
+
+  /** Fail `runId` immediately with `reason`, without running any node. */
+  private async failBlockedRun(runId: string, reason: string): Promise<void> {
+    await this.prisma.workflowRun.update({
+      where: { id: runId },
+      data: { status: 'FAILED', finishedAt: new Date(), error: reason },
+    });
+    this.logger.warn(`Workflow run ${runId} blocked: ${reason}`);
+  }
 
   /**
    * Scheduled/triggered entry: create a WorkflowRun for a workflow (with the
@@ -150,6 +193,12 @@ export class WorkflowEngine {
       return;
     }
 
+    const blocked = await this.blockedBySubscription(run.companyId);
+    if (blocked) {
+      await this.failBlockedRun(runId, blocked);
+      return;
+    }
+
     await this.prisma.workflowRun.update({
       where: { id: runId },
       data: { status: 'RUNNING', startedAt: new Date(), error: null },
@@ -171,6 +220,11 @@ export class WorkflowEngine {
     });
     if (!run) {
       this.logger.warn(`Workflow run ${runId} not found (resume)`);
+      return;
+    }
+    const blocked = await this.blockedBySubscription(run.companyId);
+    if (blocked) {
+      await this.failBlockedRun(runId, blocked);
       return;
     }
     // Pass a defined context so `run` knows this is a resume (not a fresh start)
@@ -443,7 +497,17 @@ export class WorkflowEngine {
     }
   }
 
-  /** Pick the next node: CONDITION follows its branch edge, else the first edge. */
+  /**
+   * Pick the next node: CONDITION follows its branch edge, else the first edge.
+   *
+   * A CONDITION with NO branch-tagged outgoing edges at all is a deliberate,
+   * simple "pass-through" design (the condition result is just logged, not
+   * used to route) — that keeps working as before. But if the node has SOME
+   * branch-tagged edges and the current result doesn't match any of them
+   * (e.g. only a `[true]` edge exists and the result is `false`), silently
+   * falling back to an arbitrary edge would run the WRONG downstream steps
+   * with no error anywhere. Fail loudly instead.
+   */
   private nextNode(
     node: WorkflowNode,
     edges: WorkflowEdge[],
@@ -457,10 +521,17 @@ export class WorkflowEngine {
     let edge: WorkflowEdge;
     if (node.type === 'CONDITION' && result.conditionResult !== undefined) {
       const branch = result.conditionResult ? 'true' : 'false';
-      edge =
-        outgoing.find((e) => e.branch === branch) ??
-        outgoing.find((e) => !e.branch) ??
-        outgoing[0];
+      const matched = outgoing.find((e) => e.branch === branch);
+      const anyBranchTagged = outgoing.some((e) => e.branch);
+      if (matched) {
+        edge = matched;
+      } else if (!anyBranchTagged) {
+        edge = outgoing[0];
+      } else {
+        throw new Error(
+          `CONDITION node "${node.id}" evaluated to ${branch}, but no outgoing edge has branch="${branch}" (misconfigured workflow)`,
+        );
+      }
     } else {
       edge = outgoing[0];
     }

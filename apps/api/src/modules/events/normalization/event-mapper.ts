@@ -156,6 +156,11 @@ function mapGmail(raw: RawEventInput): CanonicalMapping {
   const attachments = Array.isArray(payload['attachments'])
     ? (payload['attachments'] as unknown[])
     : [];
+  // Passed through for audit visibility (`/events/canonical`) — the actual
+  // reply-skip / spam-filter decisions happen in GmailInboundService, which
+  // computes these; the mapper just carries them onto the canonical record.
+  const isReply = payload['isReply'] === true;
+  const looksLikeApplication = payload['looksLikeApplication'] === true;
   return {
     type: 'NEW_EMAIL',
     dedupeKey: `gmail:msg:${messageId}`,
@@ -163,7 +168,17 @@ function mapGmail(raw: RawEventInput): CanonicalMapping {
     subject: { type: 'candidate', email: from },
     // `body` (full text) + `cv` (attachment text) drive the RecruitAI screen;
     // `attachments` carries metadata only (filename + chars) to stay bounded.
-    data: { from, subject, snippet, body, cv, attachments, messageId },
+    data: {
+      from,
+      subject,
+      snippet,
+      body,
+      cv,
+      attachments,
+      messageId,
+      isReply,
+      looksLikeApplication,
+    },
   };
 }
 

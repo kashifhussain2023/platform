@@ -32,9 +32,13 @@ score variance.
 ### REC-04 — No attachment at all (CV described only in the email body)
 **Steps:** send an email with the candidate's experience typed directly in the body, no PDF.
 **Expected:** scoring should still work off `{{trigger.body}}` alone.
-**Status:** ✅ **Handled by design** — `{{trigger.cv}}` would be empty but `{{trigger.body}}` (full
-email text) is always populated; the prompt includes both. 🧪 not separately live-tested with a
-zero-attachment email specifically.
+**Status:** ⚠️ **Partial (changed by the REC-07 fix)** — `{{trigger.body}}` is always populated
+regardless of attachment, so scoring itself still works off body alone. BUT the new
+`looksLikeApplication` EVENT condition (fixed this session, see REC-07) now gates whether
+RecruitAI fires AT ALL: a body-only email is judged by whether the subject/body mentions
+application-ish terms (resume/cv/application/apply/candidate/hiring/position/vacancy). A
+genuine application phrased without any of those words (rare, but possible) would now be
+filtered out before scoring. Worth knowing if you rely on wording-free body-only submissions.
 
 ### REC-05 — Multiple candidates in the same ~60s poll window
 **Steps:** send 3 different CVs from 3 different addresses within a few seconds of each other,
@@ -48,11 +52,14 @@ should work, but hasn't been load-tested with a true multi-message batch.
 "Thank you for letting me know" back to `kashifhussain146@gmail.com`.
 **Expected:** ideally, this should NOT be treated as a fresh CV submission.
 **Why it matters:** the Gmail history feed reports ANY new message in the mailbox as
-`messageAdded` — the mapper has no concept of "this is a reply in an existing thread, not a new
-application." A one-line "thanks" reply would be fed to the scoring AI_STEP as if it were a
-resume, producing a nonsensical (near-zero) score and — worse — **another rejection email sent
-to someone who was already rejected.**
-**Status:** ❌ **Gap** — no thread-awareness / no "is this actually a job application" pre-filter.
+`messageAdded` — the mapper previously had no concept of "this is a reply in an existing thread,
+not a new application." A one-line "thanks" reply would be fed to the scoring AI_STEP as if it
+were a resume, producing a nonsensical (near-zero) score and — worse — **another rejection email
+sent to someone who was already rejected.**
+**Status:** ✅ **Fixed** — `GmailInboundService` now checks the `In-Reply-To`/`References`
+headers; a reply within an existing thread is still recorded (RawEvent/CanonicalEvent, for audit)
+but `fireEvent` is never called for it — a hard, driver-level skip that applies regardless of
+which workflow/company is listening (not a per-workflow opt-in).
 
 ### REC-07 — Random/spam/newsletter email lands in the inbox
 **Steps:** any unrelated email arrives (a notification, a newsletter, a personal email) at
@@ -62,9 +69,13 @@ to someone who was already rejected.**
 showed the workflow firing repeatedly for what appear to be routine inbox emails, each one scored
 (and likely auto-rejected) as if it were a job application. This wastes LLM calls and could send
 an inappropriate "your application was rejected" auto-reply to someone who never applied.
-**Status:** ❌ **Gap (confirmed happening in production)** — the trigger is "any NEW_EMAIL event,"
-with no upfront filter for "does this look like a job application" (e.g. subject/attachment
-heuristic, or a dedicated intake address instead of the general inbox).
+**Status:** ✅ **Fixed** — the driver now computes a `looksLikeApplication` signal (has a
+parseable attachment, OR subject/body mentions resume/cv/application/apply/candidate/hiring/
+position/vacancy) and exposes it in the flattened trigger payload; RecruitAI's own EVENT trigger
+now has a condition (`looksLikeApplication eq true`) opting into this filter. Live-verified via
+direct `fireEvent` calls: `looksLikeApplication:false` → 0 runs fired; `:true` → 1 run fired. This
+is a per-workflow policy choice (exposed via the existing condition DSL), not hardcoded into the
+generic driver — a company that wants every email processed can simply not add the condition.
 
 ### REC-08 — Forwarded CV (recruiter forwards a candidate's resume with their own commentary)
 **Steps:** someone forwards a candidate's CV to `kashifhussain146@gmail.com` with a note like

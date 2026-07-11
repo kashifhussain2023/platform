@@ -52,6 +52,41 @@ interface InboundMessage {
   cv: string | null;
   /** Metadata (filename + extracted char count) for each parsed attachment. */
   attachments: InboundAttachment[];
+  /**
+   * True when the message carries `In-Reply-To`/`References` (it's a reply
+   * within an existing thread, not a fresh message). A candidate replying
+   * "thanks for letting me know" to their OWN rejection email would otherwise
+   * be fed back into the scoring AI_STEP as if it were a new CV submission —
+   * this drives a hard skip (never fires a workflow for a reply), regardless
+   * of which workflow/company is listening.
+   */
+  isReply: boolean;
+  /**
+   * Best-effort heuristic: does this look like an actual job application?
+   * (has a parseable attachment, OR the subject/body mentions common
+   * application terms). Exposed so a company's EVENT trigger can opt into
+   * filtering out spam/newsletters/unrelated mail via the existing condition
+   * DSL (`triggerConfig.conditions`) — a policy choice per workflow, not a
+   * hardcoded rule in this generic driver.
+   */
+  looksLikeApplication: boolean;
+}
+
+/** Loose keyword heuristic for "this looks like a job application." */
+const APPLICATION_KEYWORDS_RE =
+  /\b(resume|cv|curriculum vitae|application|applying|candidate|hiring|job opening|position|vacancy)\b/i;
+
+/** has-attachment OR subject/body mentions application terms. */
+function computeLooksLikeApplication(
+  subject: string | null,
+  body: string | null,
+  attachments: InboundAttachment[],
+): boolean {
+  if (attachments.length > 0) {
+    return true;
+  }
+  const text = `${subject ?? ''} ${body ?? ''}`;
+  return APPLICATION_KEYWORDS_RE.test(text);
 }
 
 /** A single MIME part of a Gmail `format=full` message payload. */
@@ -319,7 +354,15 @@ export class GmailInboundService {
     }
 
     let firedRuns = 0;
-    if (created && canonical) {
+    if (created && canonical && message.isReply) {
+      // A reply within an existing thread (e.g. a candidate replying "thanks"
+      // to their own rejection email) — recorded above for audit, but never
+      // fed into a workflow: re-scoring/re-notifying an existing conversation
+      // as if it were a fresh submission is never correct.
+      this.logger.log(
+        `Gmail message ${message.messageId} is a thread reply — not fired`,
+      );
+    } else if (created && canonical) {
       try {
         // Flatten the email fields to the TOP LEVEL of the trigger payload so
         // workflow templates can use {{trigger.subject}} / {{trigger.body}} /
@@ -342,6 +385,10 @@ export class GmailInboundService {
             cv: email.cv ?? null,
             attachments: email.attachments ?? [],
             messageId: email.messageId ?? null,
+            // Precomputed "does this look like a job application" signal — a
+            // workflow's own EVENT trigger conditions can opt into filtering
+            // out spam/newsletters via this (docs/test-cases REC-07).
+            looksLikeApplication: message.looksLikeApplication,
             data: email,
           },
         );
@@ -502,16 +549,20 @@ export class GmailInboundService {
       messageId,
       parts,
     );
+    const subject = header('Subject');
+    const isReply = Boolean(header('In-Reply-To')) || Boolean(header('References'));
 
     return {
       messageId,
       from: header('From'),
-      subject: header('Subject'),
+      subject,
       snippet: typeof msg.snippet === 'string' ? msg.snippet : null,
       date: header('Date'),
       body,
       cv,
       attachments,
+      isReply,
+      looksLikeApplication: computeLooksLikeApplication(subject, body, attachments),
     };
   }
 

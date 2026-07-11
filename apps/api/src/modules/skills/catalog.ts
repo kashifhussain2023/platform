@@ -380,10 +380,28 @@ export const SkillCatalog = {
   },
 
   /**
-   * Resolve which skill owns a tool by its (globally unique) tool name. Used by
-   * the LLM providers to map a returned tool call back to its skill.
+   * Resolve which skill owns a tool by name, searching the WHOLE catalog.
+   * Tool names are NOT globally unique — e.g. both `email` and `gmail` expose
+   * `send_email` — so this returns whichever skill happens to appear first in
+   * the catalog, which may not be the one actually installed/intended. Kept
+   * only as a last-resort fallback; prefer `resolveSkillKey` below whenever a
+   * scoped tool list is available.
    */
   skillKeyForTool(tool: string): string | undefined {
     return CATALOG.find((s) => s.tools.some((t) => t.name === tool))?.key;
+  },
+
+  /**
+   * Resolve which skill owns a returned tool CALL. Prefers the `skillKey` tag
+   * on the matching entry of `tools` — the EXACT, already-scoped list this
+   * completion call was given (see `SkillsService.getToolsForEmployee`, which
+   * tags every tool with its owning installed skill) — since that's
+   * unambiguous even when two assigned skills expose a same-named tool.
+   * Falls back to the global (ambiguous) search only if the list wasn't
+   * tagged, e.g. a caller that doesn't pass `tools` through.
+   */
+  resolveSkillKey(toolName: string, tools?: ToolDefinition[]): string | undefined {
+    const tagged = tools?.find((t) => t.name === toolName)?.skillKey;
+    return tagged ?? SkillCatalog.skillKeyForTool(toolName);
   },
 };

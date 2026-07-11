@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { BillingModule } from '../billing/billing.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { LlmModule } from '../employees/llm/llm.module';
 import { SkillsModule } from '../skills/skills.module';
@@ -24,6 +25,8 @@ import { WORKFLOW_RUN_QUEUE } from './workflows.constants';
  * Employees edge would form Approvals→Workflows→Employees→Approvals. Workflows
  * does NOT import ApprovalsModule (the engine writes ApprovalRequest rows via
  * PrismaService directly) — the dependency stays one-directional Approvals→Workflows.
+ * Also imports BillingModule so the engine can gate execution on the company's
+ * subscription status (BillingModule has no imports of its own — a safe leaf).
  */
 @Module({
   imports: [
@@ -31,6 +34,7 @@ import { WORKFLOW_RUN_QUEUE } from './workflows.constants';
     KnowledgeModule,
     SkillsModule,
     LlmModule,
+    BillingModule,
   ],
   controllers: [WorkflowsController, WorkflowWebhooksController],
   providers: [WorkflowsService, WorkflowEngine, WorkflowProcessor],

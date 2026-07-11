@@ -647,6 +647,18 @@ export interface ToolDefinitionDto {
    * false tools execute as normal (unless an employee's approvalRules require it).
    */
   highRisk?: boolean;
+  /**
+   * Which installed skill owns this tool, when the caller populated it (e.g.
+   * SkillsService.getToolsForEmployee tags every tool with its skill). Tool
+   * NAMES are only unique within one skill — two different skills can both
+   * expose e.g. `send_email` (the generic `email` skill and `gmail` both do).
+   * An LLM provider should resolve a returned tool_call's skill from THIS
+   * field (the exact tool list it was given) rather than a global, ambiguous
+   * name→skill catalog search that would always resolve to whichever skill
+   * happens to be first in the catalog, regardless of which one is actually
+   * installed/intended.
+   */
+  skillKey?: string;
 }
 
 /** A built-in skill in the (code-defined) catalog. */
@@ -1098,7 +1110,13 @@ export const triggerConfigSchema = z.object({
   conditions: z.array(conditionSchema).max(25).optional(),
 });
 
-/** PATCH /workflows/:id body (name/description/definition/status/trigger). */
+/**
+ * PATCH /workflows/:id body (name/description/definition/status/trigger).
+ * `expectedUpdatedAt` is an OPTIONAL optimistic-concurrency guard: pass the
+ * `updatedAt` you last read (from GET) and the server 409s if someone else
+ * saved in between, instead of silently overwriting their change (two people/
+ * tabs editing the same workflow otherwise had no conflict signal at all).
+ */
 export const updateWorkflowSchema = z.object({
   name: z.string().min(1).max(160).optional(),
   description: z.string().max(2000).optional(),
@@ -1106,6 +1124,7 @@ export const updateWorkflowSchema = z.object({
   status: z.enum(['DRAFT', 'ACTIVE', 'PAUSED']).optional(),
   triggerType: z.enum(['MANUAL', 'SCHEDULE', 'WEBHOOK', 'EVENT']).optional(),
   triggerConfig: triggerConfigSchema.optional(),
+  expectedUpdatedAt: z.string().optional(),
 });
 
 /** POST /workflows/:id/run body (optional trigger payload). */

@@ -91,7 +91,7 @@ export class OpenAiLlmProvider implements LlmProvider {
       }
       return {
         toolCall: {
-          skillKey: SkillCatalog.skillKeyForTool(toolCall.function.name) ?? '',
+          skillKey: SkillCatalog.resolveSkillKey(toolCall.function.name, tools) ?? '',
           tool: toolCall.function.name,
           args,
         },

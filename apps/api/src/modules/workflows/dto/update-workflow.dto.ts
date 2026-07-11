@@ -99,4 +99,9 @@ export class UpdateWorkflowDto implements IUpdateWorkflowDto {
   @ValidateNested()
   @Type(() => TriggerConfigDto)
   triggerConfig?: TriggerConfigDto;
+
+  /** Optional optimistic-concurrency guard — see the shared schema's docstring. */
+  @IsOptional()
+  @IsString()
+  expectedUpdatedAt?: string;
 }

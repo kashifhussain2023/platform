@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -63,6 +64,7 @@ export class WorkflowsService {
     companyId: string,
     dto: CreateWorkflowDto,
   ): Promise<WorkflowDto> {
+    this.validateDefinition(dto.definition);
     const workflow = await this.prisma.workflow.create({
       data: {
         companyId,
@@ -94,6 +96,19 @@ export class WorkflowsService {
   ): Promise<WorkflowDto> {
     const existing = await this.findOwned(companyId, id);
 
+    // Optimistic concurrency (opt-in): if the caller tells us what `updatedAt`
+    // they last read and it doesn't match, someone else saved in between —
+    // 409 instead of silently overwriting their change (two tabs/people
+    // editing the same workflow previously had zero conflict signal).
+    if (
+      dto.expectedUpdatedAt !== undefined &&
+      dto.expectedUpdatedAt !== existing.updatedAt.toISOString()
+    ) {
+      throw new ConflictException(
+        'This workflow was changed by someone else since you loaded it. Reload and re-apply your edit.',
+      );
+    }
+
     // Validate the trigger shape when either trigger field is being changed.
     if (dto.triggerType !== undefined || dto.triggerConfig !== undefined) {
       const type = (dto.triggerType ?? existing.triggerType) as TriggerType;
@@ -101,6 +116,7 @@ export class WorkflowsService {
         dto.triggerConfig ?? (existing.triggerConfig as TriggerConfig | null);
       this.validateTrigger(type, config);
     }
+    this.validateDefinition(dto.definition);
 
     const workflow = await this.prisma.workflow.update({
       where: { id },
@@ -393,6 +409,43 @@ export class WorkflowsService {
     const def = (definition ?? {}) as Partial<WorkflowDefinition>;
     const nodes = Array.isArray(def.nodes) ? def.nodes : [];
     return nodes.some((n) => n?.type && n.type !== 'TRIGGER');
+  }
+
+  /**
+   * Structural sanity checks beyond the DTO's per-field shape validation.
+   * A duplicate node id would let the LAST one silently win at run time
+   * (`nodesById` is built as a Map, keyed by id) — the other becomes
+   * unreachable dead code with no error anywhere. An edge referencing an
+   * unknown node id makes a run silently stop early (`nodesById.get(...)`
+   * resolves to `undefined`, and the engine's walk just ends) instead of
+   * failing loudly. Both are rejected at SAVE time, where a clear 400 is far
+   * more useful than a silently wrong run later.
+   */
+  private validateDefinition(definition: WorkflowDefinition | undefined): void {
+    if (!definition) {
+      return;
+    }
+    const ids = new Set<string>();
+    for (const node of definition.nodes) {
+      if (ids.has(node.id)) {
+        throw new BadRequestException(
+          `Duplicate node id "${node.id}" in workflow definition`,
+        );
+      }
+      ids.add(node.id);
+    }
+    for (const edge of definition.edges) {
+      if (!ids.has(edge.from)) {
+        throw new BadRequestException(
+          `Edge references unknown node id "${edge.from}"`,
+        );
+      }
+      if (!ids.has(edge.to)) {
+        throw new BadRequestException(
+          `Edge references unknown node id "${edge.to}"`,
+        );
+      }
+    }
   }
 
   /** Validate a trigger's config shape (SCHEDULE/EVENT); 400 otherwise. */

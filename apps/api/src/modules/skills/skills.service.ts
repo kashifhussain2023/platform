@@ -302,7 +302,13 @@ export class SkillsService {
     for (const row of rows) {
       const def = SkillCatalog.get(row.installedSkill.skillKey);
       if (def) {
-        tools.push(...def.tools);
+        // Tag each tool with its owning skill (docs/test-cases WF-E3): tool
+        // NAMES aren't globally unique (e.g. both `email` and `gmail` expose
+        // `send_email`) — an LLM provider resolves the right skill from this
+        // field instead of an ambiguous global name search.
+        tools.push(
+          ...def.tools.map((t) => ({ ...t, skillKey: row.installedSkill.skillKey })),
+        );
       }
     }
     return tools;

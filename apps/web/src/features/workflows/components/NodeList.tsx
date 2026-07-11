@@ -122,7 +122,12 @@ export function NodeList({ workflow }: { workflow: WorkflowDto }) {
     });
 
   const onSave = () => {
-    update.mutate({ id: workflow.id, data: { definition: { nodes, edges } } });
+    update.mutate({
+      id: workflow.id,
+      // expectedUpdatedAt: catches a concurrent edit from another tab/person
+      // (409 instead of silently overwriting their change).
+      data: { definition: { nodes, edges }, expectedUpdatedAt: workflow.updatedAt },
+    });
   };
 
   return (

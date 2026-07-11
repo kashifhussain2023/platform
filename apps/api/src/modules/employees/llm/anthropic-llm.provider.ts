@@ -81,7 +81,7 @@ export class AnthropicLlmProvider implements LlmProvider {
     if (toolUse?.name) {
       return {
         toolCall: {
-          skillKey: SkillCatalog.skillKeyForTool(toolUse.name) ?? '',
+          skillKey: SkillCatalog.resolveSkillKey(toolUse.name, tools) ?? '',
           tool: toolUse.name,
           args: toolUse.input ?? {},
         },

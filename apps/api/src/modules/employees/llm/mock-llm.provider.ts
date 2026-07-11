@@ -33,7 +33,10 @@ function between(text: string, open: string, close: string): string {
 /** Identifying tokens for a tool: its name parts + owning skill key. */
 function toolTokens(tool: ToolDefinitionDto): string[] {
   const nameParts = tool.name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-  const skillKey = SkillCatalog.skillKeyForTool(tool.name);
+  // `tool` here IS the exact, already-scoped entry (tagged by
+  // SkillsService.getToolsForEmployee) — prefer its own skillKey over the
+  // ambiguous global catalog search (docs/test-cases WF-E3).
+  const skillKey = tool.skillKey ?? SkillCatalog.skillKeyForTool(tool.name);
   return skillKey ? [...nameParts, skillKey.toLowerCase()] : nameParts;
 }
 
@@ -165,7 +168,7 @@ export class MockLlmProvider implements LlmProvider {
       const tool = selectTool(tools, userText);
       return {
         toolCall: {
-          skillKey: SkillCatalog.skillKeyForTool(tool.name) ?? '',
+          skillKey: tool.skillKey ?? SkillCatalog.skillKeyForTool(tool.name) ?? '',
           tool: tool.name,
           args: deriveArgs(tool, userText),
         },

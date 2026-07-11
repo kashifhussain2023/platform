@@ -24,8 +24,9 @@ boundary value.
 **Why it matters:** `compare()` does `Number(left) > Number(right)`; `Number("I'd estimate around 85")`
 is `NaN`, and `NaN > 79` is always **false** — a genuinely strong candidate would silently get
 **auto-rejected** with no error anywhere in the run log.
-**Status:** ❌ **Gap** — no numeric-extraction fallback (e.g. regex-extract the first integer) and
-no validation step flags a non-numeric AI_STEP output before it reaches CONDITION.
+**Status:** ✅ **Fixed** — `toNumber()` now strictly rejects non-numeric/empty operands (throws
+`CONDITION expected a number but got "..."`), failing the step + run loudly instead of silently
+misrouting. Live-verified: `left: "around 85"` → run FAILED with that exact message.
 
 ### WF-A3 — CONDITION true but no matching branch edge exists
 **Scenario:** A misconfigured workflow has a CONDITION node whose `[true]` edge was deleted (e.g.
@@ -34,14 +35,19 @@ by manual DB edit or a future builder bug) but a `[false]` edge remains.
 **Why it matters:** current fallback (`nextNode`) is `outgoing.find(branch match) ?? outgoing.find(no branch) ?? outgoing[0]`
 — if only a `[false]` edge exists and the result is `true`, it falls through to **whatever edge
 happens to be first in the array**, silently executing the wrong path with no error.
-**Status:** ❌ **Gap** — no validation at save-time that both branches of a CONDITION are wired.
+**Status:** ✅ **Fixed** — `nextNode()` now only falls back to an unconditional edge when NO edge
+on that CONDITION is branch-tagged (a deliberate pass-through design); if some ARE branch-tagged
+but none matches, it throws instead of picking an arbitrary edge. Live-verified: only a `[false]`
+edge existed and the result was `true` → run FAILED with
+`no outgoing edge has branch="true" (misconfigured workflow)`.
 
 ### WF-A4 — Empty `right` operand with `gt`
 **Scenario:** CONDITION config has `right: ""` (empty string) with op `gt`.
 **Expected:** should be treated as invalid config, not silently coerced.
 **Why it matters:** `Number('')` is `0` in JS — `score gt ""` becomes `score > 0`, which is TRUE
 for almost any positive score, effectively disabling the intended threshold.
-**Status:** ❌ **Gap** — no config validation rejects an empty/non-numeric `right` for numeric ops.
+**Status:** ✅ **Fixed** — same `toNumber()` fix as WF-A2 rejects an empty `right` too (empty
+string is explicitly checked, not just `Number.isNaN`, since `Number('')` is `0`, not `NaN`).
 
 ### WF-A5 — `contains` op case-sensitivity
 **Scenario:** `{{trigger.body}} contains "Node.js"` when the email says "node.js" (lowercase).
@@ -107,7 +113,10 @@ both click Save.
 **Why it matters:** `PATCH /workflows/:id` is a full-replace of `definition` with no
 optimistic-concurrency check (no version/ETag) — the second Save **silently overwrites** the
 first person's changes with no warning to either party.
-**Status:** ❌ **Gap.**
+**Status:** ✅ **Fixed** — `PATCH /workflows/:id` accepts an optional `expectedUpdatedAt`; if it
+doesn't match the current row, the server 409s ("changed by someone else... reload") instead of
+silently overwriting. Wired into the builder's Save. Live-verified: stale timestamp → 409;
+correct timestamp → 200 (no false positives on a normal save).
 
 ### WF-C3 — Same candidate emails twice within one poll window
 **Scenario:** A candidate sends a CV, then 10 seconds later sends a follow-up email ("also, my
@@ -150,7 +159,9 @@ UI which generates unique ids).
 **Expected:** rejected at save-time.
 **Why it matters:** `nodesById` is built as a `Map`, so the LAST node with that id silently wins
 — the first is unreachable, with no error.
-**Status:** ❌ **Gap** — no uniqueness validation on node ids server-side.
+**Status:** ✅ **Fixed** — `WorkflowsService.validateDefinition()` rejects duplicate node ids AND
+edges referencing an unknown node id (both create/update), 400 with a clear message. Live-verified
+for both cases.
 
 ### WF-D4 — WAIT node requesting a duration over the cap
 **Scenario:** `durationMs: 999999` on a WAIT step.
@@ -193,9 +204,13 @@ refresh is logged and treated as a no-op, and `ConnectorHealthService` drives th
 quarantined" error, failing that step (and the run) cleanly instead of hammering a dead provider.
 
 ### WF-E3 — Tool-name collision (`email` vs `gmail`, both expose `send_email`)
-**Status:** ❌ **Gap (flagged, not fixed)** — if a company has BOTH the generic `email` skill and
-the `gmail` skill installed, a `TOOL_ACTION` step or agentic tool-selection could resolve to the
-wrong one. Currently worked around by hardening approval rules, not root-fixed.
+**Status:** ✅ **Fixed** — `ToolDefinitionDto` now carries an optional `skillKey`, tagged per-tool
+by `getToolsForEmployee`. All 3 LLM providers resolve a tool_call's skill from that tag
+(`SkillCatalog.resolveSkillKey`) instead of an ambiguous global catalog search. Live-verified: an
+employee with ONLY `gmail` assigned (no `email` skill) correctly resolves `skillKey: 'gmail'` —
+pre-fix this would have silently resolved to `email` (first in the global catalog) even though it
+isn't even installed for that employee. (Workflow TOOL_ACTION nodes were never affected — they
+already specify `skillKey` explicitly in config.)
 
 ### WF-E4 — Subscription goes PAST_DUE while workflows are actively firing
 **Scenario:** A company's card fails mid-day; their RecruitAI workflow keeps polling/scoring/
@@ -203,5 +218,8 @@ sending emails uninterrupted.
 **Why it matters:** hiring is now gated on subscription status (fixed this session), but
 **workflow execution and tool-calling are not** — a cancelled/past-due company can keep consuming
 paid LLM API calls indefinitely.
-**Status:** ❌ **Gap** — explicitly called out as a follow-up in
-`docs/specs/hiring-and-subscription-linkage.md` Part E step 2 ("extend in a follow-up pass").
+**Status:** ✅ **Fixed** — `WorkflowEngine.execute()`/`resume()` (the universal entry points for
+every trigger type: MANUAL/EVENT/WEBHOOK/SCHEDULE, plus resuming a paused Approval) now check the
+company's subscription status first; a non-ACTIVE subscription fails the run immediately
+("Subscription is past due — workflow execution is paused until billing is resolved") without
+running any node. Live-verified with a PAST_DUE company.
