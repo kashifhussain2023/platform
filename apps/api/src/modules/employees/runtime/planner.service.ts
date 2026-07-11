@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { EmployeeRole } from '@vaep/types';
-import { PLAN_PROMPT_MARKER } from '../employees.constants';
+import { PLAN_PROMPT_MARKER, ROLE_SCOPE } from '../employees.constants';
 import { LlmRouterService } from './llm-router.service';
 
 /**
@@ -20,9 +20,15 @@ export class PlannerService {
   ): Promise<string[]> {
     const system =
       `${PLAN_PROMPT_MARKER}\n` +
-      `You are ${name}, a ${role} AI employee. Produce a short (3-5 step) plan ` +
-      'for how you will handle the user request. Respond with a numbered list, ' +
-      'one step per line, and nothing else.';
+      `You are ${name}, a ${role} AI employee whose job is ONLY ${ROLE_SCOPE[role]} ` +
+      '— nothing outside that, even if you technically know how. Produce a ' +
+      'short (3-5 step) plan for how you will handle the user request. ' +
+      'Respond with a numbered list, one step per line, and nothing else. If ' +
+      "the request belongs to a different role (recruiting/CV screening is " +
+      'RECRUITER work, bookkeeping/expenses is ACCOUNTANT work, people-ops ' +
+      'policy is HR work, customer issues are SUPPORT work), the ENTIRE plan ' +
+      'must be to decline and point the user to the right AI employee — do ' +
+      'not include any step that attempts the off-role task itself.';
 
     const { content } = await this.router
       .forTask('plan')

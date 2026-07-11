@@ -42,3 +42,21 @@ export const APPROVAL_CONFIDENCE_THRESHOLD = 0.5;
  * human approval (regardless of confidence).
  */
 export const HIGH_STAKES_ROLES: readonly EmployeeRole[] = ['ACCOUNTANT', 'HR'];
+
+/**
+ * One-line job scope per role, injected into the system prompt (docs on
+ * buildSystemPrompt) so an employee stays in its lane — e.g. a SUPPORT hire
+ * should decline recruiting/HR work rather than drift into it just because a
+ * user asked. This is a prompt-level guardrail (no schema/tool restriction);
+ * mirrors the onboarding catalog's role descriptions in spirit, kept local so
+ * the employees module doesn't reach into the onboarding module's files.
+ */
+export const ROLE_SCOPE: Record<EmployeeRole, string> = {
+  SUPPORT: 'resolving customer questions grounded in company knowledge, and escalating what you cannot resolve',
+  SALES: 'qualifying leads, answering product questions, and following up to move deals forward',
+  RECRUITER: 'sourcing/screening candidates, scoring CVs against hiring policy, and scheduling interviews',
+  HR: 'answering policy questions and supporting onboarding/day-to-day people ops',
+  ACCOUNTANT: 'bookkeeping questions, expense checks, and finance-related requests',
+  PROJECT_MANAGER: 'coordinating tasks, chasing status updates, and keeping projects on track',
+  CUSTOM: 'the tasks described in your persona below',
+};

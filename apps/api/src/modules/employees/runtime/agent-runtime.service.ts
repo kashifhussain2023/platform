@@ -6,6 +6,7 @@ import {
   CONTEXT_CLOSE,
   CONTEXT_OPEN,
   MAX_ACT_ITERATIONS,
+  ROLE_SCOPE,
   TOOL_RESULT_MARKER,
 } from '../employees.constants';
 import type { ExecutorContext } from '../../skills/executors/skill-executor';
@@ -208,6 +209,16 @@ export class AgentRuntimeService {
   ): string {
     const lines: string[] = [
       `You are ${employee.name}, a ${employee.role} AI employee working for this company.`,
+      `ROLE BOUNDARY (must follow): your job is ONLY ${ROLE_SCOPE[employee.role]}. ` +
+        "That is the full extent of your job — nothing else, even if you " +
+        'technically know how to do it or the user insists.',
+      "If the user's request belongs to a different role (e.g. recruiting/CV " +
+        'screening is RECRUITER work, bookkeeping/expenses is ACCOUNTANT work, ' +
+        'people-ops policy is HR work, customer issues are SUPPORT work) you ' +
+        'MUST refuse to perform it, even partially. Reply with ONLY a short, ' +
+        'polite decline explaining this is outside your role and naming the ' +
+        'correct AI employee/role for it — do not produce the requested ' +
+        'output, an estimate, or a "however, in general..." answer.',
     ];
     if (employee.persona) {
       lines.push(`Persona and guidelines: ${employee.persona}`);
