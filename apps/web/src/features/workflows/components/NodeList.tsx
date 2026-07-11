@@ -36,30 +36,80 @@ function seedNodes(workflow: WorkflowDto): WorkflowNode[] {
 }
 
 /**
+ * Seed edges from the persisted definition VERBATIM (including CONDITION
+ * true/false branches) — never rebuilt from list order. `seedNodes` above only
+ * synthesizes a node when NOTHING was persisted (a single TRIGGER, no edges
+ * needed yet) or when a TRIGGER was missing (prepended — link it to what is
+ * now the second node so the graph isn't disconnected).
+ */
+function seedEdges(workflow: WorkflowDto, nodes: WorkflowNode[]): WorkflowEdge[] {
+  const persisted = workflow.definition?.edges ?? [];
+  const hadTrigger = (workflow.definition?.nodes ?? []).some(
+    (n) => n.type === 'TRIGGER',
+  );
+  if (!hadTrigger && nodes.length > 1) {
+    return [{ from: nodes[0].id, to: nodes[1].id }, ...persisted];
+  }
+  return persisted;
+}
+
+/**
  * A LINEAR no-code step builder: ordered steps starting with a fixed TRIGGER,
  * add-step (choose type), per-step NodeEditor, reorder up/down (buttons, not a
- * drag-drop lib), delete, then Save. Save auto-links each step to the next
- * (sequential edges). CONDITION branching is supported by the types/engine; the
- * linear UI links sequentially (a visual drag-drop canvas is a TODO).
+ * drag-drop lib), delete, then Save. Edges are seeded from — and saved as —
+ * whatever was actually persisted (including CONDITION true/false branches);
+ * this component only ever ADDS an edge for a brand-new step or BRIDGES the
+ * gap left by a deleted one. It never rebuilds the whole edge list from the
+ * visual order, so editing an unrelated field (e.g. an Approval step's config)
+ * and hitting Save can't silently flatten/destroy existing branching — a
+ * visual drag-drop canvas for editing branch targets directly is a TODO.
  */
 export function NodeList({ workflow }: { workflow: WorkflowDto }) {
   const [nodes, setNodes] = useState<WorkflowNode[]>(() => seedNodes(workflow));
+  const [edges, setEdges] = useState<WorkflowEdge[]>(() =>
+    seedEdges(workflow, seedNodes(workflow)),
+  );
   const [addType, setAddType] = useState<NodeType>('AI_STEP');
   const update = useUpdateWorkflow();
 
-  const addStep = () =>
-    setNodes((cur) => [
-      ...cur,
-      { id: newId(), type: addType, name: '', config: defaultConfig(addType) },
-    ]);
+  const addStep = () => {
+    const prev = nodes[nodes.length - 1];
+    const node: WorkflowNode = {
+      id: newId(),
+      type: addType,
+      name: '',
+      config: defaultConfig(addType),
+    };
+    setNodes((cur) => [...cur, node]);
+    // Only chain it after `prev` if `prev` is a dead end — a CONDITION (or any
+    // node) that already has an outgoing edge keeps its existing wiring.
+    setEdges((cur) =>
+      cur.some((e) => e.from === prev.id)
+        ? cur
+        : [...cur, { from: prev.id, to: node.id }],
+    );
+  };
 
   const updateNode = (id: string, next: WorkflowNode) =>
     setNodes((cur) => cur.map((n) => (n.id === id ? next : n)));
 
-  const removeNode = (id: string) =>
+  const removeNode = (id: string) => {
     setNodes((cur) => cur.filter((n) => n.id !== id));
+    setEdges((cur) => {
+      const incoming = cur.filter((e) => e.to === id);
+      const outgoing = cur.filter((e) => e.from === id);
+      const remaining = cur.filter((e) => e.from !== id && e.to !== id);
+      // Bridge each predecessor to each successor so removing a middle node
+      // doesn't leave a dangling chain (preserves the predecessor's branch).
+      const bridged = incoming.flatMap((inc) =>
+        outgoing.map((out) => ({ from: inc.from, to: out.to, branch: inc.branch })),
+      );
+      return [...remaining, ...bridged];
+    });
+  };
 
-  // Swap a step with its neighbour; index 0 (TRIGGER) is pinned.
+  // Swap a step with its neighbour; index 0 (TRIGGER) is pinned. Edges
+  // reference node ids, not positions, so reordering never touches them.
   const move = (index: number, dir: -1 | 1) =>
     setNodes((cur) => {
       const target = index + dir;
@@ -72,10 +122,6 @@ export function NodeList({ workflow }: { workflow: WorkflowDto }) {
     });
 
   const onSave = () => {
-    const edges: WorkflowEdge[] = [];
-    for (let i = 0; i < nodes.length - 1; i += 1) {
-      edges.push({ from: nodes[i].id, to: nodes[i + 1].id });
-    }
     update.mutate({ id: workflow.id, data: { definition: { nodes, edges } } });
   };
 
