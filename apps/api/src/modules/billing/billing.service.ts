@@ -86,6 +86,14 @@ export class BillingService {
     companyId: string,
     dto: ChangePlanDto,
   ): Promise<SubscriptionDto> {
+    // ENTERPRISE is custom/sales-priced (docs/specs/hiring-and-subscription-
+    // linkage.md Part D #7) — never self-serve, regardless of provider (mock
+    // would otherwise switch anyone to "unlimited, free" instantly).
+    if (dto.plan === 'ENTERPRISE') {
+      throw new BadRequestException(
+        'Enterprise is custom-priced — contact sales to switch to this plan.',
+      );
+    }
     await this.ensureDefaultSubscription(companyId);
     const current = await this.prisma.subscription.findUniqueOrThrow({
       where: { companyId },

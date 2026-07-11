@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type AiEmployee, type Conversation } from '@prisma/client';
 import type {
   AiEmployeeDto,
@@ -7,6 +7,8 @@ import type {
   RunResultDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { BillingService } from '../billing/billing.service';
+import { maxEmployeesFor } from '../billing/billing.plans';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import {
@@ -15,6 +17,11 @@ import {
   toMessageDto,
 } from './employees.mapper';
 import { AgentRuntimeService } from './runtime/agent-runtime.service';
+
+/** Human-readable subscription-status reason shown when a hire is blocked. */
+function statusReason(status: string): string {
+  return status.replace('_', ' ').toLowerCase();
+}
 
 /**
  * Tenant-scoped CRUD for AI employees + their conversations, plus the message
@@ -26,22 +33,61 @@ export class EmployeesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly runtime: AgentRuntimeService,
+    private readonly billing: BillingService,
   ) {}
 
   // --- Employees -----------------------------------------------------------
 
+  /**
+   * Hiring is gated by the company's subscription (docs/specs/hiring-and-
+   * subscription-linkage.md): a non-ACTIVE subscription (PAST_DUE/CANCELED)
+   * blocks new hires outright, and the plan's employee seat limit is enforced
+   * against ACTIVE+PAUSED employees (DISABLED ones don't hold a seat, so
+   * retiring one frees it up). A downgrade that leaves a company already over
+   * its new limit is "grandfathered" — existing employees keep running, this
+   * check just blocks the NEXT hire until the count is back at/under the
+   * limit. The seat-count check + insert run inside one transaction, serialized
+   * per-company by a Postgres advisory lock, so two concurrent hire requests
+   * can't both slip past a soon-to-be-exceeded limit (a plain count-then-create
+   * has exactly that race).
+   */
   async create(
     companyId: string,
     dto: CreateEmployeeDto,
   ): Promise<AiEmployeeDto> {
-    const employee = await this.prisma.aiEmployee.create({
-      data: {
-        companyId,
-        name: dto.name,
-        role: dto.role,
-        persona: dto.persona ?? null,
-        model: dto.model ?? null,
-      },
+    const subscription = await this.billing.getSubscription(companyId);
+    if (subscription.status !== 'ACTIVE') {
+      throw new ForbiddenException(
+        `Your subscription is ${statusReason(subscription.status)} — resolve billing before hiring another AI employee.`,
+      );
+    }
+    const maxEmployees = maxEmployeesFor(subscription.plan);
+
+    const employee = await this.prisma.$transaction(async (tx) => {
+      // Advisory lock scoped to this transaction (auto-released on commit/
+      // rollback) — serializes concurrent hires for THIS company only.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId}))`;
+
+      if (maxEmployees !== null) {
+        const seatCount = await tx.aiEmployee.count({
+          where: { companyId, status: { in: ['ACTIVE', 'PAUSED'] } },
+        });
+        if (seatCount >= maxEmployees) {
+          throw new ForbiddenException(
+            `Your ${subscription.plan} plan allows up to ${maxEmployees} AI employees. Upgrade your plan or disable an existing employee to hire another.`,
+          );
+        }
+      }
+
+      return tx.aiEmployee.create({
+        data: {
+          companyId,
+          name: dto.name,
+          role: dto.role,
+          persona: dto.persona ?? null,
+          model: dto.model ?? null,
+        },
+      });
     });
     return toEmployeeDto(employee);
   }
