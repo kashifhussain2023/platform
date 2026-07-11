@@ -17,6 +17,33 @@ catalog you (or a tester) can run by hand, each with an explanation of *why it m
   same generic engine that already powers RecruitAI.
 - **`04-ai-support-edge-cases.md`** — AI Support Agent scenarios, including the role-scope
   guardrail we built and live-verified this session.
+- **`05-ai-hr-edge-cases.md`** — HRAI (policy/onboarding), incl. the `HIGH_STAKES_ROLES`
+  always-flag-for-approval behavior it shares with FinanceAI.
+- **`06-ai-finance-edge-cases.md`** — FinanceAI (bookkeeping/expenses); documents the Stripe
+  read-tool gap found and fixed this session.
+- **`07-ai-project-manager-edge-cases.md`** — PMAI; documents the Jira read/transition-tool gap
+  found and fixed this session (previously ONLY `create_issue` existed).
+- **`08-ai-custom-roles-edge-cases.md`** — the 4 marketplace `CUSTOM`-role templates (Marketing/
+  Procurement/Operations/Legal), grouped together since they share the generic runtime with no
+  dedicated backend logic. Documents the Google Drive read-tool gap (critical for LegalAI) found
+  and fixed this session.
+
+## Marketplace capability audit (this session)
+
+Cross-checked every marketplace employee template's stated job (`marketplace.catalog.ts`) against
+its `suggestedSkills`' ACTUAL tools (`skills/catalog.ts`). Found and fixed 3 real "broken
+promises" — a role advertising a capability with literally no tool to back it:
+
+| Skill | Before | Gap | Fixed by adding |
+|---|---|---|---|
+| `stripe` | `create_payment_link` only | FinanceAI's "bookkeeping/expense checks" had zero read capability | `list_charges`, `get_balance` |
+| `jira` | `create_issue` only | PMAI's "chase status updates" / OperationsAI's "monitor processes" couldn't read OR update anything | `list_issues`, `get_issue`, `transition_issue` |
+| `gdrive` | `upload_file` only | LegalAI's "extracts clauses" (and every other role referencing docs) couldn't read ANY file back | `list_files`, `read_file` |
+
+All 7 new tools live-verified (install skill → execute tool → correct mock response). Still
+**mock-only** platform-wide for these skills — no real Stripe/Jira/Drive API integration exists
+yet (only slack/http/gmail have a real executor); the tool SHAPES are now correct, real
+implementations remain future work.
 
 ## Status legend (used in every file)
 

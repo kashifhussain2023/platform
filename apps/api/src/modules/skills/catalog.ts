@@ -92,7 +92,9 @@ const CATALOG: readonly SkillDefinition[] = [
   {
     key: 'stripe',
     name: 'Stripe',
-    description: 'Create Stripe payment links for customers.',
+    description:
+      'Create Stripe payment links, and review recent charges/balance ' +
+      '(bookkeeping/expense-check read tools).',
     category: 'payments',
     connection: { type: 'api_key', label: 'Connect Stripe' },
     configSchema: [
@@ -135,6 +137,28 @@ const CATALOG: readonly SkillDefinition[] = [
           },
           required: ['amount', 'currency', 'description'],
         },
+      },
+      {
+        // Read-only — no money movement, so NOT highRisk. Backs the
+        // "bookkeeping questions / expense checks" FinanceAI is meant to do
+        // (previously had zero read tool, only create_payment_link).
+        name: 'list_charges',
+        description: 'List recent Stripe charges (for expense/bookkeeping review).',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: 'Max charges to return (default 10).',
+            },
+          },
+          required: [],
+        },
+      },
+      {
+        name: 'get_balance',
+        description: "Get the account's current Stripe balance.",
+        parameters: { type: 'object', properties: {}, required: [] },
       },
     ],
   },
@@ -281,7 +305,8 @@ const CATALOG: readonly SkillDefinition[] = [
   {
     key: 'jira',
     name: 'Jira',
-    description: 'Create issues in Jira projects (OAuth).',
+    description:
+      'Create, read, list, and transition issues in Jira projects (OAuth).',
     category: 'development',
     connection: { type: 'oauth', label: 'Connect Jira' },
     configSchema: [
@@ -301,6 +326,44 @@ const CATALOG: readonly SkillDefinition[] = [
             description: { type: 'string', description: 'Issue description.' },
           },
           required: ['project', 'summary'],
+        },
+      },
+      {
+        // Previously missing entirely — PMAI/OperationsAI's stated jobs
+        // ("chase status updates", "triage requests", "monitor processes")
+        // need to READ issue state, not just create new ones.
+        name: 'list_issues',
+        description: 'List issues in a Jira project, optionally filtered by status.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Project key, e.g. ENG.' },
+            status: { type: 'string', description: 'Filter by status, e.g. "In Progress".' },
+          },
+          required: ['project'],
+        },
+      },
+      {
+        name: 'get_issue',
+        description: 'Get one Jira issue by key (status, assignee, description).',
+        parameters: {
+          type: 'object',
+          properties: {
+            issueKey: { type: 'string', description: 'Issue key, e.g. ENG-123.' },
+          },
+          required: ['issueKey'],
+        },
+      },
+      {
+        name: 'transition_issue',
+        description: 'Move a Jira issue to a new status (e.g. "In Progress" -> "Done").',
+        parameters: {
+          type: 'object',
+          properties: {
+            issueKey: { type: 'string', description: 'Issue key, e.g. ENG-123.' },
+            status: { type: 'string', description: 'Target status.' },
+          },
+          required: ['issueKey', 'status'],
         },
       },
     ],
@@ -334,7 +397,7 @@ const CATALOG: readonly SkillDefinition[] = [
   {
     key: 'gdrive',
     name: 'Google Drive',
-    description: 'Upload files to Google Drive (OAuth).',
+    description: 'Upload, list, and read files in Google Drive (OAuth).',
     category: 'productivity',
     connection: { type: 'oauth', label: 'Connect Google Drive' },
     configSchema: [
@@ -351,6 +414,32 @@ const CATALOG: readonly SkillDefinition[] = [
             content: { type: 'string', description: 'File contents.' },
           },
           required: ['name', 'content'],
+        },
+      },
+      {
+        // Previously missing entirely — critical for LegalAI ("extracts
+        // clauses" from contracts stored in Drive) and every other role that
+        // references docs (HR/Finance/Marketing/Procurement/Operations): with
+        // only upload_file, NOTHING could ever read a file's content back.
+        name: 'list_files',
+        description: 'List files in a Google Drive folder.',
+        parameters: {
+          type: 'object',
+          properties: {
+            folder: { type: 'string', description: 'Folder name (default: root folder).' },
+          },
+          required: [],
+        },
+      },
+      {
+        name: 'read_file',
+        description: "Read a file's text content from Google Drive by name.",
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'File name to read.' },
+          },
+          required: ['name'],
         },
       },
     ],
