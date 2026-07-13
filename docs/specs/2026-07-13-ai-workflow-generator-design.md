@@ -22,11 +22,15 @@ adding a new controller method to an existing controller, not a new domain.
 4. Once ready, AI returns a complete draft **workflow definition** (nodes + edges, same shape the
    builder already produces by hand) — grounded in the company's real installed skills and real hired
    AI employees, per the user's choice of "Option 1."
-5. The draft opens in the **existing workflow builder screen**, pre-filled, exactly as if the user had
-   built it by hand. Nothing is saved yet. The user reviews/edits like any other draft, then clicks the
-   existing **Save**. Nothing runs or activates until they explicitly do so — identical to today.
-6. If the user doesn't like the direction mid-chat, a **"Start over"** control resets the chat with no
-   side effects (nothing was ever persisted).
+5. As soon as AI returns the draft, the frontend saves it immediately as a real **DRAFT-status**
+   `Workflow` row (via the existing create-workflow path — see below) and opens it in the **existing
+   workflow builder screen**, pre-filled, exactly as if the user had built it by hand. The user
+   reviews/edits like any other draft, then clicks the existing **Save**. Nothing runs or activates
+   until they explicitly do so — identical to today; an unwanted draft is simply deleted, exactly like
+   an abandoned hand-built one.
+6. If the user doesn't like the direction mid-chat (before a draft is returned), a **"Start over"**
+   control resets the chat with no side effects — nothing has been persisted yet at that point, since
+   only a returned `type:'draft'` result triggers the save in point 5.
 
 ## Why the AI-generation endpoint never touches the database
 The generation step itself is **pure**: LLM call in, validated JSON out — `WorkflowGeneratorService`

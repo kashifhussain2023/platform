@@ -98,6 +98,9 @@ export class WorkflowGeneratorService {
           correction = 'your reply was not valid JSON matching the required shape.';
           continue;
         }
+        if (mustDraftNow) {
+          return this.fallbackDraftResult();
+        }
         return {
           type: 'question',
           message:
@@ -125,6 +128,9 @@ export class WorkflowGeneratorService {
         if (!isLastAttempt) {
           correction = check.reason;
           continue;
+        }
+        if (mustDraftNow) {
+          return this.fallbackDraftResult();
         }
         return {
           type: 'question',

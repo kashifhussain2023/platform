@@ -225,6 +225,91 @@ describe('WorkflowGeneratorService', () => {
     expect(llm.complete).toHaveBeenCalledTimes(1);
   });
 
+  it('returns the fallback draft (never a question) when the LLM never returns parseable JSON at the 3-round cap', async () => {
+    const llm = scriptedLlm([{ content: 'not json at all' }, { content: 'still not json' }]);
+    const service = new WorkflowGeneratorService(
+      fakePrisma([]) as never,
+      fakeSkills([{ skillKey: 'slack' }]) as never,
+      llm,
+    );
+
+    const result = await service.generate('co_1', [
+      { role: 'user', content: 'first message' },
+      { role: 'assistant', content: 'clarifying question 1' },
+      { role: 'user', content: 'second message' },
+      { role: 'assistant', content: 'clarifying question 2' },
+      { role: 'user', content: 'third message' },
+    ]);
+
+    expect(result).toEqual({
+      type: 'draft',
+      definition: {
+        nodes: [
+          { id: 'trigger', type: 'TRIGGER', config: {} },
+          { id: 'notify', type: 'NOTIFY', config: { message: 'Configure this workflow further.' } },
+        ],
+        edges: [{ from: 'trigger', to: 'notify' }],
+      },
+      unresolvedNodes: [
+        {
+          nodeId: 'notify',
+          reason:
+            "AI needed more detail than you provided — this is a starting skeleton; add the steps you need.",
+        },
+      ],
+    });
+    expect(llm.complete).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns the fallback draft (never a question) when the definition is structurally invalid on both attempts at the 3-round cap', async () => {
+    const structurallyInvalidDraft = {
+      type: 'draft',
+      definition: {
+        nodes: [
+          { id: 't', type: 'TRIGGER', config: {} },
+          { id: 't', type: 'TOOL_ACTION', config: { skillKey: 'slack', tool: 'send_message', args: {} } },
+        ],
+        edges: [{ from: 't', to: 't' }],
+      },
+    };
+    const llm = scriptedLlm([
+      { content: JSON.stringify(structurallyInvalidDraft) },
+      { content: JSON.stringify(structurallyInvalidDraft) },
+    ]);
+    const service = new WorkflowGeneratorService(
+      fakePrisma([]) as never,
+      fakeSkills([{ skillKey: 'slack' }]) as never,
+      llm,
+    );
+
+    const result = await service.generate('co_1', [
+      { role: 'user', content: 'first message' },
+      { role: 'assistant', content: 'clarifying question 1' },
+      { role: 'user', content: 'second message' },
+      { role: 'assistant', content: 'clarifying question 2' },
+      { role: 'user', content: 'third message' },
+    ]);
+
+    expect(result).toEqual({
+      type: 'draft',
+      definition: {
+        nodes: [
+          { id: 'trigger', type: 'TRIGGER', config: {} },
+          { id: 'notify', type: 'NOTIFY', config: { message: 'Configure this workflow further.' } },
+        ],
+        edges: [{ from: 'trigger', to: 'notify' }],
+      },
+      unresolvedNodes: [
+        {
+          nodeId: 'notify',
+          reason:
+            "AI needed more detail than you provided — this is a starting skeleton; add the steps you need.",
+        },
+      ],
+    });
+    expect(llm.complete).toHaveBeenCalledTimes(2);
+  });
+
   it('silently clears an AI_STEP node\'s employeeId when it references an unknown employee, without flagging it as unresolved', async () => {
     const draftWithGhostEmployee = {
       type: 'draft',
