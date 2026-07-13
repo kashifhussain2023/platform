@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AppShell } from '@/components/app-shell/AppShell';
+import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
 import { NodeList } from '@/features/workflows/components/NodeList';
 import { RunPanel } from '@/features/workflows/components/RunPanel';
 import { TriggerPanel } from '@/features/workflows/components/TriggerPanel';
@@ -16,8 +18,12 @@ export default function WorkflowEditorPage({
 }) {
   const router = useRouter();
   const accessToken = useSessionStore((s) => s.accessToken);
+  const shellProps = useAppShellProps();
   const workflowId = params.id;
   const { data: workflow, isLoading } = useWorkflow(workflowId);
+  const searchParams = useSearchParams();
+  const unresolvedIds = (searchParams.get('unresolved') ?? '').split(',').filter(Boolean);
+  const [dismissed, setDismissed] = useState(false);
 
   // Client-side route guard.
   useEffect(() => {
@@ -31,21 +37,43 @@ export default function WorkflowEditorPage({
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      <header className="mb-6 flex items-center justify-between">
+    <AppShell {...shellProps}>
+      <div className="mb-6 flex items-center justify-between gap-4 pt-2">
         <div>
-          <p className="text-sm text-gray-500">Workflow</p>
-          <h1 className="text-2xl font-semibold">
+          <p className="text-sm text-zinc-500">Workflow</p>
+          <h1 className="text-2xl font-bold text-white">
             {workflow?.name ?? 'Loading…'}
           </h1>
         </div>
-        <Link href="/workflows" className="text-sm font-medium text-brand-700">
+        <Link
+          href="/workflows"
+          className="text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+        >
           ← Workflows
         </Link>
-      </header>
+      </div>
+
+      {!dismissed && unresolvedIds.length > 0 && workflow && (
+        <div className="mb-6 flex items-start justify-between gap-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+          <p className="text-sm text-amber-400">
+            AI couldn&apos;t confidently fill in{' '}
+            {unresolvedIds
+              .map((id) => workflow.definition.nodes.find((n) => n.id === id)?.name ?? id)
+              .join(', ')}
+            . Open that step below and choose a tool before activating.
+          </p>
+          <button
+            type="button"
+            onClick={() => setDismissed(true)}
+            className="shrink-0 text-sm text-amber-400 hover:text-amber-300"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {isLoading || !workflow ? (
-        <p className="text-sm text-gray-500">Loading workflow…</p>
+        <p className="text-sm text-zinc-500">Loading workflow…</p>
       ) : (
         <div className="space-y-6">
           <NodeList workflow={workflow} />
@@ -63,6 +91,6 @@ export default function WorkflowEditorPage({
           />
         </div>
       )}
-    </main>
+    </AppShell>
   );
 }
