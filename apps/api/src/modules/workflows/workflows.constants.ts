@@ -68,3 +68,10 @@ export const EMPLOYEES_CLOSE = 'VAEP_EMPLOYEES>>>';
 
 /** Max LLM calls per generate() invocation: one attempt + one self-correction. */
 export const GENERATION_MAX_ATTEMPTS = 2;
+
+/**
+ * Cap on user turns before the AI must return a draft instead of another
+ * question (design spec, "User flow" point 3: capped at 3 rounds — after the
+ * 3rd user reply, the next response must be a draft, never another question).
+ */
+export const GENERATION_MAX_QUESTION_ROUNDS = 3;
