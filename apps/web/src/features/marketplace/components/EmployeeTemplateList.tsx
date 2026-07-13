@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Search } from 'lucide-react';
 import type { AiEmployeeDto, EmployeeTemplateDto } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
 import { useInstallEmployeeTemplate, useMarketplace } from '../hooks';
-import { ROLE_STYLES, formatRole } from '../labels';
+import { ROLE_STYLES, categoryBadgeClass, categoryIcon, formatRole } from '../labels';
 
 /** One template card with an optional name field + Install (optimistic). */
 function EmployeeTemplateCard({ template }: { template: EmployeeTemplateDto }) {
@@ -20,41 +21,56 @@ function EmployeeTemplateCard({ template }: { template: EmployeeTemplateDto }) {
     );
   };
 
+  const Icon = categoryIcon(template.category);
+
   return (
-    <li className="rounded-lg border border-gray-200 bg-white p-4">
-      <div className="flex items-center gap-2">
-        <p className="text-sm font-medium">{template.name}</p>
+    <li className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 transition-colors hover:border-white/[0.14]">
+      <div className="flex items-start gap-3">
         <span
-          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[template.role]}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${categoryBadgeClass(template.category)}`}
         >
-          {formatRole(template.role)}
+          <Icon className="h-5 w-5" strokeWidth={2} />
         </span>
-        <span className="text-xs text-gray-400">{template.category}</span>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-white">{template.name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_STYLES[template.role]}`}
+            >
+              {formatRole(template.role)}
+            </span>
+            <span className="text-xs text-zinc-500">{template.category}</span>
+          </div>
+        </div>
       </div>
-      <p className="mt-1 text-xs text-gray-500">{template.description}</p>
+
+      <p className="mt-3 text-sm text-zinc-400">{template.description}</p>
       {template.suggestedSkills.length > 0 && (
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-zinc-600">
           Suggested skills: {template.suggestedSkills.join(', ')}
         </p>
       )}
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-4 flex items-center gap-2">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={template.name}
-          className="w-40 rounded-md border border-gray-300 px-2 py-1 text-sm"
+          className="field-modern w-auto flex-1"
         />
-        <Button variant="ghost" onClick={onInstall} disabled={install.isPending}>
+        <Button variant="violet" onClick={onInstall} disabled={install.isPending}>
           {install.isPending ? 'Hiring…' : 'Install'}
         </Button>
       </div>
 
       {created && !created.id.startsWith('temp_') && (
-        <p className="mt-2 text-xs text-green-700">
+        <p className="mt-3 text-xs text-green-400">
           Hired {created.name}.{' '}
-          <Link href={`/employees/${created.id}`} className="font-medium underline">
+          <Link
+            href={`/employees/${created.id}`}
+            className="font-medium text-violet-secondary underline hover:text-white"
+          >
             Open employee →
           </Link>
         </p>
@@ -63,19 +79,71 @@ function EmployeeTemplateCard({ template }: { template: EmployeeTemplateDto }) {
   );
 }
 
-/** AI Employee templates section. */
+/** AI Employee templates section: search + category filter + template grid. */
 export function EmployeeTemplateList() {
   const { data, isLoading } = useMarketplace();
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('All');
 
   if (isLoading) {
-    return <p className="text-sm text-gray-500">Loading templates…</p>;
+    return <p className="text-sm text-zinc-500">Loading templates…</p>;
   }
 
+  const employees = data?.employees ?? [];
+  const categories = ['All', ...Array.from(new Set(employees.map((t) => t.category)))];
+  const q = query.trim().toLowerCase();
+  const filtered = employees.filter((t) => {
+    const matchesCategory = category === 'All' || t.category === category;
+    const matchesQuery =
+      q.length === 0 ||
+      t.name.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q);
+    return matchesCategory && matchesQuery;
+  });
+
   return (
-    <ul className="grid gap-3 sm:grid-cols-2">
-      {(data?.employees ?? []).map((template) => (
-        <EmployeeTemplateCard key={template.key} template={template} />
-      ))}
-    </ul>
+    <div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search AI employees..."
+          aria-label="Search AI employees"
+          className="field-modern"
+          style={{ paddingLeft: '2.5rem' }}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {categories.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setCategory(c)}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+              category === c
+                ? 'bg-violet text-white'
+                : 'border border-white/[0.1] text-zinc-400 hover:text-white'
+            }`}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="mt-6 text-sm text-zinc-500">
+          {employees.length === 0 ? 'No templates available.' : 'No templates match your search.'}
+        </p>
+      ) : (
+        <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((template) => (
+            <EmployeeTemplateCard key={template.key} template={template} />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

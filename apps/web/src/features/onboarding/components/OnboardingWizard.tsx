@@ -2,8 +2,15 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
 import type { Department, EmployeeRoleTemplate } from '@vaep/types';
-import { Button } from '@/components/ui/Button';
+import { OnboardingShell } from '@/components/onboarding/OnboardingShell';
+import { ToggleCard } from '@/components/onboarding/fields';
+import {
+  AstronautIllustration,
+  LaunchIllustration,
+  SkylineIllustration,
+} from '@/components/onboarding/illustrations';
 import { useUpdateCompany } from '@/features/tenant/hooks';
 import { useCompleteOnboarding, useOnboardingCatalog } from '../hooks';
 import { COMPANY_SIZES, formatDepartment } from '../labels';
@@ -14,8 +21,12 @@ interface HireState {
   name: string;
 }
 
-const inputClass =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
+const labelClass = 'mb-1.5 block text-sm font-medium text-zinc-300';
+const fieldClass = 'field-modern';
+const backBtnClass =
+  'rounded-xl border border-white/[0.12] bg-white/[0.03] px-5 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50';
+const primaryBtnClass =
+  'inline-flex items-center justify-center rounded-xl bg-[linear-gradient(135deg,#6a30ec_0%,#5216dd_100%)] px-8 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_-12px_rgba(91,33,230,0.85)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60';
 
 /**
  * The 3-step AI Onboarding Wizard (local state only):
@@ -41,15 +52,11 @@ export function OnboardingWizard() {
   const availableTemplates = useMemo<EmployeeRoleTemplate[]>(() => {
     if (!catalog) return [];
     if (departments.length === 0) return catalog;
-    return catalog.filter((t) =>
-      t.departments.some((d) => departments.includes(d)),
-    );
+    return catalog.filter((t) => t.departments.some((d) => departments.includes(d)));
   }, [catalog, departments]);
 
   const toggleDepartment = (dept: Department) => {
-    setDepartments((prev) =>
-      prev.includes(dept) ? prev.filter((d) => d !== dept) : [...prev, dept],
-    );
+    setDepartments((prev) => (prev.includes(dept) ? prev.filter((d) => d !== dept) : [...prev, dept]));
   };
 
   const hireFor = (t: EmployeeRoleTemplate): HireState =>
@@ -57,10 +64,7 @@ export function OnboardingWizard() {
 
   const toggleHire = (t: EmployeeRoleTemplate) => {
     setHires((prev) => {
-      const current = prev[t.role] ?? {
-        selected: false,
-        name: t.suggestedName,
-      };
+      const current = prev[t.role] ?? { selected: false, name: t.suggestedName };
       return { ...prev, [t.role]: { ...current, selected: !current.selected } };
     });
   };
@@ -86,10 +90,7 @@ export function OnboardingWizard() {
   const onFinish = () => {
     const employees = availableTemplates
       .filter((t) => hireFor(t).selected)
-      .map((t) => ({
-        role: t.role,
-        name: hireFor(t).name.trim() || t.suggestedName,
-      }));
+      .map((t) => ({ role: t.role, name: hireFor(t).name.trim() || t.suggestedName }));
 
     completeOnboarding.mutate(
       {
@@ -105,189 +106,146 @@ export function OnboardingWizard() {
     );
   };
 
+  const illustration =
+    step === 1 ? <LaunchIllustration /> : step === 2 ? <SkylineIllustration /> : <AstronautIllustration />;
+
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="text-sm font-medium text-brand-700">
-          Welcome to AI Employee
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold">
-          Let&apos;s set up your AI workforce
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          A few quick steps and your first AI employees will be ready to work.
-        </p>
-      </header>
-
-      {/* Stepper */}
-      <ol className="flex items-center gap-2 text-xs font-medium">
-        {[
-          { n: 1, label: 'Business' },
-          { n: 2, label: 'Departments' },
-          { n: 3, label: 'AI Employees' },
-        ].map(({ n, label }) => (
-          <li
-            key={n}
-            className={`flex items-center gap-2 rounded-full px-3 py-1 ${
-              step === n
-                ? 'bg-brand-600 text-white'
-                : step > n
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            <span>{n}</span>
-            <span>{label}</span>
-          </li>
-        ))}
-      </ol>
-
+    <OnboardingShell
+      step={step}
+      illustration={illustration}
+      heading={
+        <>
+          Let&apos;s set up your
+          <br />
+          AI workforce
+        </>
+      }
+      subtitle="A few quick steps and your first AI employees will be ready to work."
+    >
       {step === 1 && (
-        <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="text-lg font-medium">Tell us about your business</h2>
+        <section className="space-y-5">
+          <h2 className="text-lg font-semibold text-white">Tell us about your business</h2>
+
           <div>
-            <label htmlFor="industry" className="mb-1 block text-sm font-medium">
+            <label htmlFor="industry" className={labelClass}>
               Industry
             </label>
             <input
               id="industry"
-              className={inputClass}
+              className={fieldClass}
               placeholder="e.g. SaaS, Retail, Healthcare"
               value={industry}
               onChange={(e) => setIndustry(e.target.value)}
             />
           </div>
+
           <div>
-            <label htmlFor="size" className="mb-1 block text-sm font-medium">
+            <label htmlFor="size" className={labelClass}>
               Company size
             </label>
-            <select
-              id="size"
-              className={inputClass}
-              value={size}
-              onChange={(e) => setSize(e.target.value)}
-            >
-              <option value="">Select…</option>
-              {COMPANY_SIZES.map((s) => (
-                <option key={s} value={s}>
-                  {s} employees
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="size"
+                className={`${fieldClass} appearance-none pr-9`}
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+              >
+                <option value="">Select…</option>
+                {COMPANY_SIZES.map((s) => (
+                  <option key={s} value={s}>
+                    {s} employees
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            </div>
           </div>
+
           <div>
-            <label
-              htmlFor="description"
-              className="mb-1 block text-sm font-medium"
-            >
-              What does your company do?{' '}
-              <span className="text-gray-400">(optional)</span>
+            <label htmlFor="description" className={labelClass}>
+              What does your company do? <span className="text-zinc-500">(optional)</span>
             </label>
             <textarea
               id="description"
               rows={3}
-              className={inputClass}
+              className={fieldClass}
               placeholder="A short description helps your AI employees understand your business."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+
           {updateCompany.isError && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-400">
               {updateCompany.error?.message ?? 'Could not save your business'}
             </p>
           )}
-          <div className="flex justify-end">
-            <Button onClick={onSaveBusiness} disabled={updateCompany.isPending}>
+
+          <div className="flex justify-end pt-1">
+            <button type="button" className={primaryBtnClass} onClick={onSaveBusiness} disabled={updateCompany.isPending}>
               {updateCompany.isPending ? 'Saving…' : 'Continue'}
-            </Button>
+            </button>
           </div>
         </section>
       )}
 
       {step === 2 && (
-        <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="text-lg font-medium">
-            Which departments do you want to staff?
-          </h2>
+        <section className="space-y-5">
+          <h2 className="text-lg font-semibold text-white">Which departments do you want to staff?</h2>
+
           <div className="grid gap-3 sm:grid-cols-2">
             {DEPARTMENTS.map((dept) => (
-              <label
-                key={dept}
-                className={`flex cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-sm ${
-                  departments.includes(dept)
-                    ? 'border-brand-500 bg-brand-50'
-                    : 'border-gray-300'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={departments.includes(dept)}
-                  onChange={() => toggleDepartment(dept)}
-                />
-                {formatDepartment(dept)}
-              </label>
+              <ToggleCard key={dept} checked={departments.includes(dept)} onChange={() => toggleDepartment(dept)}>
+                <span className="text-sm font-medium text-zinc-200">{formatDepartment(dept)}</span>
+              </ToggleCard>
             ))}
           </div>
-          <div className="flex justify-between">
-            <Button variant="ghost" onClick={() => setStep(1)}>
+
+          <div className="flex justify-between pt-1">
+            <button type="button" className={backBtnClass} onClick={() => setStep(1)}>
               Back
-            </Button>
-            <Button
+            </button>
+            <button
+              type="button"
+              className={primaryBtnClass}
               onClick={() => setStep(3)}
               disabled={departments.length === 0}
             >
               Continue
-            </Button>
+            </button>
           </div>
         </section>
       )}
 
       {step === 3 && (
-        <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="text-lg font-medium">Choose your AI Employees</h2>
-          <p className="text-sm text-gray-500">
-            Hire from the roles that match your departments. You can rename each
-            one now or change everything later.
-          </p>
-          {availableTemplates.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              No matching roles — go back and pick a department.
+        <section className="space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Choose your AI Employees</h2>
+            <p className="mt-1 text-sm text-zinc-400">
+              Hire from the roles that match your departments. You can rename each one now or change everything
+              later.
             </p>
+          </div>
+
+          {availableTemplates.length === 0 ? (
+            <p className="text-sm text-zinc-400">No matching roles — go back and pick a department.</p>
           ) : (
             <ul className="space-y-3">
               {availableTemplates.map((t) => {
                 const hire = hireFor(t);
                 return (
-                  <li
-                    key={t.role}
-                    className={`rounded-md border px-4 py-3 ${
-                      hire.selected ? 'border-brand-500 bg-brand-50' : 'border-gray-300'
-                    }`}
-                  >
-                    <label className="flex cursor-pointer items-start gap-3">
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={hire.selected}
-                        onChange={() => toggleHire(t)}
-                      />
+                  <li key={t.role}>
+                    <ToggleCard checked={hire.selected} onChange={() => toggleHire(t)}>
                       <span className="flex-1">
-                        <span className="block text-sm font-medium">
-                          {t.title}
-                        </span>
-                        <span className="block text-sm text-gray-500">
-                          {t.description}
-                        </span>
+                        <span className="block text-sm font-semibold text-white">{t.title}</span>
+                        <span className="mt-0.5 block text-sm text-zinc-400">{t.description}</span>
                       </span>
-                    </label>
+                    </ToggleCard>
                     {hire.selected && (
-                      <div className="mt-3 pl-7">
-                        <label className="mb-1 block text-xs font-medium text-gray-500">
-                          Name
-                        </label>
+                      <div className="mt-2 pl-4">
+                        <label className="mb-1.5 block text-xs font-medium text-zinc-500">Name</label>
                         <input
-                          className={inputClass}
+                          className={fieldClass}
                           value={hire.name}
                           onChange={(e) => setHireName(t, e.target.value)}
                         />
@@ -298,21 +256,23 @@ export function OnboardingWizard() {
               })}
             </ul>
           )}
+
           {completeOnboarding.isError && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-400">
               {completeOnboarding.error?.message ?? 'Could not finish onboarding'}
             </p>
           )}
-          <div className="flex justify-between">
-            <Button variant="ghost" onClick={() => setStep(2)}>
+
+          <div className="flex justify-between pt-1">
+            <button type="button" className={backBtnClass} onClick={() => setStep(2)}>
               Back
-            </Button>
-            <Button onClick={onFinish} disabled={completeOnboarding.isPending}>
+            </button>
+            <button type="button" className={primaryBtnClass} onClick={onFinish} disabled={completeOnboarding.isPending}>
               {completeOnboarding.isPending ? 'Finishing…' : 'Finish & go to dashboard'}
-            </Button>
+            </button>
           </div>
         </section>
       )}
-    </div>
+    </OnboardingShell>
   );
 }

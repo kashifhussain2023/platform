@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '@/components/app-shell/AppShell';
+import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
 import { DlqPanel } from '@/features/admin/components/DlqPanel';
 import { useCanManageSystem } from '@/features/admin/hooks';
 import { useSessionStore } from '@/stores/session.store';
@@ -16,6 +17,7 @@ export default function AdminHealthPage() {
   const router = useRouter();
   const accessToken = useSessionStore((s) => s.accessToken);
   const canManage = useCanManageSystem();
+  const shellProps = useAppShellProps();
 
   useEffect(() => {
     if (!accessToken) {
@@ -28,27 +30,22 @@ export default function AdminHealthPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Account</p>
-          <h1 className="text-2xl font-semibold">System health</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Background-job dead-letter queue and connector circuit breakers.
-          </p>
-        </div>
-        <Link href="/dashboard" className="text-sm font-medium text-brand-700">
-          ← Dashboard
-        </Link>
+    <AppShell {...shellProps}>
+      <header className="mb-8 pt-2">
+        <p className="text-sm text-zinc-500">Account</p>
+        <h1 className="text-2xl font-bold text-white">System health</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Background-job dead-letter queue and connector circuit breakers.
+        </p>
       </header>
 
       {canManage ? (
         <DlqPanel />
       ) : (
-        <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
           You need an OWNER or ADMIN role to view system health.
         </p>
       )}
-    </main>
+    </AppShell>
   );
 }

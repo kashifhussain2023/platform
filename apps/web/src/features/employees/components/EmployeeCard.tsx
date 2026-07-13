@@ -1,12 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { Bot, Trash2 } from 'lucide-react';
 import type { AiEmployeeDto, EmployeeStatus } from '@vaep/types';
-import { Button } from '@/components/ui/Button';
+import { buttonClasses } from '@/components/ui/Button';
 import { useDeleteEmployee, useUpdateEmployee } from '../hooks';
 import { STATUS_STYLES, formatRole } from '../labels';
 
-/** One employee row: identity, status badge, lifecycle toggles, open + delete. */
+const secondaryBtnClass =
+  'rounded-lg border border-white/[0.12] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50';
+
+/** One employee card: identity, status badge, lifecycle toggles, open + delete. */
 export function EmployeeCard({ employee }: { employee: AiEmployeeDto }) {
   const update = useUpdateEmployee();
   const del = useDeleteEmployee();
@@ -16,70 +20,83 @@ export function EmployeeCard({ employee }: { employee: AiEmployeeDto }) {
     update.mutate({ id: employee.id, data: { status } });
 
   return (
-    <li className="flex items-center justify-between gap-4 px-4 py-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium">{employee.name}</p>
-          <span
-            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[employee.status]}`}
-          >
-            {employee.status}
+    <div className="flex flex-col rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 transition-colors hover:border-white/[0.14]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet/15 text-violet-secondary">
+            <Bot className="h-5 w-5" />
           </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-white">{employee.name}</p>
+            <p className="truncate text-xs text-zinc-400">{formatRole(employee.role)}</p>
+          </div>
         </div>
-        <p className="text-xs text-gray-500">{formatRole(employee.role)}</p>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[employee.status]}`}
+        >
+          {employee.status}
+        </span>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {employee.status === 'ACTIVE' && (
-          <Button
-            variant="ghost"
+          <button
+            type="button"
+            className={secondaryBtnClass}
             onClick={() => setStatus('PAUSED')}
             disabled={isTemp || update.isPending}
           >
             Pause
-          </Button>
+          </button>
         )}
         {employee.status === 'PAUSED' && (
-          <Button
-            variant="ghost"
+          <button
+            type="button"
+            className={secondaryBtnClass}
             onClick={() => setStatus('ACTIVE')}
             disabled={isTemp || update.isPending}
           >
             Resume
-          </Button>
+          </button>
         )}
         {employee.status !== 'DISABLED' ? (
-          <Button
-            variant="ghost"
+          <button
+            type="button"
+            className={secondaryBtnClass}
             onClick={() => setStatus('DISABLED')}
             disabled={isTemp || update.isPending}
           >
             Disable
-          </Button>
+          </button>
         ) : (
-          <Button
-            variant="ghost"
+          <button
+            type="button"
+            className={secondaryBtnClass}
             onClick={() => setStatus('ACTIVE')}
             disabled={isTemp || update.isPending}
           >
             Enable
-          </Button>
+          </button>
         )}
-        <Link
-          href={`/employees/${employee.id}`}
-          className="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-          aria-disabled={isTemp}
-        >
-          Chat
-        </Link>
-        <Button
-          variant="ghost"
+
+        <button
+          type="button"
+          aria-label="Delete employee"
+          className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => del.mutate(employee.id)}
           disabled={isTemp || del.isPending}
         >
-          Delete
-        </Button>
+          <Trash2 className="h-4 w-4" />
+        </button>
+
+        <Link
+          href={`/employees/${employee.id}`}
+          aria-disabled={isTemp}
+          className={`ml-auto ${buttonClasses('violet')}`}
+        >
+          Open
+        </Link>
       </div>
-    </li>
+    </div>
   );
 }

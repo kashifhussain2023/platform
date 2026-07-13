@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '@/components/app-shell/AppShell';
+import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
 import { UserForm } from '@/features/users/components/UserForm';
 import { UserList } from '@/features/users/components/UserList';
 import { useCanManageUsers } from '@/features/users/hooks';
@@ -12,6 +13,7 @@ export default function TeamPage() {
   const router = useRouter();
   const accessToken = useSessionStore((s) => s.accessToken);
   const canManage = useCanManageUsers();
+  const shellProps = useAppShellProps();
 
   // Client-side route guard, same pattern as the other app pages.
   useEffect(() => {
@@ -25,25 +27,16 @@ export default function TeamPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Account</p>
-          <h1 className="text-2xl font-semibold">Team &amp; Access</h1>
-        </div>
-        <Link href="/dashboard" className="text-sm font-medium text-brand-700">
-          ← Dashboard
-        </Link>
-      </header>
+    <AppShell {...shellProps}>
+      <div className="pt-2">
+        <h1 className="mb-6 text-2xl font-bold text-white">Team Members</h1>
 
-      <div className="space-y-8">
-        {/* Mutating controls are OWNER/ADMIN only; members see a read-only roster. */}
-        {canManage && <UserForm />}
-        <section>
-          <h2 className="mb-3 text-sm font-medium text-gray-500">Team members</h2>
+        <div className="space-y-6">
+          {/* Mutating controls are OWNER/ADMIN only; members see a read-only roster. */}
+          {canManage && <UserForm />}
           <UserList />
-        </section>
+        </div>
       </div>
-    </main>
+    </AppShell>
   );
 }

@@ -30,54 +30,54 @@ export function WorkflowForm() {
   });
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5">
-      <h2 className="mb-3 text-sm font-medium text-gray-500">
+    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
+      <h2 className="mb-3 text-sm font-medium text-zinc-400">
         Create a workflow
       </h2>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div>
-          <label htmlFor="name" className="mb-1 block text-sm font-medium">
+          <label htmlFor="name" className="mb-1 block text-sm font-medium text-zinc-300">
             Name
           </label>
           <input
             id="name"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="field-modern"
             placeholder="e.g. Support triage"
             {...register('name')}
           />
           {errors.name && (
-            <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+            <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>
           )}
         </div>
 
         <div>
           <label
             htmlFor="description"
-            className="mb-1 block text-sm font-medium"
+            className="mb-1 block text-sm font-medium text-zinc-300"
           >
-            Description <span className="text-gray-400">(optional)</span>
+            Description <span className="text-zinc-500">(optional)</span>
           </label>
           <textarea
             id="description"
             rows={2}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="field-modern"
             placeholder="What this workflow automates…"
             {...register('description')}
           />
           {errors.description && (
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 text-sm text-red-400">
               {errors.description.message}
             </p>
           )}
         </div>
 
         {create.isError && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-red-400">
             {create.error?.message ?? 'Could not create workflow'}
           </p>
         )}
 
-        <Button type="submit" disabled={create.isPending}>
+        <Button variant="violet" type="submit" disabled={create.isPending}>
           {create.isPending ? 'Creating…' : 'Create workflow'}
         </Button>
       </form>

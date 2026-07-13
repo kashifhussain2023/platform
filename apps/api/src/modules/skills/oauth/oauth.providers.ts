@@ -51,7 +51,13 @@ const SKILL_OAUTH: Record<string, { provider: string; scopes: string[] }> = {
   },
   calendar: {
     provider: 'google',
-    scopes: ['https://www.googleapis.com/auth/calendar.events'],
+    // calendar.readonly is needed for the FreeBusy conflict-check
+    // (SchedulingService) — calendar.events alone gets a 403
+    // ACCESS_TOKEN_SCOPE_INSUFFICIENT on that endpoint (found live 2026-07-12).
+    scopes: [
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/calendar.readonly',
+    ],
   },
   gdrive: {
     provider: 'google',
@@ -65,7 +71,9 @@ const SKILL_OAUTH: Record<string, { provider: string; scopes: string[] }> = {
     provider: 'atlassian',
     scopes: ['read:jira-work', 'write:jira-work', 'offline_access'],
   },
-  slack: { provider: 'slack', scopes: ['chat:write'] },
+  // channels:read lets the executor resolve a human channel name ("#general")
+  // to the id modern chat.postMessage calls require — see real-skill-executor.
+  slack: { provider: 'slack', scopes: ['chat:write', 'channels:read'] },
 };
 
 /** A fully-resolved provider ready to build an authorize URL / exchange a code. */

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { AppShell } from '@/components/app-shell/AppShell';
+import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
 import { InstalledSkillList } from '@/features/skills/components/InstalledSkillList';
 import { SkillCatalog } from '@/features/skills/components/SkillCatalog';
 import { skillKeys } from '@/features/skills/hooks';
@@ -14,6 +15,7 @@ export default function SkillsPage() {
   const searchParams = useSearchParams();
   const qc = useQueryClient();
   const accessToken = useSessionStore((s) => s.accessToken);
+  const shellProps = useAppShellProps();
   const [banner, setBanner] = useState<
     { kind: 'ok' | 'error'; text: string } | null
   >(null);
@@ -46,38 +48,30 @@ export default function SkillsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Integrations</p>
-          <h1 className="text-2xl font-semibold">Skills</h1>
-        </div>
-        <Link href="/dashboard" className="text-sm font-medium text-brand-700">
-          ← Dashboard
-        </Link>
-      </header>
+    <AppShell {...shellProps}>
+      <div className="mb-6 flex items-center justify-between pt-2">
+        <h1 className="text-2xl font-bold text-white">Skills</h1>
+      </div>
 
       {banner && (
         <div
-          className={`mb-6 rounded-md border px-4 py-2 text-sm ${
+          className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
             banner.kind === 'ok'
-              ? 'border-green-200 bg-green-50 text-green-700'
-              : 'border-red-200 bg-red-50 text-red-700'
+              ? 'border-green-500/20 bg-green-500/10 text-green-400'
+              : 'border-red-500/20 bg-red-500/10 text-red-400'
           }`}
         >
           {banner.text}
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-10">
         <SkillCatalog />
-        <div>
-          <h2 className="mb-3 text-sm font-medium text-gray-500">
-            Installed skills
-          </h2>
+        <section>
+          <h2 className="mb-4 text-sm font-medium text-zinc-400">Installed Skills</h2>
           <InstalledSkillList />
-        </div>
+        </section>
       </div>
-    </main>
+    </AppShell>
   );
 }

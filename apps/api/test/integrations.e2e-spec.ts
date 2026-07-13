@@ -11,6 +11,7 @@ import { SKILL_EXECUTOR_TOKEN } from '../src/modules/skills/executors/skill-exec
 import { MockSkillExecutor } from '../src/modules/skills/executors/mock-skill-executor';
 import { RealSkillExecutor } from '../src/modules/skills/executors/real-skill-executor';
 import { AutoSkillExecutor } from '../src/modules/skills/executors/auto-skill-executor';
+import { SchedulingService } from '../src/modules/scheduling/scheduling.service';
 import {
   assertUrlAllowed,
   isBlockedAddress,
@@ -129,14 +130,14 @@ describeIfDb('Integrations e2e (auto executor · OAuth · Stripe webhook)', () =
     })
       .overrideProvider(SKILL_EXECUTOR_TOKEN)
       .useFactory({
-        factory: (config: ConfigService) => {
+        factory: (config: ConfigService, scheduling: SchedulingService) => {
           const mock = new MockSkillExecutor();
           return new AutoSkillExecutor(
-            new RealSkillExecutor(config, mock),
+            new RealSkillExecutor(config, mock, scheduling),
             mock,
           );
         },
-        inject: [ConfigService],
+        inject: [ConfigService, SchedulingService],
       })
       .compile();
 

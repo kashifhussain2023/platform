@@ -4,6 +4,7 @@
 
 :root {
   color-scheme: light;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace;
 }
 
 html,
@@ -11,6 +12,91 @@ body {
   height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  @apply bg-gray-50 font-sans text-gray-900 antialiased;
+  @apply bg-paper font-sans text-ink antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dark marketing sections opt into Inter (self-hosted via next/font/google) —
+ * the rest of the app keeps the Workforce Ledger system-font stack. */
+.font-marketing {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ============================================================= *
+ *  Modern dark form field (auth pages) — purple glow on hover,
+ *  violet border + stronger glow on focus.
+ * ============================================================= */
+.field-modern {
+  width: 100%;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  color: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.field-modern::placeholder {
+  color: #6b7280;
+}
+.field-modern:hover {
+  border-color: rgba(139, 110, 242, 0.55);
+  box-shadow: 0 0 0 3px rgba(94, 60, 232, 0.08);
+}
+.field-modern:focus,
+.field-modern:focus-visible {
+  outline: none;
+  border-color: #7c5cf0;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(94, 60, 232, 0.28), 0 0 24px -6px rgba(94, 60, 232, 0.65);
+}
+/* native select popup options stay readable (dark-on-light OS menu) */
+.field-modern option {
+  color: #111318;
+}
+
+/* Focus ring — paper gap + indigo. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fafaf8, 0 0 0 4px #4f46e5;
+  border-radius: 4px;
+}
+
+/* Underline-wipe link (used by the shared Button `link` variant). */
+.link-wipe {
+  position: relative;
+}
+.link-wipe::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.link-wipe:hover::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media print {
+  * {
+    animation: none !important;
+    box-shadow: none !important;
+  }
 }

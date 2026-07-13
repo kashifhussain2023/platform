@@ -1,6 +1,18 @@
+import type { ElementType } from 'react';
+import {
+  Bot,
+  CheckCircle2,
+  Clock,
+  GitBranch,
+  MessageSquare,
+  Search,
+  Wrench,
+  Zap,
+} from 'lucide-react';
 import type {
   NodeType,
   StepRunStatus,
+  TriggerType,
   WorkflowRunStatus,
   WorkflowStatus,
 } from '@vaep/types';
@@ -30,29 +42,61 @@ export const NODE_HINTS: Record<NodeType, string> = {
     'Pause the run for a manager decision (Approval Center). Approve resumes; reject fails.',
 };
 
+/** Icon per node type — used by the node cards (builder list + run log). */
+export const NODE_ICONS: Record<NodeType, ElementType<{ className?: string }>> = {
+  TRIGGER: Zap,
+  RETRIEVE: Search,
+  AI_STEP: Bot,
+  TOOL_ACTION: Wrench,
+  WAIT: Clock,
+  CONDITION: GitBranch,
+  NOTIFY: MessageSquare,
+  APPROVAL: CheckCircle2,
+};
+
+/** Icon badge tone (bg + text) per node type. */
+export const NODE_TONES: Record<NodeType, string> = {
+  TRIGGER: 'bg-violet/20 text-violet-secondary',
+  RETRIEVE: 'bg-sky-500/15 text-sky-400',
+  AI_STEP: 'bg-violet/20 text-violet-secondary',
+  TOOL_ACTION: 'bg-violet/20 text-violet-secondary',
+  WAIT: 'bg-white/[0.06] text-zinc-400',
+  CONDITION: 'bg-amber-500/15 text-amber-400',
+  NOTIFY: 'bg-emerald-500/15 text-emerald-400',
+  APPROVAL: 'bg-violet/20 text-violet-secondary',
+};
+
+/** Human label per trigger type (workflow list meta line). */
+export const TRIGGER_TYPE_LABELS: Record<TriggerType, string> = {
+  MANUAL: 'Manual',
+  SCHEDULE: 'Schedule',
+  WEBHOOK: 'Webhook',
+  EVENT: 'Event',
+};
+
 /** Tailwind badge classes for a workflow status. */
 export const WORKFLOW_STATUS_STYLES: Record<WorkflowStatus, string> = {
-  DRAFT: 'bg-gray-200 text-gray-600',
-  ACTIVE: 'bg-green-100 text-green-700',
-  PAUSED: 'bg-amber-100 text-amber-700',
+  DRAFT: 'bg-white/[0.06] text-zinc-400',
+  ACTIVE: 'bg-green-500/15 text-green-400',
+  PAUSED: 'bg-amber-500/15 text-amber-400',
 };
 
 /** Tailwind badge classes for a run status. */
 export const RUN_STATUS_STYLES: Record<WorkflowRunStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-600',
-  RUNNING: 'bg-blue-100 text-blue-700',
-  WAITING: 'bg-amber-100 text-amber-700',
-  COMPLETED: 'bg-green-100 text-green-700',
-  FAILED: 'bg-red-100 text-red-700',
+  PENDING: 'bg-white/[0.06] text-zinc-400',
+  RUNNING: 'bg-blue-500/15 text-blue-400',
+  WAITING: 'bg-amber-500/15 text-amber-400',
+  COMPLETED: 'bg-green-500/15 text-green-400',
+  FAILED: 'bg-red-500/15 text-red-400',
 };
 
 /** Tailwind badge classes for a step-run status. */
 export const STEP_STATUS_STYLES: Record<StepRunStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-600',
-  RUNNING: 'bg-blue-100 text-blue-700',
-  COMPLETED: 'bg-green-100 text-green-700',
-  FAILED: 'bg-red-100 text-red-700',
-  SKIPPED: 'bg-gray-100 text-gray-500',
+  PENDING: 'bg-white/[0.06] text-zinc-400',
+  RUNNING: 'bg-blue-500/15 text-blue-400',
+  COMPLETED: 'bg-green-500/15 text-green-400',
+  FAILED: 'bg-red-500/15 text-red-400',
+  SKIPPED: 'bg-white/[0.05] text-zinc-500',
 };
 
 /** Sensible default `config` for a freshly added node of each type. */

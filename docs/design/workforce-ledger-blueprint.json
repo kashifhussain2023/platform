@@ -1,0 +1,476 @@
+{
+  "summary": "Generate diverse ultra-modern landing-page directions for V-AEP, judge them, and synthesize one definitive design blueprint",
+  "agentCount": 8,
+  "logs": [
+    "4 design directions generated",
+    "Consensus winner: DIRECTION 2: The Workforce Ledger (Editorial / Swiss Precision) — DIRECTION 2: The Workforce Ledger (Editorial / Swiss Precision):90, DIRECTION 4: Illustrated Narrative Flow — Meet the Team:89, DIRECTION 2: The Workforce Ledger — Swiss Editorial:88, Direction 3: Nightshift — Dark Premium SaaS:88, Direction 2: The Workforce Ledger — Editorial/Swiss:87, DIRECTION 3: Nightshift — Dark Premium SaaS:84, Direction 4: Illustrated Narrative Flow — recurring cast:84, DIRECTION 3: Nightshift (Dark Premium SaaS):82, DIRECTION 1: Aurora Workforce (Spatial Depth):80, Direction 1: Aurora Workforce — Spatial Depth:79, DIRECTION 4: Illustrated Narrative Flow (Character Cast):78, DIRECTION 1: Aurora Workforce — Spatial Depth:72"
+  ],
+  "result": {
+    "consensusWinner": "DIRECTION 2: The Workforce Ledger (Editorial / Swiss Precision)",
+    "tally": {
+      "DIRECTION 4: Illustrated Narrative Flow — Meet the Team": 89,
+      "DIRECTION 2: The Workforce Ledger — Swiss Editorial": 88,
+      "DIRECTION 3: Nightshift — Dark Premium SaaS": 84,
+      "DIRECTION 1: Aurora Workforce — Spatial Depth": 72,
+      "Direction 3: Nightshift — Dark Premium SaaS": 88,
+      "Direction 2: The Workforce Ledger — Editorial/Swiss": 87,
+      "Direction 4: Illustrated Narrative Flow — recurring cast": 84,
+      "Direction 1: Aurora Workforce — Spatial Depth": 79,
+      "DIRECTION 2: The Workforce Ledger (Editorial / Swiss Precision)": 90,
+      "DIRECTION 3: Nightshift (Dark Premium SaaS)": 82,
+      "DIRECTION 1: Aurora Workforce (Spatial Depth)": 80,
+      "DIRECTION 4: Illustrated Narrative Flow (Character Cast)": 78
+    },
+    "blueprint": {
+      "directionName": "The Workforce Ledger — Editorial Precision, Warmed (V-AEP homepage + design-system blueprint)",
+      "designSystem": {
+        "palette": "Swiss annual-report base on WARM PAPER with ONE indigo structural accent + a strictly-rationed WARM human accent reserved only for the two human moments (Hire, Approval). Color occupies ~5% of page area — an event, never a texture.\n\nPAPER & SURFACE (never pure white): paper #FAFAF8 (global bg), paper-2 #F4F3EE (alt band / sunken rows), surface #FFFFFF (raised cards + diagram panels only).\nINK: ink #14151A (headlines, diagram strokes, never #000), ink-70 #4A4B54 (body/secondary), ink-40 #8A8B92 (mono captions, Fig. numbers, grid labels), ink-25 #B8B7B0 (disabled/ticks).\nHAIRLINES (warm greys so seams align): line #E5E4DD (all borders + visible column rules), line-strong #D6D5CC (emphasized dividers).\nINDIGO SYSTEM ACCENT (existing brand, extended): brand-50 #EEF2FF (only tinted surface — active nav pill, highlighted node, RAG citation wash), brand-100 #E0E7FF (soft fills, chip bg), brand-500 #6366F1 (gradient mid-stop, hover glow), brand-600 #4F46E5 (THE accent — primary CTA, the one live connector, links), brand-700 #4338CA (CTA hover, deep strokes), brand-900 #312E81 (deep gradient stop, footer monogram node).\nWARM HUMAN ACCENT (rationed — ONLY on Hire chips/buttons + Approval moments, so warmth literally = 'a human is in the loop'): warm-400 #FF9A62 (apricot primary), warm-500 #F97316 (warm hover), warm-100 #FFF1E6 (wash behind hire/approval tokens), amber-300 #FCD34D (approval 'pending' pip + rating stars only). Coral #FB7185 used ONLY for the Decline/Hold half of an approval pair.\nSUCCESS mint: mint-500 #10B981, mint-400 #34D399, mint-300 #6EE7B7 (approved checks, live/online dot).\nMIDNIGHT (one inverted spread — Approvals & Security §08 only): midnight #0E1020 (bg), midnight-2 #171933 (raised card on dark), text on dark = #FAFAF8 (hi) / #A9AAC0 (dim); indigo #6366F1 + warm #FF9A62 pop against it.\nGRADIENTS: g-cta = linear 100deg #4F46E5 → #6366F1 (primary button); g-hero-wash = linear 165deg #FAFAF8 0% → #EEF2FF 55% → #FFF1E6 100% (faint hero tint, prints near-white); light ambient blobs = rgba(99,102,241,.10) indigo + rgba(255,154,98,.08) apricot, screen/multiply-blended so they survive PDF print.\nUSAGE RULES: (1) Paper everywhere; white only for cards/diagram panels. (2) Indigo = structure & trust + the ONE live diagram connector. (3) Warm = human decision points ONLY. (4) Mint = success/live. (5) Amber = pending. (6) Coral = decline/hold half of a pair. (7) Never tint >~5% of any viewport.",
+        "typography": "System-font-safe Swiss grotesque — zero web fonts, zero external deps.\nSANS (display+text): 'Helvetica Neue', Helvetica, Arial, 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif.\nMONO (editorial captions, Fig. numbers, § indices, nav, ALL numerics/stats): ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace.\nSCALE (fluid clamp desktop→mobile): Hero display clamp(3.25rem, 8.5vw, 7rem) / 700 / tracking -0.035em / line-height 0.94; H2 section clamp(2rem, 4.2vw, 3.5rem) / 700 / -0.025em / 1.02; H3 subhead 1.5rem / 600 / 1.3; Lead 1.375rem / 400 / 1.5 / ink-70; Body 1.125rem / 400 / 1.62 / ink-70; Body-sm 1rem / 400 / 1.6; Metric numeral clamp(3rem, 6vw, 5.5rem) / 700 / tabular-nums / ink (with mono unit label beside).\nMONO KICKER (every section eyebrow): 0.75rem / 600 / uppercase / letter-spacing 0.14em / ink-40 — format '§01 — EMPLOYEES'.\nFIG. CAPTION: mono 0.75rem / ink-40 — 'Fig. 03 · Connector map'. NAV: mono 0.8125rem / 500 / tracking 0.04em.\nDISPLAY TREATMENT: headlines flush-left, tight, DELIBERATE hand-chosen line breaks (e.g. 'Hire the / workforce that / never sleeps.'); exactly ONE keyword per headline set in brand-600 (structural) OR warm-400 (the word 'hire'). All numerals font-variant-numeric: tabular-nums. Body max-width 62ch / prose block 640px. Never bold body text for emphasis — use the mono kicker or an indigo inline.",
+        "tokensAndTailwindExtend": "// ---- tailwind.config.ts — theme.extend ----\nexport default { theme: { extend: {\n  colors: {\n    paper:{DEFAULT:'#FAFAF8',2:'#F4F3EE'}, surface:'#FFFFFF',\n    ink:{DEFAULT:'#14151A',70:'#4A4B54',40:'#8A8B92',25:'#B8B7B0'},\n    line:{DEFAULT:'#E5E4DD',strong:'#D6D5CC'},\n    brand:{50:'#EEF2FF',100:'#E0E7FF',500:'#6366F1',600:'#4F46E5',700:'#4338CA',900:'#312E81'},\n    warm:{100:'#FFF1E6',400:'#FF9A62',500:'#F97316'}, amber:{300:'#FCD34D'}, coral:{400:'#FB7185'},\n    mint:{300:'#6EE7B7',400:'#34D399',500:'#10B981'}, midnight:{DEFAULT:'#0E1020',2:'#171933'},\n  },\n  fontFamily:{\n    sans:['Helvetica Neue','Helvetica','Arial','Segoe UI','Roboto','system-ui','sans-serif'],\n    mono:['ui-monospace','SF Mono','Cascadia Code','Roboto Mono','Menlo','Consolas','monospace'],\n  },\n  letterSpacing:{kicker:'0.14em',tightest:'-0.035em'},\n  borderRadius:{card:'6px',btn:'8px',node:'14px',pill:'9999px'},\n  maxWidth:{container:'1200px',prose:'640px'},\n  boxShadow:{\n    card:'0 1px 0 #E5E4DD, 0 12px 32px -16px rgba(20,21,26,0.10)',\n    lift:'0 1px 0 #D6D5CC, 0 22px 44px -20px rgba(20,21,26,0.14)',\n    cta:'0 10px 30px -10px rgba(79,70,229,0.45)',\n    warm:'0 10px 30px -12px rgba(255,154,98,0.40)',\n  },\n  backgroundImage:{\n    'g-cta':'linear-gradient(100deg,#4F46E5,#6366F1)',\n    'g-hero-wash':'linear-gradient(165deg,#FAFAF8 0%,#EEF2FF 55%,#FFF1E6 100%)',\n  },\n  keyframes:{\n    flow:{to:{strokeDashoffset:'-44'}},\n    breathe:{'0%,100%':{opacity:'.35',transform:'scale(1)'},'50%':{opacity:'.9',transform:'scale(1.04)'}},\n    rise:{from:{opacity:'0',transform:'translateY(16px)'},to:{opacity:'1',transform:'none'}},\n    riseL:{from:{opacity:'0',transform:'translateX(-24px)'},to:{opacity:'1',transform:'none'}},\n    riseR:{from:{opacity:'0',transform:'translateX(24px)'},to:{opacity:'1',transform:'none'}},\n    ripple:{from:{transform:'scale(0)',opacity:'.6'},to:{transform:'scale(2.4)',opacity:'0'}},\n    pulseDot:{'0%,100%':{boxShadow:'0 0 0 0 rgba(52,211,153,.5)'},'50%':{boxShadow:'0 0 0 6px rgba(52,211,153,0)'}},\n    gridDrift:{to:{transform:'translateY(-24px)'}},\n    drawIn:{to:{strokeDashoffset:'0'}},\n  },\n  animation:{\n    flow:'flow 2.4s linear infinite', breathe:'breathe 3.6s ease-in-out infinite',\n    rise:'rise .48s cubic-bezier(.22,1,.36,1) both', ripple:'ripple 4s ease-out infinite',\n    pulseDot:'pulseDot 2.4s ease-in-out infinite', gridDrift:'gridDrift 40s linear infinite alternate',\n  },\n  transitionTimingFunction:{swiss:'cubic-bezier(.22,1,.36,1)'},\n}}}\n\n/* ---- globals.css ---- */\n:root{--container:1200px;--gutter:24px;--grid-cols:12;--grid-gap:24px;--section-y:clamp(72px,10vw,160px);}\nhtml{scroll-behavior:smooth;}\nbody{background:#FAFAF8;color:#14151A;font-family:var(--font-sans);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;}\n\n/* Visible 12-col grid overlay behind hero + key sections (1px warm rules @ 8% ink) */\n.grid-rules{position:absolute;inset:0;pointer-events:none;z-index:0;max-width:var(--container);margin-inline:auto;\n  background-image:repeating-linear-gradient(to right,transparent 0,transparent calc((100% - 11*var(--grid-gap))/12),\n    rgba(20,21,26,.05) 0,rgba(20,21,26,.05) 1px,transparent 1px,transparent calc((100% - 11*var(--grid-gap))/12 + var(--grid-gap)));}\n\n/* Scroll-reveal: progressive enhancement, NO JS dependency for final state */\n.reveal{opacity:0;transform:translateY(16px);}\n@supports (animation-timeline:view()){\n  .reveal{animation:rise linear both;animation-timeline:view();animation-range:entry 0% cover 30%;}\n  .reveal-l{animation-name:riseL} .reveal-r{animation-name:riseR}\n}\n@supports not (animation-timeline:view()){.reveal{opacity:1;transform:none}} /* fallback = visible */\n.stagger>*{animation-delay:calc(var(--i,0)*60ms);}\n\n/* Sticky masthead crossfades to blurred paper once scrolled (.is-scrolled via tiny IO) */\n.masthead{background:transparent;border-bottom:1px solid transparent;transition:background .2s,border-color .2s,backdrop-filter .2s;}\n.masthead.is-scrolled{background:rgba(250,250,248,.82);backdrop-filter:blur(8px);border-bottom-color:#E5E4DD;}\n\n/* Focus ring */\n:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:none;box-shadow:0 0 0 2px #FAFAF8,0 0 0 4px #4F46E5;border-radius:4px;}\n\n/* Ambient light blobs (light-mode so they print; also hidden in @media print) */\n.ambient-blob{position:absolute;border-radius:9999px;filter:blur(90px);mix-blend-mode:multiply;opacity:.5;pointer-events:none;z-index:0;}\n.ambient-blob.a{background:rgba(99,102,241,.10);} .ambient-blob.b{background:rgba(255,154,98,.08);}\n\n/* MOTION GUARD — mandatory */\n@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}\n  .reveal,.reveal-l,.reveal-r{opacity:1!important;transform:none!important;}}\n/* PRINT GUARD — project ships a PDF */\n@media print{.grid-rules,.ambient-blob{display:none!important;}*{animation:none!important;box-shadow:none!important;}\n  .midnight-spread{background:#0E1020!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}\n\n/* ================= MOTION SYSTEM (all pure CSS, subtle, mechanical — never bouncy) =================\n  1. SCROLL-REVEAL: .reveal opacity 0→1 + translateY(16px)→0 over 480ms swiss easing via animation-timeline:view(); @supports-not fallback resolves to visible end-state (no IntersectionObserver dependency for content). Zig-zag scenes use .reveal-l/.reveal-r (translateX ±24px). Grid children stagger 60ms via --i.\n  2. DIAGRAM 'FLOW' (proof-of-liveness graft): in EVERY diagram exactly ONE connector is class 'live' — stroke-dasharray '5 6' + animation flow (stroke-dashoffset → -44) in brand-600, so a single indigo pulse travels employee→skill / trigger→outcome. Never animate more than one edge per figure.\n  3. STATUS RING 'breathes' (scale 1→1.04 + opacity, 3.6s); nav live dot pulses a mint ring (pulseDot 2.4s).\n  4. HOVER: cards lift translateY(-2px) + border line→line-strong (200ms); connector-map edges shift stroke to brand-600 on node hover; nav/link underlines wipe via scaleX(0→1) transform-origin-left pseudo-element.\n  5. HERO orbital (D1 graft): a group of skill nodes rotates slowly (spin 40s linear) around a shared transform-origin; inner ring counter-rotates. Kept light.\n  6. APPROVAL RIPPLE (the ONLY warm/mint motion): mint ring expands (ripple 4s) + checkmark stroke draws on (drawIn) — reinforces the human moment.\n  7. AMBIENT: hero-only faint hairline grid drifts 0→-24px over 40s (gridDrift); two light blobs drift 22–30s.\n  8. STATS pop in with a scale keyframe on reveal (no JS count-ups).\n  ALL wrapped by prefers-reduced-motion (freeze to final) + print (strip animation/shadow, force Midnight exact colors). */"
+      },
+      "homepageSections": [
+        {
+          "id": "masthead",
+          "title": "§00 Masthead / sticky nav",
+          "layout": "Flush hairline top bar inside Container. Left: mono wordmark 'VERTICAL AI' + 4-point spark glyph + pulsing mint live-dot. Center-right: mono nav (Employees · Skills · Workflows · Pricing) with underline-wipe hover; active = brand-50 pill. Right: ghost 'Sign in' → /login, then hire-variant 'Hire an AI Employee' → /register. Transparent at top; .is-scrolled adds rgba(250,250,248,.82) + blur(8px) + bottom hairline.",
+          "copy": "Wordmark: VERTICAL AI. Nav: Employees · Skills · Workflows · Pricing. Buttons: 'Sign in' / 'Hire an AI Employee'.",
+          "svg": "SparkGlyph (twinkles) + StatusDot (live mint)."
+        },
+        {
+          "id": "hero",
+          "title": "§01 Hero",
+          "layout": "12-col grid with visible .grid-rules + drifting hairline + two light AmbientBlobs. Cols 1–6: mono kicker, oversized flush-left headline with hand-broken lines, lead, dual CTA (hire primary + ghost secondary), mono trust micro-line. Cols 7–12: the large monoline 'Workforce Constellation' DiagramPanel (Fig.00) with orbiting skill nodes + one live indigo connector + approval diamond.",
+          "copy": "Kicker: §01 — THE MANAGED AI WORKFORCE. Headline: 'Hire the workforce that never sleeps.' ('Hire' in warm-400). Lead: 'V-AEP lets you hire managed AI Employees — Recruiter, HR, Sales, Support, Finance — then equip them with Skills, brief them with your Knowledge, chain them into Workflows, and gate every risky move behind human Approvals. A whole team, reporting for duty in minutes.' CTAs: 'Hire your first AI Employee' → /register, 'Sign in' → /login. Trust line (mono): '4.2M actions run · 40+ skills · SOC 2 aligned — figures illustrative.'",
+          "svg": "Fig.00 Workforce Constellation (hero)."
+        },
+        {
+          "id": "index",
+          "title": "§02 Index strip / roster table-of-contents",
+          "layout": "Full-width hairline-ruled mono table, five rows: §0N | employee name | one-line role | anchor arrow. Doubles as anchor-nav to the roster. paper-2 band, top+bottom line-strong rules.",
+          "copy": "Kicker: §02 — THE ROSTER, INDEXED. Rows: '§01  Ada · AI Recruiter — screens CVs, books interviews, keeps every candidate warm.' / '§02  Milo · AI HR Assistant — onboarding, policy answers, time-off, the paperwork nobody wants.' / '§03  Vex · AI Sales — qualifies leads, drafts quotes, chases follow-ups on time.' / '§04  Pip · AI Support — triages tickets, answers from your docs, escalates the hard ones.' / '§05  Nova · AI Finance — invoices, reconciliations, expense checks, month-end prep.'",
+          "svg": "None (typographic); mono index numerals + hairline rules."
+        },
+        {
+          "id": "problem",
+          "title": "§03 The problem, illustrated (before/after diptych)",
+          "layout": "Two side-by-side hairline monoline panels (stack on mobile). Left 'Before': human ringed by 9 mismatched app tiles + tangled connectors, desaturated. Right 'After': same human calm, sliding task cards to a tidy row of 3 AI employee nodes under a faint warm-100 wash. Center headline bridges.",
+          "copy": "Kicker: §03 — THE SHIFT. Headline: 'You don’t need more tools. You need more hands.' Body: 'The average team stitches together 4–6 point tools and still does the work by hand. V-AEP replaces the pile with a hire: managed AI Employees that actually operate your tools for you — under your rules.' Panel labels: 'Fig. 01 · Before — 6 tabs, 0 done' / 'Fig. 02 · After — 1 hire, work moving'.",
+          "svg": "ProblemDiptych."
+        },
+        {
+          "id": "roster",
+          "title": "§04 The Roster — five AI Employees",
+          "layout": "Editorial 12-col grid of five identical hairline RosterCards. Each: RosterAvatarFrame monoline portrait, mono role label, name, 3 sample tasks as a mono checklist, skill-chip row, hire-variant 'Hire' button. Recurring named cast = memorability graft.",
+          "copy": "Kicker: §04 — MEET THE TEAM. Headline: 'Five hires. One afternoon.' Card e.g. Ada — 'AI RECRUITER. Tasks: Screen inbound CVs · Book interview slots · Send candidate updates. Ships with: Gmail, Calendar, Slack.' (repeat per employee). Each CTA: 'Hire Ada' → /register.",
+          "svg": "RosterPortraits ×5."
+        },
+        {
+          "id": "how",
+          "title": "§05 How it works — Fig. 01–06 numbered steps",
+          "layout": "Steps ride a horizontal ConnectorRoute spine (numbered dots 01–06). Each StepBlock alternates left/right zig-zag: big display numeral + Kicker + heading + body + per-step CTA on one side, its monoline diagram DiagramPanel on the other. Fig.01 Hire & Fig.05 Approve badges use the warm accent; the rest indigo.",
+          "copy": "Kicker: §05 — HOW IT WORKS. Headline: 'Hire once. Compound forever.' (full step copy in explanationSteps). CTAs shown: Fig.01 'Hire your first AI Employee → /register', Fig.06 'See the dashboard → /login'.",
+          "svg": "ConnectorRoute spine + one diagram per step (HireBadge, SkillsConnector, KnowledgeLattice, WorkflowMini, ApprovalGate, AnalyticsMini)."
+        },
+        {
+          "id": "skills",
+          "title": "§06 Skills — the connector map (scoped & revocable)",
+          "layout": "Split: left copy + mono integration legend; right the ConnectorMap DiagramPanel — one Employee node wired to a vertical rail of integration nodes with orthogonal connectors; ONE active edge is the live indigo dash; hovering a legend item lights its edge.",
+          "copy": "Kicker: §06 — SKILLS. Headline: 'Give them the tools. Keep the keys.' Body: 'Grant Skills the way you’d grant a new hire access — toggle on Slack, Gmail, Google Calendar, Stripe and 40+ more. Every skill is scoped and revocable: an employee can only ever touch what you authorize, and you can pull access in one click.' Legend (mono): 'Slack · Gmail · Google Calendar · Stripe · Google Drive · Notion · HubSpot · Twilio'. Link: 'Browse the Skills catalog →' (Marketplace).",
+          "svg": "Fig.03 ConnectorMap."
+        },
+        {
+          "id": "workflows",
+          "title": "§07 Workflows — the directed graph",
+          "layout": "Copy left, wide WorkflowGraph DiagramPanel right (grid-dot bg in a white panel). Left-to-right directed graph with marker arrowheads; happy path stroked live indigo; one dotted 'scheduled' edge.",
+          "copy": "Kicker: §07 — WORKFLOWS. Headline: 'One employee is useful. A team is transformative.' Body: 'Compose multi-step Workflows on a visual canvas and hand work between employees automatically. New CV arrives → Ada screens it → qualified? → Scheduling books the interview → the hiring manager gets a Slack summary. Run it on a trigger, on a schedule, or on demand — 24/7.' Link: 'Explore Workflows & Scheduling →'.",
+          "svg": "Fig.04 WorkflowGraph."
+        },
+        {
+          "id": "approvals",
+          "title": "§08 Approvals & Security — the inverted Midnight spread",
+          "layout": "MidnightSection full-bleed #0E1020, light-on-dark. Two columns: left an ApprovalGate monoline diagram + concrete ApprovalCard money-moment; right the security guarantees as a mono checklist with small shield glyphs. Warm accent + amber pending pip pop against the dark.",
+          "copy": "Kicker (dim): §08 — APPROVALS & CONTROL. Headline: 'Autonomy with a seatbelt.' Body: 'Set the line no employee crosses alone. Sending an offer, issuing a refund, posting publicly — route it to a human for one-tap approval. Every action, approved or denied or automatic, lands in an immutable audit trail you can hand to compliance.' ApprovalCard: 'APPROVAL NEEDED · AI Finance wants to send invoice $12,000 → Acme Co.' with [Hold] (coral ghost) + [Approve] (mint). Second card: 'Refund of $420 → waiting on you.' Security checklist: 'Least-privilege scoped skills · Immutable audit log · Role-based access (RBAC) · SSO/SAML · Data isolation per tenant · SOC 2 aligned (illustrative).'",
+          "svg": "Fig.07 ApprovalGate (light-on-dark) + ApprovalCard (ripple) + SecurityShield glyphs ×5."
+        },
+        {
+          "id": "knowledge",
+          "title": "§09 Knowledge (RAG) — grounded, with citations",
+          "layout": "Copy left, KnowledgeRAG DiagramPanel right: three page rects dissolving into an embedding lattice; ONE query ray traced back to a highlighted source page in brand-600 (citation graft). paper-2 band.",
+          "copy": "Kicker: §09 — KNOWLEDGE. Headline: 'Answers from your playbook — not the open internet.' Body: 'Upload PDFs, docs, price lists and past tickets. We chunk, embed and index everything into private Knowledge, so your employees answer grounded in your business — always on-brand, always with a citation back to the source.' Callout (mono): 'Fig. 08 · query → embedding → cited source'.",
+          "svg": "Fig.08 KnowledgeRAG."
+        },
+        {
+          "id": "marketplace",
+          "title": "§10 Marketplace — contact sheet",
+          "layout": "'Contact sheet' 3×2 grid of identical hairline-framed MarketplaceTiles, each a tiny distinct monoline mark + mono caption; one tile marked 'Installed' in indigo, last tile a dashed '+ Hire your own'. Staggered hover-lift.",
+          "copy": "Kicker: §10 — MARKETPLACE. Headline: 'Prebuilt teammates, ready to install.' Body: 'Start from a proven employee or skill pack and customize from there.' Tiles: 'Recruiter Pack (Installed) · Support Desk · Sales SDR · Finance Ops · HR Onboarding · + Hire your own'. Link: 'Open the Marketplace →'.",
+          "svg": "MarketplaceContactSheet."
+        },
+        {
+          "id": "analytics",
+          "title": "§11 Analytics — thin-line proof",
+          "layout": "Copy left with big mono metric readouts, AnalyticsSpot DiagramPanel right: L-axis + single polyline with vertex markers + faint indigo area fill + an annotation callout pinned to a vertex.",
+          "copy": "Kicker: §11 — ANALYTICS. Headline: 'Measure output. Promote what works.' Body: 'Watch your AI workforce on the dashboard — tasks completed, hours saved, approval turnaround. Clone a top performer and scale the team the way you’d grow a department.' Metrics (mono, illustrative): '+38% tasks/wk · 312 hrs saved/mo · 2.4h avg approval SLA'.",
+          "svg": "Fig.10 AnalyticsSpot."
+        },
+        {
+          "id": "quote",
+          "title": "§12 Pull-quote / proof",
+          "layout": "Full-width editorial pull-quote in oversized display type, hairline top rule, small mono attribution + a tiny avatar-node glyph.",
+          "copy": "Quote: '“We replaced six tabs and two contractors with three AI Employees. The Approvals gate is why our CFO signed off.”' Attribution (mono): 'ILLUSTRATIVE — HEAD OF OPERATIONS, 40-PERSON SAAS.'",
+          "svg": "Small avatar-node glyph."
+        },
+        {
+          "id": "cta",
+          "title": "§13 Final CTA",
+          "layout": "Restated flush-left headline + hire primary + ghost secondary CTA, plus a compact 'what you get' hairline checklist (3 items). Faint g-hero-wash + grid rules echo the hero to bookend the page.",
+          "copy": "Kicker: §13 — GET STARTED. Headline: 'Your next hire starts today.' Checklist (mono): 'Live in minutes · Scoped, revocable skills · Full audit trail'. CTAs: 'Hire your first AI Employee' → /register (hire variant), 'Sign in' → /login. Reassurance: 'No card to start · Cancel anytime · Your data stays yours.'",
+          "svg": "Optional faint constellation echo watermark."
+        },
+        {
+          "id": "footer",
+          "title": "§14 Footer",
+          "layout": "Fine multi-column hairline grid: Product / Platform / Company / Legal columns of mono links, mono copyright row, and the grid-constructed 'V' monogram (converging hairlines meeting at a single indigo node) as the page full-stop.",
+          "copy": "Product: Employees, Skills, Workflows, Scheduling, Approvals, Knowledge. Platform: Marketplace, Analytics, Billing, Team, Security. Company: About, Careers, Blog, Contact. Legal: Privacy, Terms, DPA, Status. Copyright (mono): '© 2026 VERTICAL AI · V-AEP.'",
+          "svg": "FooterMonogram."
+        }
+      ],
+      "explanationSteps": [
+        {
+          "step": "Fig. 01",
+          "title": "Hire an Employee",
+          "body": "Start like you’d start with a new hire — pick the role. Choose from AI Recruiter, HR Assistant, Sales, Support or Finance. Each arrives pre-trained on its craft, reporting for duty in minutes, not onboarding weeks. Name them, set their working hours, assign an owner. No seats to provision, no models to wire up. CTA: Hire your first AI Employee → /register",
+          "svg": "HireBadge (warm accent) — a monoline employee node dropping into an org-chart slot with a warm-100 wash + a '+ hired' warm chip; the ONE warm step badge."
+        },
+        {
+          "step": "Fig. 02",
+          "title": "Grant Skills",
+          "body": "Give your employee the tools its human counterpart would need. Connect Slack, Gmail, Google Calendar, Stripe and dozens more with one click — every skill is scoped, so an employee can only ever touch what you authorize, and you can revoke access in one click.",
+          "svg": "SkillsConnector (indigo) — employee node radiating scoped connectors to skill glyphs; one live indigo dash; small 'scoped & revocable' lock ticks."
+        },
+        {
+          "step": "Fig. 03",
+          "title": "Brief with Knowledge",
+          "body": "Upload your playbooks, policies, price lists and past deals. Your employee reads them into private memory (RAG) and answers grounded in your business — never generic, always on-brand, with citations back to the source.",
+          "svg": "KnowledgeLattice (indigo) — pages fanning into an embedding grid with one indigo citation ray."
+        },
+        {
+          "step": "Fig. 04",
+          "title": "Chain into Workflows",
+          "body": "One employee is useful; a team is transformative. Compose multi-step Workflows that hand work between employees — the Recruiter screens, the HR Assistant schedules, Finance raises the offer — running on triggers or a schedule, 24/7.",
+          "svg": "WorkflowMini (indigo) — trigger → step → diamond branch → outcome directed graph with one animated flow dot."
+        },
+        {
+          "step": "Fig. 05",
+          "title": "Gate with Approvals",
+          "body": "Set the line no employee crosses alone. Sending an offer, issuing a refund, posting publicly — route it to a human for one-tap approval. Every action is logged in an immutable audit trail you can hand to compliance. Autonomy with a seatbelt.",
+          "svg": "ApprovalGate (warm accent) — pipeline into a diamond checkpoint, an action token paused at a warm-100 gate with an amber pending pip, a human tap releasing a mint check; the second warm step badge."
+        },
+        {
+          "step": "Fig. 06",
+          "title": "Measure & scale",
+          "body": "Watch output on the Analytics dashboard — tasks completed, hours saved, approval turnaround. Promote what works, clone a top performer, and grow your AI workforce the way you’d grow a team. CTA: See the dashboard → /login",
+          "svg": "AnalyticsMini (indigo) — thin-line rising polyline with vertex markers + a '+38%' annotation callout."
+        }
+      ],
+      "svgLibrary": [
+        {
+          "name": "Fig.00 — Hero Workforce Constellation",
+          "description": "Flagship monoline system diagram on a white hairline panel. Central rounded-square Employee node (monoline avatar: circle head + shoulder arc, tiny indigo on-duty dot) inside a breathing indigo status ring. Skill nodes (Slack hash, Gmail envelope, Calendar grid, Stripe bars, Knowledge book, Workflow fork) on a faint orbit that can slowly rotate around a shared transform-origin (D1 orbital graft). Six thin connectors radiate; exactly ONE is the live indigo dashed 'flow' edge. Approval diamond at top with an amber pending pip. Faint background column ticks. All strokes currentColor except the two indigo accents. Prints crisp; motion reduced-motion-guarded.",
+          "sampleSvg": "<svg viewBox=\"0 0 640 480\" role=\"img\" aria-labelledby=\"h0t h0d\" xmlns=\"http://www.w3.org/2000/svg\" style=\"width:100%;height:auto;color:#14151A;font-family:ui-monospace,Menlo,Consolas,monospace\"><title id=\"h0t\">V-AEP workforce constellation</title><desc id=\"h0d\">An AI Employee node connected to its skills, with an approval gate.</desc><style>.hair{stroke:#E5E4DD;stroke-width:1}.line{stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}.accf{fill:#4F46E5}.cap{font-size:11px;letter-spacing:.12em}.mut{fill:#8A8B92}.live{stroke:#4F46E5;stroke-width:1.5;fill:none;stroke-dasharray:5 6;animation:flow 2.4s linear infinite}.ring{transform-origin:320px 240px;animation:breathe 3.6s ease-in-out infinite}@keyframes flow{to{stroke-dashoffset:-44}}@keyframes breathe{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.9;transform:scale(1.04)}}@media (prefers-reduced-motion:reduce){.live{animation:none}.ring{animation:none;opacity:.6}}</style><g class=\"hair\" opacity=\".6\"><line x1=\"120\" y1=\"24\" x2=\"120\" y2=\"456\"/><line x1=\"320\" y1=\"24\" x2=\"320\" y2=\"456\"/><line x1=\"520\" y1=\"24\" x2=\"520\" y2=\"456\"/><line x1=\"24\" y1=\"240\" x2=\"616\" y2=\"240\" opacity=\".5\"/></g><path class=\"line\" d=\"M320 210 V150\"/><path class=\"line\" d=\"M285 240 H150\"/><path class=\"line\" d=\"M285 262 C230 300 200 330 150 356\"/><path class=\"live\" d=\"M355 240 H500\"/><path class=\"line\" d=\"M355 262 C420 300 450 330 500 356\"/><path class=\"line\" d=\"M320 292 V352\"/><circle class=\"ring\" cx=\"320\" cy=\"240\" r=\"64\" fill=\"none\" stroke=\"#4F46E5\" stroke-width=\"1.5\" opacity=\".5\"/><rect x=\"272\" y=\"192\" width=\"96\" height=\"96\" rx=\"14\" fill=\"#FFFFFF\" class=\"line\"/><circle class=\"line\" cx=\"320\" cy=\"228\" r=\"13\"/><path class=\"line\" d=\"M300 268 C300 250 340 250 340 268\"/><circle class=\"accf\" cx=\"352\" cy=\"204\" r=\"5\"/><text class=\"cap mut\" x=\"320\" y=\"312\" text-anchor=\"middle\">AI&#160;EMPLOYEE</text><rect x=\"300\" y=\"106\" width=\"40\" height=\"40\" rx=\"6\" transform=\"rotate(45 320 126)\" fill=\"#FFFFFF\" stroke=\"#4F46E5\" stroke-width=\"1.5\"/><path d=\"M311 126 l6 6 12 -13\" fill=\"none\" stroke=\"#4F46E5\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><circle cx=\"338\" cy=\"110\" r=\"4\" fill=\"#FCD34D\"/><text class=\"cap mut\" x=\"320\" y=\"90\" text-anchor=\"middle\">APPROVAL</text><circle cx=\"124\" cy=\"240\" r=\"26\" fill=\"#FFFFFF\" class=\"line\"/><path class=\"line\" d=\"M116 233 h16 M116 247 h16 M121 227 l-2 26 M133 227 l-2 26\"/><circle cx=\"124\" cy=\"366\" r=\"26\" fill=\"#FFFFFF\" class=\"line\"/><rect x=\"112\" y=\"358\" width=\"24\" height=\"16\" rx=\"2\" class=\"line\"/><path class=\"line\" d=\"M112 359 l12 8 12 -8\"/><circle cx=\"516\" cy=\"240\" r=\"26\" fill=\"#EEF2FF\" stroke=\"#4F46E5\" stroke-width=\"1.5\"/><rect x=\"504\" y=\"230\" width=\"24\" height=\"20\" rx=\"2\" fill=\"none\" stroke=\"#4F46E5\" stroke-width=\"1.5\"/><path d=\"M504 236 h24 M510 227 v6 M522 227 v6\" stroke=\"#4F46E5\" stroke-width=\"1.5\" fill=\"none\" stroke-linecap=\"round\"/><circle cx=\"516\" cy=\"366\" r=\"26\" fill=\"#FFFFFF\" class=\"line\"/><path class=\"line\" d=\"M508 372 h16 M506 366 h20 M509 360 h14\"/><circle cx=\"320\" cy=\"378\" r=\"26\" fill=\"#FFFFFF\" class=\"line\"/><path class=\"line\" d=\"M311 369 h14 a3 3 0 0 1 3 3 v13 h-14 a3 3 0 0 0 -3 3 z M311 369 a3 3 0 0 0 -3 3 v16 a3 3 0 0 1 3 -3\"/><text class=\"cap mut\" x=\"24\" y=\"452\">FIG.&#160;00&#160;&#183;&#160;WORKFORCE&#160;CONSTELLATION</text></svg>"
+        },
+        {
+          "name": "RosterPortraits (×5, recurring cast)",
+          "description": "Five distinct monoline glyph 'portraits' in IDENTICAL 48×48 hairline square frames (rx14), 1.5px stroke, single indigo dot per glyph as eye/accent. Ada/Recruiter = magnifier over résumé. Milo/HR = chat bubble + heart-in-hand. Vex/Sales = upward line-chart arrow through a target ring. Pip/Support = headset ring + speech dots. Nova/Finance = ledger lines + coin. Reused across roster, index, workflow graph and final CTA so the named team reads as authored.",
+          "sampleSvg": "<svg viewBox=\"0 0 64 64\" role=\"img\" aria-label=\"Ada, AI Recruiter\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"14\" fill=\"#FFFFFF\" stroke=\"#E5E4DD\"/><rect x=\"20\" y=\"14\" width=\"22\" height=\"28\" rx=\"3\" fill=\"none\" stroke=\"#14151A\" stroke-width=\"1.5\"/><path d=\"M25 22h12M25 27h12M25 32h8\" stroke=\"#14151A\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><circle cx=\"38\" cy=\"40\" r=\"7\" fill=\"none\" stroke=\"#14151A\" stroke-width=\"1.5\"/><path d=\"M43 45l6 6\" stroke=\"#14151A\" stroke-width=\"1.5\" stroke-linecap=\"round\"/><circle cx=\"38\" cy=\"40\" r=\"2.5\" fill=\"#4F46E5\"/></svg>"
+        },
+        {
+          "name": "ProblemDiptych",
+          "description": "Two hairline monoline panels. LEFT 'Before': central human glyph surrounded by 9 mismatched app-tile squares at random rotations, thin tangled connectors, all ink-40 (desaturated), one broken/dashed connector. RIGHT 'After': same human relaxed, three neat task cards sliding right (motion arrows) into a tidy row of 3 employee nodes on a faint warm-100 wash; connectors clean/orthogonal, one live indigo.",
+          "sampleSvg": "<svg viewBox=\"0 0 320 200\" role=\"img\" aria-label=\"Before: tools scattered. After: work delegated.\" xmlns=\"http://www.w3.org/2000/svg\"><style>.s{stroke:#8A8B92;stroke-width:1.4;fill:none}.k{stroke:#14151A;stroke-width:1.5;fill:none}.live{stroke:#4F46E5;stroke-width:1.5;fill:none;stroke-dasharray:4 5;animation:f 2.4s linear infinite}@keyframes f{to{stroke-dashoffset:-36}}@media(prefers-reduced-motion:reduce){.live{animation:none}}</style><circle cx=\"70\" cy=\"100\" r=\"12\" class=\"s\"/><g class=\"s\"><rect x=\"20\" y=\"30\" width=\"20\" height=\"20\" rx=\"3\" transform=\"rotate(-8 30 40)\"/><rect x=\"96\" y=\"28\" width=\"20\" height=\"20\" rx=\"3\" transform=\"rotate(6 106 38)\"/><rect x=\"18\" y=\"150\" width=\"20\" height=\"20\" rx=\"3\" transform=\"rotate(10 28 160)\"/><rect x=\"100\" y=\"150\" width=\"20\" height=\"20\" rx=\"3\" transform=\"rotate(-6 110 160)\"/><path d=\"M40 50 L60 96M106 48 L80 96M38 152 L60 108M110 152 L82 108\" stroke-dasharray=\"3 4\"/></g><line x1=\"160\" y1=\"18\" x2=\"160\" y2=\"182\" stroke=\"#E5E4DD\"/><rect x=\"196\" y=\"40\" width=\"110\" height=\"120\" rx=\"8\" fill=\"#FFF1E6\" opacity=\".5\"/><circle cx=\"215\" cy=\"100\" r=\"12\" class=\"k\"/><g class=\"k\"><rect x=\"238\" y=\"66\" width=\"22\" height=\"16\" rx=\"3\"/><rect x=\"238\" y=\"92\" width=\"22\" height=\"16\" rx=\"3\"/><rect x=\"238\" y=\"118\" width=\"22\" height=\"16\" rx=\"3\"/></g><path class=\"live\" d=\"M260 74 H288 M260 100 H288 M260 126 H288\"/><g class=\"k\"><rect x=\"288\" y=\"66\" width=\"14\" height=\"16\" rx=\"3\"/><rect x=\"288\" y=\"92\" width=\"14\" height=\"16\" rx=\"3\"/><rect x=\"288\" y=\"118\" width=\"14\" height=\"16\" rx=\"3\"/></g></svg>"
+        },
+        {
+          "name": "Fig.03 ConnectorMap (Skills)",
+          "description": "Node-and-edge integration graph: one Employee node on the left, a vertical rail of integration nodes on the right (Slack, Gmail, Calendar, Stripe, Drive, Notion), thin orthogonal connectors with small square junction dots. The hovered/active edge turns brand-600 and animates its dash. Mono labels beside each node. Small lock ticks reinforce 'scoped & revocable'.",
+          "sampleSvg": "<svg viewBox=\"0 0 420 300\" role=\"img\" aria-label=\"An AI Employee wired to scoped skills\" xmlns=\"http://www.w3.org/2000/svg\" style=\"font-family:ui-monospace,Menlo,monospace\"><style>.k{stroke:#14151A;stroke-width:1.5;fill:none;stroke-linecap:round}.e{stroke:#D6D5CC;stroke-width:1.4;fill:none}.live{stroke:#4F46E5;stroke-width:1.5;fill:none;stroke-dasharray:5 6;animation:f 2.4s linear infinite}.lbl{font-size:11px;fill:#8A8B92}@keyframes f{to{stroke-dashoffset:-44}}@media(prefers-reduced-motion:reduce){.live{animation:none}}</style><rect x=\"20\" y=\"120\" width=\"72\" height=\"60\" rx=\"12\" fill=\"#FFFFFF\" class=\"k\"/><circle class=\"k\" cx=\"56\" cy=\"144\" r=\"9\"/><path class=\"k\" d=\"M44 168 c0-12 24-12 24 0\"/><path class=\"e\" d=\"M92 150 H210 V50 H300\"/><path class=\"live\" d=\"M92 150 H210 V110 H300\"/><path class=\"e\" d=\"M92 150 H210 V170 H300\"/><path class=\"e\" d=\"M92 150 H210 V230 H300\"/><g fill=\"#14151A\"><rect x=\"206\" y=\"46\" width=\"4\" height=\"4\"/><rect x=\"206\" y=\"106\" width=\"4\" height=\"4\"/><rect x=\"206\" y=\"166\" width=\"4\" height=\"4\"/><rect x=\"206\" y=\"226\" width=\"4\" height=\"4\"/></g><g class=\"k\"><circle cx=\"316\" cy=\"50\" r=\"14\" fill=\"#FFF\"/><circle cx=\"316\" cy=\"110\" r=\"14\" fill=\"#EEF2FF\" stroke=\"#4F46E5\"/><circle cx=\"316\" cy=\"170\" r=\"14\" fill=\"#FFF\"/><circle cx=\"316\" cy=\"230\" r=\"14\" fill=\"#FFF\"/></g><text class=\"lbl\" x=\"338\" y=\"54\">Slack</text><text class=\"lbl\" x=\"338\" y=\"114\">Gmail</text><text class=\"lbl\" x=\"338\" y=\"174\">Calendar</text><text class=\"lbl\" x=\"338\" y=\"234\">Stripe</text></svg>"
+        },
+        {
+          "name": "Fig.04 WorkflowGraph",
+          "description": "Left-to-right directed graph on a faint grid-dot white panel: 'Trigger · New CV' → 'Ada screens' → diamond 'Qualified?' branching to 'Schedule interview' (yes) and 'Send polite decline' (no) → 'Notify hiring manager'. Arrowheads via <marker>. Dotted 'scheduled' edge; happy path stroked live indigo with a traveling flow dash. Reuse RosterPortraits inside agent nodes.",
+          "sampleSvg": "<svg viewBox=\"0 0 520 220\" role=\"img\" aria-label=\"A recruiting workflow graph\" xmlns=\"http://www.w3.org/2000/svg\" style=\"font-family:ui-monospace,Menlo,monospace\"><defs><marker id=\"ar\" markerWidth=\"8\" markerHeight=\"8\" refX=\"6\" refY=\"3\" orient=\"auto\"><path d=\"M0 0l6 3-6 3z\" fill=\"#14151A\"/></marker></defs><style>.n{fill:#FFF;stroke:#14151A;stroke-width:1.5}.t{font-size:10px;fill:#14151A}.e{stroke:#14151A;stroke-width:1.5;fill:none}.live{stroke:#4F46E5;stroke-width:1.6;fill:none;stroke-dasharray:5 6;animation:f 2.4s linear infinite}@keyframes f{to{stroke-dashoffset:-44}}@media(prefers-reduced-motion:reduce){.live{animation:none}}</style><rect class=\"n\" x=\"8\" y=\"90\" width=\"78\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"18\" y=\"106\">Trigger</text><text class=\"t\" x=\"18\" y=\"120\">New CV</text><path class=\"live\" d=\"M86 110 H120\" marker-end=\"url(#ar)\"/><rect class=\"n\" x=\"122\" y=\"90\" width=\"78\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"134\" y=\"114\">Ada screens</text><path class=\"live\" d=\"M200 110 H236\" marker-end=\"url(#ar)\"/><rect class=\"n\" x=\"236\" y=\"86\" width=\"48\" height=\"48\" rx=\"6\" transform=\"rotate(45 260 110)\"/><text class=\"t\" x=\"244\" y=\"113\">Qual?</text><path class=\"live\" d=\"M284 96 C320 70 330 60 360 60\" marker-end=\"url(#ar)\"/><path class=\"e\" d=\"M284 124 C320 150 330 160 360 160\" stroke-dasharray=\"3 4\" marker-end=\"url(#ar)\"/><rect class=\"n\" x=\"360\" y=\"40\" width=\"90\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"368\" y=\"58\">Schedule</text><text class=\"t\" x=\"368\" y=\"72\">interview</text><rect class=\"n\" x=\"360\" y=\"140\" width=\"90\" height=\"40\" rx=\"8\"/><text class=\"t\" x=\"368\" y=\"158\">Polite</text><text class=\"t\" x=\"368\" y=\"172\">decline</text><path class=\"e\" d=\"M450 60 C480 60 480 110 486 110\" marker-end=\"url(#ar)\"/></svg>"
+        },
+        {
+          "name": "Fig.07 ApprovalGate (Midnight / light-on-dark)",
+          "description": "On the inverted #0E1020 spread: a pipeline flowing into a checkpoint — a diamond decision node with a barrier/valve symbol; an 'Action requested' token pauses at the gate with an amber-300 pending pip; a hairline human glyph taps a warm→mint approve control; a branch shows 'Approved →' continuing and 'Held' looping back. Strokes #FAFAF8, accents brand-500 + warm-400, approved check mint. Includes ripple + drawIn check motion.",
+          "sampleSvg": "<svg viewBox=\"0 0 420 220\" role=\"img\" aria-label=\"Risky action paused at a human approval gate\" xmlns=\"http://www.w3.org/2000/svg\" style=\"font-family:ui-monospace,Menlo,monospace\"><style>.l{stroke:#FAFAF8;stroke-width:1.5;fill:none;stroke-linecap:round}.dim{fill:#A9AAC0;font-size:10px}.live{stroke:#6366F1;stroke-width:1.6;fill:none;stroke-dasharray:5 6;animation:f 2.4s linear infinite}.chk{stroke:#34D399;stroke-width:2;fill:none;stroke-dasharray:22;stroke-dashoffset:22;animation:draw 3s ease-in-out infinite}.rip{fill:none;stroke:#34D399;transform-origin:328px 150px;animation:rip 4s ease-out infinite}@keyframes f{to{stroke-dashoffset:-44}}@keyframes draw{40%{stroke-dashoffset:22}70%,100%{stroke-dashoffset:0}}@keyframes rip{from{transform:scale(.2);opacity:.6}to{transform:scale(2.2);opacity:0}}@media(prefers-reduced-motion:reduce){.live,.chk,.rip{animation:none}.chk{stroke-dashoffset:0}}</style><rect width=\"420\" height=\"220\" fill=\"#0E1020\"/><path class=\"live\" d=\"M12 100 H150\"/><rect x=\"40\" y=\"84\" width=\"70\" height=\"32\" rx=\"6\" fill=\"#171933\" stroke=\"#FF9A62\"/><text class=\"dim\" x=\"50\" y=\"104\" fill=\"#FF9A62\">$12,000</text><circle cx=\"112\" cy=\"84\" r=\"4\" fill=\"#FCD34D\"/><rect x=\"150\" y=\"74\" width=\"52\" height=\"52\" rx=\"6\" transform=\"rotate(45 176 100)\" fill=\"#171933\" stroke=\"#FAFAF8\" stroke-width=\"1.5\"/><path class=\"l\" d=\"M164 100 h24 M176 88 v24\" opacity=\".7\"/><text class=\"dim\" x=\"158\" y=\"150\" text-anchor=\"middle\">GATE</text><path class=\"l\" d=\"M202 100 H250\"/><circle cx=\"290\" cy=\"150\" r=\"16\" fill=\"none\" stroke=\"#FAFAF8\" stroke-width=\"1.5\"/><path class=\"l\" d=\"M290 134 v-14\"/><circle class=\"rip\" cx=\"328\" cy=\"150\" r=\"14\"/><circle cx=\"328\" cy=\"150\" r=\"16\" fill=\"#171933\" stroke=\"#34D399\"/><path class=\"chk\" d=\"M321 150l5 5 9 -11\"/><path class=\"l\" d=\"M250 92 H360\" opacity=\".5\"/><text class=\"dim\" x=\"300\" y=\"84\">Approved &#8594;</text><text class=\"dim\" x=\"252\" y=\"120\">Held &#8630;</text></svg>"
+        },
+        {
+          "name": "ApprovalCard (money-moment, HTML primitive shown as SVG)",
+          "description": "Concrete money-moment card used in hero + §08: mono kicker 'APPROVAL NEEDED', a warm-100 'Needs approval' chip, body 'AI Finance wants to send invoice $12,000 → Acme Co.', and a button pair 'Hold' (coral ghost) + 'Approve' (mint fill) with a waiting pulse ring. Build as an HTML ApprovalCard primitive in production; SVG variant here for the hero.",
+          "sampleSvg": "<svg viewBox=\"0 0 300 150\" role=\"img\" aria-label=\"Approval needed: send invoice for twelve thousand dollars\" xmlns=\"http://www.w3.org/2000/svg\" style=\"font-family:ui-sans-serif,system-ui,sans-serif\"><rect x=\"1\" y=\"1\" width=\"298\" height=\"148\" rx=\"10\" fill=\"#FFFFFF\" stroke=\"#E5E4DD\"/><text x=\"18\" y=\"28\" font-family=\"ui-monospace,Menlo,monospace\" font-size=\"10\" letter-spacing=\"1.5\" fill=\"#8A8B92\">APPROVAL NEEDED</text><rect x=\"196\" y=\"16\" width=\"86\" height=\"20\" rx=\"10\" fill=\"#FFF1E6\"/><text x=\"239\" y=\"30\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"700\" fill=\"#F97316\">Needs approval</text><text x=\"18\" y=\"64\" font-size=\"14\" font-weight=\"600\" fill=\"#14151A\">AI Finance · Send invoice</text><text x=\"18\" y=\"84\" font-size=\"13\" fill=\"#4A4B54\">$12,000 &#8594; Acme Co.</text><rect x=\"18\" y=\"104\" width=\"120\" height=\"30\" rx=\"8\" fill=\"#FFF\" stroke=\"#FB7185\"/><text x=\"78\" y=\"124\" text-anchor=\"middle\" font-size=\"12\" font-weight=\"700\" fill=\"#FB7185\">Hold</text><rect x=\"162\" y=\"104\" width=\"120\" height=\"30\" rx=\"8\" fill=\"#10B981\"/><text x=\"222\" y=\"124\" text-anchor=\"middle\" font-size=\"12\" font-weight=\"700\" fill=\"#FFF\">Approve</text></svg>"
+        },
+        {
+          "name": "Fig.08 KnowledgeRAG",
+          "description": "A fan of three page rectangles (monoline text rules) on the left dissolving into a lattice/dot grid on the right (the embedding space), connected by tapering hairlines; ONE query ray traced back from the answer to a highlighted source page in brand-600 (the citation detail). Communicates 'grounded + cited'.",
+          "sampleSvg": "<svg viewBox=\"0 0 360 220\" role=\"img\" aria-label=\"Documents embedded into a vector space with a cited source\" xmlns=\"http://www.w3.org/2000/svg\"><style>.k{stroke:#14151A;stroke-width:1.4;fill:none}.h{stroke:#D6D5CC;stroke-width:1;fill:none}.cite{stroke:#4F46E5;stroke-width:1.6;fill:none;stroke-dasharray:5 6;animation:f 2.4s linear infinite}@keyframes f{to{stroke-dashoffset:-44}}@media(prefers-reduced-motion:reduce){.cite{animation:none}}</style><g class=\"k\"><rect x=\"18\" y=\"64\" width=\"56\" height=\"72\" rx=\"4\" fill=\"#FFF\"/><rect x=\"30\" y=\"52\" width=\"56\" height=\"72\" rx=\"4\" fill=\"#FFF\"/><rect x=\"42\" y=\"40\" width=\"56\" height=\"72\" rx=\"4\" fill=\"#EEF2FF\" stroke=\"#4F46E5\"/><path d=\"M50 54h40M50 62h40M50 70h28\" stroke=\"#4F46E5\"/></g><g class=\"h\"><path d=\"M98 76 L170 60M98 88 L170 100M98 100 L170 140\"/></g><g fill=\"#8A8B92\"><circle cx=\"180\" cy=\"50\" r=\"2\"/><circle cx=\"210\" cy=\"46\" r=\"2\"/><circle cx=\"240\" cy=\"58\" r=\"2\"/><circle cx=\"270\" cy=\"48\" r=\"2\"/><circle cx=\"190\" cy=\"84\" r=\"2\"/><circle cx=\"222\" cy=\"92\" r=\"2\"/><circle cx=\"256\" cy=\"86\" r=\"2\"/><circle cx=\"286\" cy=\"96\" r=\"2\"/><circle cx=\"184\" cy=\"128\" r=\"2\"/><circle cx=\"216\" cy=\"140\" r=\"2\"/><circle cx=\"250\" cy=\"132\" r=\"2\"/><circle cx=\"284\" cy=\"144\" r=\"2\"/></g><rect x=\"250\" y=\"170\" width=\"90\" height=\"34\" rx=\"6\" fill=\"#FFF\" class=\"k\"/><text x=\"262\" y=\"191\" font-family=\"ui-sans-serif,system-ui\" font-size=\"11\" fill=\"#14151A\">Answer + cite</text><path class=\"cite\" d=\"M256 172 C180 150 120 120 70 76\"/></svg>"
+        },
+        {
+          "name": "Fig.10 AnalyticsSpot",
+          "description": "Precise thin-line chart: L-shaped axis with mono ticks, single data polyline with small circular vertex markers, a faint brand-50 area-fill under one segment, an annotation callout ('+38% tasks/wk') pinned to a vertex, baseline hairline. Reveals with a scaleY grow.",
+          "sampleSvg": "<svg viewBox=\"0 0 320 200\" role=\"img\" aria-label=\"Tasks-per-week trend, up 38 percent\" xmlns=\"http://www.w3.org/2000/svg\" style=\"font-family:ui-monospace,Menlo,monospace\"><line x1=\"40\" y1=\"20\" x2=\"40\" y2=\"160\" stroke=\"#D6D5CC\"/><line x1=\"40\" y1=\"160\" x2=\"300\" y2=\"160\" stroke=\"#D6D5CC\"/><path d=\"M40 140 L90 128 L140 132 L190 96 L240 78 L290 44 L290 160 L40 160 Z\" fill=\"#EEF2FF\"/><polyline points=\"40,140 90,128 140,132 190,96 240,78 290,44\" fill=\"none\" stroke=\"#4F46E5\" stroke-width=\"2\"/><g fill=\"#FFF\" stroke=\"#4F46E5\" stroke-width=\"1.5\"><circle cx=\"90\" cy=\"128\" r=\"3\"/><circle cx=\"190\" cy=\"96\" r=\"3\"/><circle cx=\"290\" cy=\"44\" r=\"3\"/></g><rect x=\"210\" y=\"18\" width=\"96\" height=\"22\" rx=\"5\" fill=\"#FFF\" stroke=\"#E5E4DD\"/><text x=\"218\" y=\"33\" font-size=\"11\" fill=\"#4F46E5\">+38% tasks/wk</text><line x1=\"290\" y1=\"40\" x2=\"258\" y2=\"29\" stroke=\"#8A8B92\" stroke-dasharray=\"2 3\"/><text x=\"36\" y=\"172\" font-size=\"9\" fill=\"#8A8B92\" text-anchor=\"end\">0</text></svg>"
+        },
+        {
+          "name": "MarketplaceContactSheet",
+          "description": "A 3×2 grid of identical hairline-framed tiles (contact-sheet motif), each holding a tiny distinct monoline mark + mono caption; one tile marked 'Installed' in brand-600 (brand-50 fill), the final tile a dashed-border '+ Hire your own'. Staggered hover-lift.",
+          "sampleSvg": "<svg viewBox=\"0 0 320 200\" role=\"img\" aria-label=\"Marketplace of prebuilt employees\" xmlns=\"http://www.w3.org/2000/svg\" style=\"font-family:ui-monospace,Menlo,monospace\"><style>.t{fill:#FFF;stroke:#E5E4DD}.c{font-size:8px;fill:#8A8B92}.g{stroke:#14151A;stroke-width:1.4;fill:none}</style><rect class=\"t\" x=\"8\" y=\"8\" width=\"96\" height=\"84\" rx=\"6\" fill=\"#EEF2FF\" stroke=\"#4F46E5\"/><text class=\"c\" x=\"16\" y=\"84\" fill=\"#4F46E5\">Recruiter · Installed</text><rect class=\"t\" x=\"112\" y=\"8\" width=\"96\" height=\"84\" rx=\"6\"/><text class=\"c\" x=\"120\" y=\"84\">Support Desk</text><rect class=\"t\" x=\"216\" y=\"8\" width=\"96\" height=\"84\" rx=\"6\"/><text class=\"c\" x=\"224\" y=\"84\">Sales SDR</text><rect class=\"t\" x=\"8\" y=\"108\" width=\"96\" height=\"84\" rx=\"6\"/><text class=\"c\" x=\"16\" y=\"184\">Finance Ops</text><rect class=\"t\" x=\"112\" y=\"108\" width=\"96\" height=\"84\" rx=\"6\"/><text class=\"c\" x=\"120\" y=\"184\">HR Onboarding</text><rect x=\"216\" y=\"108\" width=\"96\" height=\"84\" rx=\"6\" fill=\"#FFF\" stroke=\"#B8B7B0\" stroke-dasharray=\"4 4\"/><path class=\"g\" d=\"M264 138 v24 M252 150 h24\" stroke=\"#8A8B92\"/><text class=\"c\" x=\"224\" y=\"184\">+ Hire your own</text></svg>"
+        },
+        {
+          "name": "SecurityShield glyphs (×5)",
+          "description": "Matched shield outlines each holding a mini glyph, single 1.5px weight, for the §08 checklist: check (SOC 2), lock (data isolation), fingerprint arcs (SSO/SAML), grid-of-people (RBAC), scroll (audit log). Light-on-dark inside the Midnight spread (strokes #FAFAF8, accent brand-500).",
+          "sampleSvg": "<svg viewBox=\"0 0 40 40\" role=\"img\" aria-label=\"Audit log\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M20 3l14 5v10c0 9-6 16-14 19-8-3-14-10-14-19V8z\" fill=\"none\" stroke=\"#FAFAF8\" stroke-width=\"1.5\"/><path d=\"M14 16h12M14 21h12M14 26h8\" stroke=\"#6366F1\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+        },
+        {
+          "name": "ConnectorRoute (How-it-works spine)",
+          "description": "A long horizontal hairline 'route' behind §05 with six milestone dots numbered 01–06, a subtle dashed segment, and small tick marks like a measuring rule. The Hire (01) and Approve (05) milestone dots carry the warm accent; others indigo. Decorative structural spine.",
+          "sampleSvg": "<svg viewBox=\"0 0 600 40\" role=\"img\" aria-label=\"Six-step route\" xmlns=\"http://www.w3.org/2000/svg\"><line x1=\"20\" y1=\"20\" x2=\"580\" y2=\"20\" stroke=\"#D6D5CC\"/><g stroke=\"#E5E4DD\"><line x1=\"120\" y1=\"14\" x2=\"120\" y2=\"26\"/><line x1=\"320\" y1=\"14\" x2=\"320\" y2=\"26\"/><line x1=\"460\" y1=\"14\" x2=\"460\" y2=\"26\"/></g><circle cx=\"20\" cy=\"20\" r=\"6\" fill=\"#FF9A62\"/><circle cx=\"132\" cy=\"20\" r=\"5\" fill=\"#4F46E5\"/><circle cx=\"244\" cy=\"20\" r=\"5\" fill=\"#4F46E5\"/><circle cx=\"356\" cy=\"20\" r=\"5\" fill=\"#4F46E5\"/><circle cx=\"468\" cy=\"20\" r=\"6\" fill=\"#FF9A62\"/><circle cx=\"580\" cy=\"20\" r=\"5\" fill=\"#4F46E5\"/></svg>"
+        },
+        {
+          "name": "FooterMonogram 'V'",
+          "description": "A large 'V' constructed purely from converging page-column hairlines meeting at a point, with a single brand-900 node at the intersection; an engineering-credibility full-stop closing the page. Grid lines fade toward the top.",
+          "sampleSvg": "<svg viewBox=\"0 0 160 120\" role=\"img\" aria-label=\"Vertical AI monogram\" xmlns=\"http://www.w3.org/2000/svg\"><g stroke=\"#D6D5CC\" stroke-width=\"1\"><line x1=\"10\" y1=\"8\" x2=\"80\" y2=\"104\"/><line x1=\"30\" y1=\"8\" x2=\"80\" y2=\"104\"/><line x1=\"150\" y1=\"8\" x2=\"80\" y2=\"104\"/><line x1=\"130\" y1=\"8\" x2=\"80\" y2=\"104\"/><line x1=\"50\" y1=\"8\" x2=\"80\" y2=\"104\" opacity=\".5\"/><line x1=\"110\" y1=\"8\" x2=\"80\" y2=\"104\" opacity=\".5\"/></g><circle cx=\"80\" cy=\"104\" r=\"5\" fill=\"#312E81\"/></svg>"
+        },
+        {
+          "name": "SparkGlyph (wordmark)",
+          "description": "A tiny 4-point diamond 'AI spark' before the VERTICAL AI wordmark; the only nav motion — twinkles (opacity+scale) on a 2.5s loop, frozen under reduced-motion. brand-600 fill.",
+          "sampleSvg": "<svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" role=\"img\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\"><style>.sp{animation:tw 2.5s ease-in-out infinite;transform-origin:center}@keyframes tw{0%,100%{opacity:.6;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}@media(prefers-reduced-motion:reduce){.sp{animation:none}}</style><path class=\"sp\" d=\"M8 0l2 6 6 2-6 2-2 6-2-6-6-2 6-2z\" fill=\"#4F46E5\"/></svg>"
+        },
+        {
+          "name": "HireBadge (Fig.01 step, warm)",
+          "description": "The warm-accent step glyph for 'Hire': a monoline employee node dropping into an empty org-chart slot outlined with a dashed frame, a warm-100 wash filling the slot on arrival, and a warm '+ hired' chip. The ONE place a step diagram uses warm — encoding 'a human decision happened here'.",
+          "sampleSvg": "<svg viewBox=\"0 0 220 160\" role=\"img\" aria-label=\"Hiring an AI employee into a slot\" xmlns=\"http://www.w3.org/2000/svg\" style=\"font-family:ui-sans-serif,system-ui\"><rect x=\"70\" y=\"70\" width=\"80\" height=\"70\" rx=\"10\" fill=\"#FFF1E6\" stroke=\"#FF9A62\" stroke-dasharray=\"5 5\"/><g stroke=\"#14151A\" stroke-width=\"1.5\" fill=\"#FFF\"><rect x=\"78\" y=\"20\" width=\"64\" height=\"56\" rx=\"10\"/><circle cx=\"110\" cy=\"42\" r=\"9\"/><path d=\"M98 64c0-12 24-12 24 0\" fill=\"none\"/></g><path d=\"M110 76 v-2\" stroke=\"#FF9A62\" stroke-width=\"1.5\"/><rect x=\"150\" y=\"18\" width=\"58\" height=\"20\" rx=\"10\" fill=\"#FF9A62\"/><text x=\"179\" y=\"32\" text-anchor=\"middle\" font-size=\"11\" font-weight=\"700\" fill=\"#FFF\">+ hired</text></svg>"
+        },
+        {
+          "name": "ProductSurfaceVignettes (×5, app-shell teasers)",
+          "description": "Compact ~200×140 monoline fake-UI vignettes teasing shipping surfaces referenced 1:1 by sections: Dashboard (avatar rows + activity dots), Analytics (rising bar+line), Scheduling (calendar grid with one mint booked slot), Team (avatar chips + role badge), Billing (a receipt with a warm total line). Flat, crisp, hairline-framed — reusable in a product-tour grid and as empty-state art inside the real app.",
+          "sampleSvg": "<svg viewBox=\"0 0 200 140\" role=\"img\" aria-label=\"Scheduling calendar with a booked slot\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"1\" y=\"1\" width=\"198\" height=\"138\" rx=\"8\" fill=\"#FFF\" stroke=\"#E5E4DD\"/><g stroke=\"#E5E4DD\"><line x1=\"20\" y1=\"40\" x2=\"180\" y2=\"40\"/><line x1=\"20\" y1=\"70\" x2=\"180\" y2=\"70\"/><line x1=\"20\" y1=\"100\" x2=\"180\" y2=\"100\"/><line x1=\"60\" y1=\"28\" x2=\"60\" y2=\"120\"/><line x1=\"100\" y1=\"28\" x2=\"100\" y2=\"120\"/><line x1=\"140\" y1=\"28\" x2=\"140\" y2=\"120\"/></g><rect x=\"104\" y=\"74\" width=\"32\" height=\"22\" rx=\"4\" fill=\"#6EE7B7\"/><text x=\"20\" y=\"22\" font-family=\"ui-monospace,Menlo,monospace\" font-size=\"9\" fill=\"#8A8B92\">SCHEDULING</text></svg>"
+        }
+      ],
+      "primitives": [
+        "Container — max-w-container mx-auto px-6 wrapper; variant grid-12 exposes the 12-col CSS grid + optional GridRulesOverlay.",
+        "GridRulesOverlay — absolutely-positioned 12-col hairline overlay (repeating-linear-gradient), hero + key sections only.",
+        "Kicker — mono uppercase eyebrow '§NN — LABEL'; props index, label, tone (ink-40 | indigo | warm).",
+        "SectionHeading — flush-left H2 + optional lead; one highlighted-word slot (indigo or warm).",
+        "FigCaption — mono 'Fig. NN · Title' pinned bottom-left of any diagram panel.",
+        "Button — variants: primary (g-cta fill, shadow-cta, arrow-nudge) → /register; hire (warm-400/500 fill, shadow-warm — ONLY for Hire CTAs); ghost (hairline border, underline-wipe) → /login; link (indigo + animated underline). radius-btn, 44px min touch target.",
+        "UnderlineLink — text link with scaleX underline-wipe pseudo-element.",
+        "Card — surface #FFF, radius-card, 1px line border, shadow-card; hover → shadow-lift + border-strong. Sub-variants RosterCard, StatCard, MarketplaceTile, PlanCard.",
+        "DiagramPanel — white card sized for an inline SVG + FigCaption slot + optional faint column ticks.",
+        "Badge / Chip — pill; tones neutral (brand-100), skill (brand-50 + indigo), pending (amber-300), approved (mint), hire (warm-100 + warm-500).",
+        "StatusDot — 8px dot; online (mint-400 breathing ring), pending (amber-300), offline (ink-25).",
+        "RosterAvatarFrame — identical hairline square frame housing a per-employee monoline portrait + one indigo eye-dot.",
+        "IndexRow — §-numbered TOC row (mono §NN + name + role), doubles as anchor nav.",
+        "StepBlock — numbered How-it-works step: display numeral + Kicker + heading + body + per-step CTA + diagram; alternating reveal-l/reveal-r.",
+        "ConnectorRoute — horizontal hairline milestone spine behind the steps.",
+        "ApprovalCard — concrete money-moment card (kicker/who/what + Decline coral ghost + Approve mint fill + waiting ripple); used in §08 and hero.",
+        "MidnightSection — full-bleed inverted #0E1020 wrapper (.midnight-spread) for §08, light-on-dark tokens.",
+        "MarqueeStrip — slow logo-lozenge / mono stat ticker; pauses under prefers-reduced-motion.",
+        "Masthead / Nav — sticky bar, mono wordmark + SparkGlyph + live StatusDot, center nav, ghost + hire CTA; .is-scrolled blur.",
+        "Footer — fine multi-column hairline grid + FooterMonogram + mono copyright.",
+        "AmbientBlobs — two light-tinted drifting blobs (multiply blend) for hero atmosphere only.",
+        "Reveal — wrapper applying .reveal / .reveal-l / .reveal-r + --i stagger.",
+        "AppShell — authenticated layout: left rail nav + top bar + content well, reusing Card/Kicker/StatusDot/Button.",
+        "AuthCard — centered two-panel card for /login + /register on paper bg, with the hero constellation as the side panel."
+      ],
+      "implementationNotes": "ORDER OF WORK: (1) Land tokens first — paste the tailwind theme.extend + globals.css; verify the visible grid overlay, reveal fallback, focus ring, and print/reduced-motion guards render before building components. (2) Build primitives bottom-up: Container/GridRulesOverlay → Kicker/SectionHeading/FigCaption → Button (all 4 variants) → Card family → Badge/StatusDot → RosterAvatarFrame → StepBlock/ConnectorRoute → ApprovalCard → MidnightSection → Masthead/Footer. (3) Author the SVG library as standalone React components in /components/svg — each a pure function returning inline <svg>, viewBox-driven, width:100%/height:auto, role+aria-label, currentColor for theme-ability. Every animated SVG carries its OWN <style> with keyframes AND its own prefers-reduced-motion guard so it is self-contained and copy-paste safe. (4) Compose sections top-to-bottom per spec; wrap each in <Reveal>. (5) Add a tiny IntersectionObserver ONLY to toggle .is-scrolled on the masthead (and optionally add a stagger class) — never as a dependency for content visibility (the @supports fallback already shows everything).\\n\\nCOLOR DISCIPLINE (load-bearing): warm-400/500 + warm-100 + coral + amber may appear ONLY on Hire buttons/chips, the Hire (Fig.01) and Approve (Fig.05) step badges, and Approval decision UI. Everywhere else the sole accent is indigo brand-600; mint = success/live only. Enforce with a code comment on the Button 'hire' and ApprovalCard components. This makes warmth mean 'a human is in the loop' — the strategic differentiator the judges flagged.\\n\\nONE-LIVE-CONNECTOR RULE: in any diagram exactly one path gets class 'live' (indigo dashed flow). Never animate more than one edge per figure — it is the proof-of-liveness signal and becomes noise if overused.\\n\\nPRINT/PDF (this project ships a PDF): the Midnight §08 spread sets print-color-adjust:exact; blobs + grid overlays are display:none in @media print; all animation/box-shadow stripped. Because the whole system is monoline stroke SVG on paper with NO backdrop-blur/feTurbulence/glass, it prints crisp at any DPI — the deciding feasibility argument; do not regress it by adding glassmorphism.\\n\\nEXTENDING — AUTH PAGES (/login, /register): reuse paper bg + g-hero-wash, the masthead wordmark, and a two-panel AuthCard: left = form in a white Card (mono field labels, Button primary 'Create account' on /register / 'Sign in' on /login, ghost cross-link, focus ring), right = the Fig.00 constellation (or a simplified single-employee node) as reassurance art with a mono caption 'Your workforce, ready in minutes.' Keep the §-kicker ('§ — CREATE ACCOUNT'). /register CTA copy stays 'Hire your first AI Employee'. Warm accent is allowed on the register submit (a hire moment); login submit stays indigo.\\n\\nAPP SHELL (authenticated): left rail nav (mono labels: Employees, Skills, Workflows, Scheduling, Approvals, Knowledge, Marketplace, Analytics, Billing, Team) each with a monoline glyph from the SVG library; top bar with the masthead wordmark + a global StatusDot (mint live) + an Approvals bell that shows an amber pending pip when items wait (reusing the exact §08 semantics). Content wells use the same Card/DiagramPanel/Kicker/FigCaption primitives, so a Workflow canvas in-app is visually the same object as Fig.04 on the homepage — marketing and product are one language (the 1:1 section→surface mapping graft). Employees pages reuse RosterCard + RosterAvatarFrame with the recurring named cast as seed employees.\\n\\nFEATURE PAGES: each maps to a homepage section and reuses its hero diagram as the page header — Skills → Fig.03 ConnectorMap, Workflows → Fig.04 WorkflowGraph, Knowledge → Fig.08 RAG, Approvals → the Midnight treatment + ApprovalCard, Analytics → Fig.10. Empty states use ProductSurfaceVignettes. Keep §NN kickers and Fig.NN captions across the app for editorial continuity.\\n\\nGOTCHAS: (a) tabular-nums is global — good for the ledger feel; confirm it does not distort prose numerals (fine for this content). (b) The grid-rules background uses a calc tied to --grid-gap/--grid-cols; if the container gap changes, update both. (c) animation-timeline:view() is progressive-enhancement only — QA with it disabled (older browsers + print) to confirm the @supports-not fallback shows all content. (d) Do NOT add framer-motion, an icon library, or image assets — every glyph is in the SVG library; new ones follow the same monoline 1.5px currentColor style. (e) When regenerating the proposal PDF or any print artifact via headless Chrome (the project's documented command), the Midnight spread is the only dark element — confirm print-color-adjust is honored so it does not render as a white box.\""
+    },
+    "directionsCount": 4,
+    "judgeCount": 3
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "Directions"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 2,
+      "title": "Judge"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 3,
+      "title": "Synthesize"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "direction:aurora-spatial",
+      "phaseIndex": 1,
+      "phaseTitle": "Directions",
+      "agentId": "add73738a9eb98ead",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783798380707,
+      "queuedAt": 1783798380678,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Aurora Workforce — Spatial Depth",
+      "promptPreview": "PRODUCT: V-AEP (Vertical AI Employee Platform) — a SaaS where businesses \"hire\" managed AI Employees\n(AI Recruiter, AI HR Assistant, AI Sales, AI Support, AI Finance) instead of buying tools. You assign them\nSkills (Slack, Gmail, Calendar, Stripe, etc.), give them Knowledge (RAG), chain them into Workflows, and\ngate risky actions through Approvals. Think \"Stripe-grade polish meets a workforce meta…",
+      "lastProgressAt": 1783798615276,
+      "tokens": 36213,
+      "toolCalls": 2,
+      "durationMs": 234569,
+      "resultPreview": "{\"name\":\"Aurora Workforce — Spatial Depth\",\"concept\":\"You don't scroll a marketing page — you look *into* your future workforce. The homepage is a deep, aurora-lit spatial canvas where AI Employees float as translucent glass \\\"badge cards,\\\" each orbited by the Skills it can use and threaded to the Workflows it runs. The hook is the \\\"Workforce Constellation\\\": a living hero where one AI Employee …"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "direction:editorial-swiss",
+      "phaseIndex": 1,
+      "phaseTitle": "Directions",
+      "agentId": "a1d36f093dfe1012f",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783798380710,
+      "queuedAt": 1783798380678,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Direction B — \"The Workforce Ledger\" (Editorial / Swiss Pre…",
+      "promptPreview": "PRODUCT: V-AEP (Vertical AI Employee Platform) — a SaaS where businesses \"hire\" managed AI Employees\n(AI Recruiter, AI HR Assistant, AI Sales, AI Support, AI Finance) instead of buying tools. You assign them\nSkills (Slack, Gmail, Calendar, Stripe, etc.), give them Knowledge (RAG), chain them into Workflows, and\ngate risky actions through Approvals. Think \"Stripe-grade polish meets a workforce meta…",
+      "lastProgressAt": 1783798622287,
+      "tokens": 34657,
+      "toolCalls": 2,
+      "durationMs": 241577,
+      "resultPreview": "{\"name\":\"Direction B — \\\"The Workforce Ledger\\\" (Editorial / Swiss Precision)\",\"concept\":\"Treat the homepage like a beautifully typeset annual report for a company whose entire staff is software. A strict, visible 12-column grid on warm paper, oversized grotesque display type, monospaced captions and \\\"Fig.\\\" numbers, and a single restrained indigo accent. Every product concept (Employees, Skills,…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "direction:dark-premium",
+      "phaseIndex": 1,
+      "phaseTitle": "Directions",
+      "agentId": "a33350afc39f1758c",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783798380710,
+      "queuedAt": 1783798380678,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Direction C — \"Nightshift\" (Dark Premium SaaS)",
+      "promptPreview": "PRODUCT: V-AEP (Vertical AI Employee Platform) — a SaaS where businesses \"hire\" managed AI Employees\n(AI Recruiter, AI HR Assistant, AI Sales, AI Support, AI Finance) instead of buying tools. You assign them\nSkills (Slack, Gmail, Calendar, Stripe, etc.), give them Knowledge (RAG), chain them into Workflows, and\ngate risky actions through Approvals. Think \"Stripe-grade polish meets a workforce meta…",
+      "lastProgressAt": 1783798612617,
+      "tokens": 34064,
+      "toolCalls": 2,
+      "durationMs": 231907,
+      "resultPreview": "{\"name\":\"Direction C — \\\"Nightshift\\\" (Dark Premium SaaS)\",\"concept\":\"A cinematic \\\"control room at night\\\" where your AI workforce is visible as a living constellation. The one big idea: the hero isn't a screenshot or stock art — it's a LIVE org chart of light. AI Employees are luminous nodes, Skills are satellite nodes, and Workflows are glowing edges that pulse with data as work flows employee-…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 4,
+      "label": "direction:illustrated-flow",
+      "phaseIndex": 1,
+      "phaseTitle": "Directions",
+      "agentId": "a11954ad1977b0cf9",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783798380711,
+      "queuedAt": 1783798380678,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Illustrated Narrative Flow — \"Meet the Team You Hire in Min…",
+      "promptPreview": "PRODUCT: V-AEP (Vertical AI Employee Platform) — a SaaS where businesses \"hire\" managed AI Employees\n(AI Recruiter, AI HR Assistant, AI Sales, AI Support, AI Finance) instead of buying tools. You assign them\nSkills (Slack, Gmail, Calendar, Stripe, etc.), give them Knowledge (RAG), chain them into Workflows, and\ngate risky actions through Approvals. Think \"Stripe-grade polish meets a workforce meta…",
+      "lastProgressAt": 1783798663014,
+      "tokens": 38630,
+      "toolCalls": 10,
+      "durationMs": 282303,
+      "resultPreview": "{\"name\":\"Illustrated Narrative Flow — \\\"Meet the Team You Hire in Minutes\\\"\",\"concept\":\"A warm, character-driven illustrated explainer that presents V-AEP not as software but as a team you can see. Little hand-authored SVG \\\"AI Employee\\\" characters (each a friendly rounded-square avatar with a glowing screen-face, a headset, and a role nameplate) live at illustrated desks and walk you through the…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 5,
+      "label": "judge:design-taste",
+      "phaseIndex": 2,
+      "phaseTitle": "Judge",
+      "agentId": "ae96d27856602f5eb",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783798663037,
+      "queuedAt": 1783798663024,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "DIRECTION 4: Illustrated Narrative Flow — Meet the Team",
+      "promptPreview": "PRODUCT: V-AEP (Vertical AI Employee Platform) — a SaaS where businesses \"hire\" managed AI Employees\n(AI Recruiter, AI HR Assistant, AI Sales, AI Support, AI Finance) instead of buying tools. You assign them\nSkills (Slack, Gmail, Calendar, Stripe, etc.), give them Knowledge (RAG), chain them into Workflows, and\ngate risky actions through Approvals. Think \"Stripe-grade polish meets a workforce meta…",
+      "lastProgressAt": 1783798759309,
+      "tokens": 48433,
+      "toolCalls": 1,
+      "durationMs": 96272,
+      "resultPreview": "{\"rankings\":[{\"name\":\"DIRECTION 4: Illustrated Narrative Flow — Meet the Team\",\"total\":89,\"modernity\":88,\"coherence\":90,\"svgQuality\":86,\"explanationClarity\":95,\"feasibility\":80,\"critique\":\"The boldest, most defensibly 'never seen before' bet for this category — while everyone else ships dark-glass-neon, a warm recurring cast (Ada/Milo/Vex/Pip/Nova) makes the abstract 'managed AI employee' idea lit…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 6,
+      "label": "judge:product-conversion",
+      "phaseIndex": 2,
+      "phaseTitle": "Judge",
+      "agentId": "ac74cd6d0afce336a",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783798663038,
+      "queuedAt": 1783798663024,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Direction 3: Nightshift — Dark Premium SaaS",
+      "promptPreview": "PRODUCT: V-AEP (Vertical AI Employee Platform) — a SaaS where businesses \"hire\" managed AI Employees\n(AI Recruiter, AI HR Assistant, AI Sales, AI Support, AI Finance) instead of buying tools. You assign them\nSkills (Slack, Gmail, Calendar, Stripe, etc.), give them Knowledge (RAG), chain them into Workflows, and\ngate risky actions through Approvals. Think \"Stripe-grade polish meets a workforce meta…",
+      "lastProgressAt": 1783798770977,
+      "tokens": 48435,
+      "toolCalls": 1,
+      "durationMs": 107939,
+      "resultPreview": "{\"rankings\":[{\"name\":\"Direction 3: Nightshift — Dark Premium SaaS\",\"modernity\":86,\"coherence\":89,\"svgQuality\":88,\"explanationClarity\":88,\"feasibility\":83,\"total\":88,\"critique\":\"Best-balanced for conversion. The single genuine differentiator is the warm coral/amber 'human' accent reserved ONLY for hire + approval moments threaded through cold indigo/violet — that warm/cold tension is a real, defens…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 7,
+      "label": "judge:frontend-feasibility",
+      "phaseIndex": 2,
+      "phaseTitle": "Judge",
+      "agentId": "ad3933dbfd19fbf3f",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783798663039,
+      "queuedAt": 1783798663024,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "DIRECTION 2: The Workforce Ledger (Editorial / Swiss Precis…",
+      "promptPreview": "PRODUCT: V-AEP (Vertical AI Employee Platform) — a SaaS where businesses \"hire\" managed AI Employees\n(AI Recruiter, AI HR Assistant, AI Sales, AI Support, AI Finance) instead of buying tools. You assign them\nSkills (Slack, Gmail, Calendar, Stripe, etc.), give them Knowledge (RAG), chain them into Workflows, and\ngate risky actions through Approvals. Think \"Stripe-grade polish meets a workforce meta…",
+      "lastProgressAt": 1783798749286,
+      "tokens": 48451,
+      "toolCalls": 1,
+      "durationMs": 86247,
+      "resultPreview": "{\"rankings\":[{\"name\":\"DIRECTION 2: The Workforce Ledger (Editorial / Swiss Precision)\",\"modernity\":80,\"coherence\":95,\"svgQuality\":90,\"explanationClarity\":94,\"feasibility\":96,\"total\":90,\"critique\":\"As the engineer who has to build and maintain this, it is the clear winner. Monoline diagrams are pure strokes (stroke=currentColor + one indigo accent), so they are tiny, theme with a single CSS variabl…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 8,
+      "label": "synthesize:blueprint",
+      "phaseIndex": 3,
+      "phaseTitle": "Synthesize",
+      "agentId": "ac43da8e47e1eee31",
+      "model": "claude-opus-4-8[1m]",
+      "state": "done",
+      "startedAt": 1783798770993,
+      "queuedAt": 1783798770978,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "The Workforce Ledger — Editorial Precision, Warmed (V-AEP h…",
+      "promptPreview": "PRODUCT: V-AEP (Vertical AI Employee Platform) — a SaaS where businesses \"hire\" managed AI Employees\n(AI Recruiter, AI HR Assistant, AI Sales, AI Support, AI Finance) instead of buying tools. You assign them\nSkills (Slack, Gmail, Calendar, Stripe, etc.), give them Knowledge (RAG), chain them into Workflows, and\ngate risky actions through Approvals. Think \"Stripe-grade polish meets a workforce meta…",
+      "lastProgressAt": 1783799435031,
+      "tokens": 96054,
+      "toolCalls": 2,
+      "durationMs": 664038,
+      "resultPreview": "{\"directionName\":\"The Workforce Ledger — Editorial Precision, Warmed (V-AEP homepage + design-system blueprint)\",\"designSystem\":{\"palette\":\"Swiss annual-report base on WARM PAPER with ONE indigo structural accent + a strictly-rationed WARM human accent reserved only for the two human moments (Hire, Approval). Color occupies ~5% of page area — an event, never a texture.\\n\\nPAPER & SURFACE (never pu…"
+    }
+  ],
+  "totalTokens": 384937,
+  "totalToolCalls": 21
+}

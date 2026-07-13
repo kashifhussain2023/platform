@@ -5,8 +5,10 @@ import Link from 'next/link';
 import type { WorkflowDto, WorkflowTemplateDto } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
 import { useInstallWorkflowTemplate, useMarketplace } from '../hooks';
+import { categoryBadgeClass, categoryIcon } from '../labels';
 
-/** One workflow-template card → Install (optimistic). */
+/** One workflow-template card → Install (optimistic). Same card recipe as
+ * the employee templates so the two sections read as one catalog. */
 function WorkflowTemplateCard({ template }: { template: WorkflowTemplateDto }) {
   const install = useInstallWorkflowTemplate();
   const [created, setCreated] = useState<WorkflowDto | null>(null);
@@ -19,28 +21,40 @@ function WorkflowTemplateCard({ template }: { template: WorkflowTemplateDto }) {
   };
 
   const stepCount = template.definition.nodes.length;
+  const Icon = categoryIcon(template.category);
 
   return (
-    <li className="rounded-lg border border-gray-200 bg-white p-4">
-      <div className="flex items-center gap-2">
-        <p className="text-sm font-medium">{template.name}</p>
-        <span className="text-xs text-gray-400">{template.category}</span>
+    <li className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 transition-colors hover:border-white/[0.14]">
+      <div className="flex items-start gap-3">
+        <span
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${categoryBadgeClass(template.category)}`}
+        >
+          <Icon className="h-5 w-5" strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-white">{template.name}</p>
+          <p className="text-xs text-zinc-500">{template.category}</p>
+        </div>
       </div>
-      <p className="mt-1 text-xs text-gray-500">{template.description}</p>
-      <p className="mt-1 text-xs text-gray-400">
+
+      <p className="mt-3 text-sm text-zinc-400">{template.description}</p>
+      <p className="mt-2 text-xs text-zinc-600">
         {stepCount} steps: {template.definition.nodes.map((n) => n.type).join(' → ')}
       </p>
 
-      <div className="mt-3">
-        <Button variant="ghost" onClick={onInstall} disabled={install.isPending}>
+      <div className="mt-4">
+        <Button variant="violet" onClick={onInstall} disabled={install.isPending}>
           {install.isPending ? 'Installing…' : 'Install'}
         </Button>
       </div>
 
       {created && !created.id.startsWith('temp_') && (
-        <p className="mt-2 text-xs text-green-700">
+        <p className="mt-3 text-xs text-green-400">
           Installed.{' '}
-          <Link href={`/workflows/${created.id}`} className="font-medium underline">
+          <Link
+            href={`/workflows/${created.id}`}
+            className="font-medium text-violet-secondary underline hover:text-white"
+          >
             Open workflow →
           </Link>
         </p>
@@ -54,11 +68,11 @@ export function WorkflowTemplateList() {
   const { data, isLoading } = useMarketplace();
 
   if (isLoading) {
-    return <p className="text-sm text-gray-500">Loading templates…</p>;
+    return <p className="text-sm text-zinc-500">Loading templates…</p>;
   }
 
   return (
-    <ul className="grid gap-3 sm:grid-cols-2">
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {(data?.workflows ?? []).map((template) => (
         <WorkflowTemplateCard key={template.key} template={template} />
       ))}

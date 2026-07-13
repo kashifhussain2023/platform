@@ -18,6 +18,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 import { OrganizationModule } from './modules/organization/organization.module';
+import { SchedulingModule } from './modules/scheduling/scheduling.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
     KnowledgeModule,
     EmployeesModule,
     OnboardingModule,
+    SchedulingModule,
     SkillsModule,
     WorkflowsModule,
     EventsModule,

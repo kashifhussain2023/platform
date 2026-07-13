@@ -1,5 +1,6 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import type { Plan } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
 import { useChangePlan, usePlans, useSubscription } from '../hooks';
@@ -12,7 +13,7 @@ export function PlanCatalog() {
   const changePlan = useChangePlan();
 
   if (isLoading || !plans) {
-    return <p className="text-sm text-gray-500">Loading plans…</p>;
+    return <p className="text-sm text-zinc-500">Loading plans…</p>;
   }
 
   const current = subscription?.plan;
@@ -28,32 +29,33 @@ export function PlanCatalog() {
         return (
           <div
             key={plan.plan}
-            className={`flex flex-col rounded-lg border bg-white p-5 ${
-              isCurrent ? 'border-brand-500 ring-1 ring-brand-500' : 'border-gray-200'
+            className={`relative flex flex-col rounded-2xl border p-5 transition-colors ${
+              isCurrent
+                ? 'border-violet/60 bg-violet/[0.06] shadow-[0_0_40px_-12px_rgba(94,60,232,0.6)]'
+                : 'border-white/[0.07] bg-white/[0.02] hover:border-white/[0.14]'
             }`}
           >
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">{plan.name}</h3>
-              {isCurrent && (
-                <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">
-                  Current
-                </span>
-              )}
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {isCurrent && (
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-violet px-3 py-1 text-xs font-semibold text-white">
+                Current
+              </span>
+            )}
+
+            <h3 className="text-lg font-bold text-white">{plan.name}</h3>
+            <p className="mt-2 text-2xl font-bold text-white">
               {formatPrice(plan.priceMonthlyUsd)}
               {plan.priceMonthlyUsd !== null && plan.priceMonthlyUsd > 0 && (
-                <span className="text-sm font-normal text-gray-400"> /mo</span>
+                <span className="text-sm font-normal text-zinc-500"> /mo</span>
               )}
             </p>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-zinc-500">
               {formatLimit(plan.maxEmployees)} AI employees
             </p>
 
-            <ul className="mt-4 flex-1 space-y-1.5 text-sm text-gray-600">
+            <ul className="mt-4 flex-1 space-y-2 text-sm text-zinc-300">
               {plan.features.map((f) => (
-                <li key={f} className="flex gap-2">
-                  <span className="text-brand-500">✓</span>
+                <li key={f} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-secondary" strokeWidth={2.5} />
                   <span>{f}</span>
                 </li>
               ))}
@@ -61,7 +63,7 @@ export function PlanCatalog() {
 
             <Button
               className="mt-5 w-full"
-              variant={isCurrent ? 'ghost' : 'primary'}
+              variant="violet"
               disabled={isCurrent || changePlan.isPending}
               onClick={() => changePlan.mutate({ plan: plan.plan })}
             >

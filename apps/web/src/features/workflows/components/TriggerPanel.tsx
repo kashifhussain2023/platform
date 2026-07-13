@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import type {
   Condition,
   EventConditionOp,
@@ -170,23 +171,23 @@ export function TriggerPanel({
     (triggerType === 'EVENT' && eventType.trim().length === 0);
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5">
+    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-gray-500">Trigger</h2>
+        <h2 className="text-sm font-medium text-zinc-400">Trigger</h2>
         <span
           className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+            isActive ? 'bg-green-500/15 text-green-400' : 'bg-white/[0.06] text-zinc-400'
           }`}
         >
           {workflow.status}
         </span>
       </div>
 
-      <label className="mb-1 block text-xs font-medium text-gray-600">
+      <label className="mb-1 block text-xs font-medium text-zinc-400">
         How should this workflow start?
       </label>
       <select
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        className="field-modern text-sm"
         value={triggerType}
         onChange={(e) => setTriggerType(e.target.value as TriggerType)}
       >
@@ -196,52 +197,58 @@ export function TriggerPanel({
           </option>
         ))}
       </select>
-      <p className="mt-1 text-xs text-gray-500">
+      <p className="mt-1 text-xs text-zinc-500">
         {TRIGGER_OPTIONS.find((o) => o.value === triggerType)?.hint}
       </p>
 
       {triggerType === 'SCHEDULE' && (
         <div className="mt-3">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label className="mb-1 block text-xs font-medium text-zinc-400">
             Run every (minutes)
           </label>
-          <input
-            type="number"
-            min={1}
-            className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={minutes}
-            onChange={(e) => setMinutes(Number(e.target.value))}
-          />
+          <div className="w-32">
+            <input
+              type="number"
+              min={1}
+              className="field-modern text-sm"
+              value={minutes}
+              onChange={(e) => setMinutes(Number(e.target.value))}
+            />
+          </div>
         </div>
       )}
 
       {triggerType === 'EVENT' && (
         <div className="mt-3">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label className="mb-1 block text-xs font-medium text-zinc-400">
             Event type
           </label>
           <input
             type="text"
             placeholder="e.g. NEW_PAYMENT"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm"
+            className="field-modern font-mono text-sm"
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
           />
 
           <div className="mt-3">
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs font-medium text-gray-600">
+              <label className="block text-xs font-medium text-zinc-400">
                 Conditions (all must pass)
               </label>
-              <Button variant="ghost" onClick={addCondition}>
+              <button
+                type="button"
+                onClick={addCondition}
+                className="rounded-lg border border-white/[0.1] px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:border-white/[0.2] hover:text-white"
+              >
                 + Add condition
-              </Button>
+              </button>
             </div>
             {conditions.length === 0 ? (
-              <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-500">
+              <p className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-zinc-500">
                 No conditions — fires on every matching event. Add a filter such
-                as <code className="font-mono">data.amount</code> gt{' '}
-                <code className="font-mono">1000</code>.
+                as <code className="font-mono text-zinc-400">data.amount</code> gt{' '}
+                <code className="font-mono text-zinc-400">1000</code>.
               </p>
             ) : (
               <div className="space-y-2">
@@ -251,34 +258,36 @@ export function TriggerPanel({
                       type="text"
                       placeholder="data.amount"
                       aria-label="Condition path"
-                      className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 font-mono text-xs"
+                      className="field-modern flex-1 font-mono text-xs"
                       value={row.path}
                       onChange={(e) =>
                         patchCondition(index, { path: e.target.value })
                       }
                     />
-                    <select
-                      aria-label="Condition operator"
-                      className="rounded-md border border-gray-300 px-2 py-1.5 text-xs"
-                      value={row.op}
-                      onChange={(e) =>
-                        patchCondition(index, {
-                          op: e.target.value as EventConditionOp,
-                        })
-                      }
-                    >
-                      {EVENT_CONDITION_OPS.map((op) => (
-                        <option key={op} value={op}>
-                          {op}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="w-24 shrink-0">
+                      <select
+                        aria-label="Condition operator"
+                        className="field-modern text-xs"
+                        value={row.op}
+                        onChange={(e) =>
+                          patchCondition(index, {
+                            op: e.target.value as EventConditionOp,
+                          })
+                        }
+                      >
+                        {EVENT_CONDITION_OPS.map((op) => (
+                          <option key={op} value={op}>
+                            {op}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <input
                       type="text"
                       placeholder={row.op === 'in' ? 'a, b, c' : 'value'}
                       aria-label="Condition value"
                       disabled={!opTakesValue(row.op)}
-                      className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 font-mono text-xs disabled:bg-gray-100 disabled:text-gray-400"
+                      className="field-modern flex-1 font-mono text-xs disabled:opacity-40"
                       value={opTakesValue(row.op) ? row.value : ''}
                       onChange={(e) =>
                         patchCondition(index, { value: e.target.value })
@@ -287,10 +296,10 @@ export function TriggerPanel({
                     <button
                       type="button"
                       aria-label="Remove condition"
-                      className="rounded-md px-2 py-1.5 text-xs text-gray-400 hover:text-red-600"
+                      className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:text-red-400"
                       onClick={() => removeCondition(index)}
                     >
-                      ✕
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
@@ -302,20 +311,24 @@ export function TriggerPanel({
 
       {triggerType === 'WEBHOOK' && (
         <div className="mt-3">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
+          <label className="mb-1 block text-xs font-medium text-zinc-400">
             Webhook URL
           </label>
           {webhookUrl ? (
             <div className="flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-700">
+              <code className="flex-1 overflow-x-auto rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-zinc-300">
                 {webhookUrl}
               </code>
-              <Button variant="ghost" onClick={onCopy}>
+              <button
+                type="button"
+                onClick={onCopy}
+                className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-white/[0.2] hover:text-white"
+              >
                 {copied ? 'Copied' : 'Copy'}
-              </Button>
+              </button>
             </div>
           ) : (
-            <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            <p className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-zinc-500">
               Save the webhook trigger and Activate to generate a secret URL.
             </p>
           )}
@@ -323,11 +336,17 @@ export function TriggerPanel({
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button variant="ghost" onClick={onSaveTrigger} disabled={saveDisabled}>
+        <button
+          type="button"
+          onClick={onSaveTrigger}
+          disabled={saveDisabled}
+          className="rounded-lg border border-white/[0.1] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-white/[0.2] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
           {update.isPending ? 'Saving…' : 'Save trigger'}
-        </Button>
+        </button>
         {isActive ? (
           <Button
+            variant="violet"
             onClick={() => deactivate.mutate(workflow.id)}
             disabled={deactivate.isPending}
           >
@@ -335,6 +354,7 @@ export function TriggerPanel({
           </Button>
         ) : (
           <Button
+            variant="violet"
             onClick={() => activate.mutate(workflow.id)}
             disabled={!canActivate || activate.isPending}
           >
@@ -344,17 +364,17 @@ export function TriggerPanel({
       </div>
 
       {!canActivate && !isActive && (
-        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
           Add at least one step and <strong>Save</strong> it before activating.
         </p>
       )}
       {activate.isError && (
-        <p className="mt-2 text-sm text-red-600">
+        <p className="mt-2 text-sm text-red-400">
           {activate.error?.message ?? 'Could not activate'}
         </p>
       )}
       {update.isError && (
-        <p className="mt-2 text-sm text-red-600">
+        <p className="mt-2 text-sm text-red-400">
           {update.error?.message ?? 'Could not save trigger'}
         </p>
       )}

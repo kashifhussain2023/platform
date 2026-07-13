@@ -11,6 +11,8 @@ import { createUserSchema, type CreateUserDto, type Role } from '../schemas';
 const ADMIN_ASSIGNABLE: Role[] = ['MEMBER', 'ADMIN'];
 const OWNER_ASSIGNABLE: Role[] = ['MEMBER', 'ADMIN', 'OWNER'];
 
+const labelClass = 'mb-1.5 block text-sm font-medium text-zinc-300';
+
 /** Invite/add-user form: email, name, role select, and a temporary password. */
 export function UserForm() {
   const create = useCreateUser();
@@ -32,50 +34,46 @@ export function UserForm() {
   });
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5">
-      <h2 className="mb-3 text-sm font-medium text-gray-500">Invite a team member</h2>
+    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5">
+      <h2 className="mb-3 text-sm font-medium text-zinc-400">Invite a team member</h2>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="name" className="mb-1 block text-sm font-medium">
+            <label htmlFor="name" className={labelClass}>
               Name
             </label>
             <input
               id="name"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="field-modern"
               placeholder="e.g. Grace Hopper"
               {...register('name')}
             />
             {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+              <p className="mt-1.5 text-sm text-red-400">{errors.name.message}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium">
+            <label htmlFor="email" className={labelClass}>
               Email
             </label>
             <input
               id="email"
               type="email"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="field-modern"
               placeholder="teammate@company.com"
               {...register('email')}
             />
             {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+              <p className="mt-1.5 text-sm text-red-400">{errors.email.message}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="role" className="mb-1 block text-sm font-medium">
+            <label htmlFor="role" className={labelClass}>
               Role
             </label>
-            <select
-              id="role"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              {...register('role')}
-            >
+            <select id="role" className="field-modern" {...register('role')}>
               {roleOptions.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABEL[r]}
@@ -83,35 +81,35 @@ export function UserForm() {
               ))}
             </select>
             {errors.role && (
-              <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
+              <p className="mt-1.5 text-sm text-red-400">{errors.role.message}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium">
+            <label htmlFor="password" className={labelClass}>
               Temporary password
             </label>
             <input
               id="password"
               type="password"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="field-modern"
               placeholder="At least 8 characters"
               {...register('password')}
             />
             {errors.password && (
-              <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+              <p className="mt-1.5 text-sm text-red-400">{errors.password.message}</p>
             )}
           </div>
         </div>
 
         {create.isError && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-red-400">
             {create.error?.message ?? 'Could not add user'}
           </p>
         )}
 
-        <Button type="submit" disabled={create.isPending}>
-          {create.isPending ? 'Adding…' : 'Add user'}
+        <Button type="submit" variant="violet" disabled={create.isPending}>
+          {create.isPending ? 'Inviting…' : '+ Invite Member'}
         </Button>
       </form>
     </section>

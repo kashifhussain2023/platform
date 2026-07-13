@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-react';
 import type {
   NodeType,
   WorkflowDto,
@@ -10,7 +11,7 @@ import type {
 import { Button } from '@/components/ui/Button';
 import { useUpdateWorkflow } from '../hooks';
 import { NODE_TYPES } from '../schemas';
-import { NODE_LABELS, defaultConfig } from '../labels';
+import { NODE_HINTS, NODE_ICONS, NODE_LABELS, NODE_TONES, defaultConfig } from '../labels';
 import { NodeEditor } from './NodeEditor';
 
 // Monotonic suffix so ids stay unique even within the same millisecond.
@@ -131,40 +132,46 @@ export function NodeList({ workflow }: { workflow: WorkflowDto }) {
   };
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5">
+    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-gray-500">Steps</h2>
+        <h2 className="text-sm font-medium text-zinc-400">Steps</h2>
         <div className="flex items-center gap-2">
-          <select
-            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            value={addType}
-            onChange={(e) => setAddType(e.target.value as NodeType)}
+          <div className="w-44">
+            <select
+              className="field-modern text-sm"
+              value={addType}
+              onChange={(e) => setAddType(e.target.value as NodeType)}
+            >
+              {STEP_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {NODE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={addStep}
+            className="rounded-lg border border-white/[0.1] px-3.5 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-white/[0.2] hover:text-white"
           >
-            {STEP_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {NODE_LABELS[t]}
-              </option>
-            ))}
-          </select>
-          <Button variant="ghost" onClick={addStep}>
             + Add step
-          </Button>
-          <Button onClick={onSave} disabled={update.isPending}>
+          </button>
+          <Button variant="violet" onClick={onSave} disabled={update.isPending}>
             {update.isPending ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </div>
 
       {update.isError && (
-        <p className="mb-3 text-sm text-red-600">
+        <p className="mb-3 text-sm text-red-400">
           {update.error?.message ?? 'Could not save workflow'}
         </p>
       )}
       {update.isSuccess && !update.isPending && (
-        <p className="mb-3 text-sm text-green-700">Saved.</p>
+        <p className="mb-3 text-sm text-green-400">Saved.</p>
       )}
       {workflow.warnings.length > 0 && (
-        <ul className="mb-3 space-y-1 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+        <ul className="mb-3 space-y-1 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-400">
           {workflow.warnings.map((w) => (
             <li key={w}>⚠ {w}</li>
           ))}
@@ -174,52 +181,69 @@ export function NodeList({ workflow }: { workflow: WorkflowDto }) {
       <ol className="space-y-3">
         {nodes.map((node, index) => {
           const isTrigger = node.type === 'TRIGGER';
+          const Icon = NODE_ICONS[node.type];
           return (
-            <li
-              key={node.id}
-              className="rounded-lg border border-gray-200 bg-gray-50 p-4"
-            >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-medium text-white">
-                    {index + 1}
-                  </span>
-                  <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700">
-                    {NODE_LABELS[node.type]}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    onClick={() => move(index, -1)}
-                    disabled={index <= 1}
-                    aria-label="Move up"
-                  >
-                    ↑
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => move(index, 1)}
-                    disabled={index === 0 || index === nodes.length - 1}
-                    aria-label="Move down"
-                  >
-                    ↓
-                  </Button>
-                  {!isTrigger && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => removeNode(node.id)}
-                      aria-label="Delete step"
+            <li key={node.id} className="relative">
+              {index > 0 && (
+                <div
+                  aria-hidden
+                  className="absolute -top-3 left-[34px] h-3 w-px bg-white/[0.1]"
+                />
+              )}
+              <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 transition-colors hover:border-white/[0.14]">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${NODE_TONES[node.type]}`}
                     >
-                      ✕
-                    </Button>
-                  )}
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">
+                        {index + 1}. {NODE_LABELS[node.type]}
+                      </p>
+                      <p className="truncate text-xs text-zinc-500">
+                        {node.name || NODE_HINTS[node.type]}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => move(index, -1)}
+                      disabled={index <= 1}
+                      aria-label="Move up"
+                      className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(index, 1)}
+                      disabled={index === 0 || index === nodes.length - 1}
+                      aria-label="Move down"
+                      className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                    {!isTrigger && (
+                      <button
+                        type="button"
+                        onClick={() => removeNode(node.id)}
+                        aria-label="Delete step"
+                        className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:text-red-400"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                    <ChevronRight className="ml-1 h-4 w-4 text-zinc-700" aria-hidden />
+                  </div>
                 </div>
+                <NodeEditor
+                  node={node}
+                  onChange={(next) => updateNode(node.id, next)}
+                />
               </div>
-              <NodeEditor
-                node={node}
-                onChange={(next) => updateNode(node.id, next)}
-              />
             </li>
           );
         })}

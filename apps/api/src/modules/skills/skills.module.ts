@@ -22,26 +22,31 @@ import { SkillsOAuthController } from './oauth/oauth.controller';
 import { OAuthService } from './oauth/oauth.service';
 import { SkillsController } from './skills.controller';
 import { SkillsService } from './skills.service';
+import { SchedulingModule } from '../scheduling/scheduling.module';
+import { SchedulingService } from '../scheduling/scheduling.service';
 
 /**
  * Pick the skill-execution backend from SKILL_EXECUTOR (mirrors the embeddings /
  * llm factories):
  *   - `mock` (DEFAULT): offline, deterministic, side-effect-free sandbox.
- *   - `real`: RealSkillExecutor — real network calls (slack/http/gmail) using the
- *     tenant's decrypted credentials; falls back to mock when a call is
- *     unimplemented or has no credentials.
+ *   - `real`: RealSkillExecutor — real network calls (slack/http/gmail/calendar/
+ *     gdrive/scheduling) using the tenant's decrypted credentials; falls back to
+ *     mock when a call is unimplemented or has no credentials.
  *   - `auto`: per call, use `real` when the installed skill is connected-with-creds
  *     (or needs no connection), else `mock`.
  * The mock stays the default so the e2e suite runs fully offline and unchanged.
  */
-function skillExecutorFactory(config: ConfigService): SkillExecutor {
+function skillExecutorFactory(
+  config: ConfigService,
+  scheduling: SchedulingService,
+): SkillExecutor {
   const kind = (config.get<string>('SKILL_EXECUTOR') ?? 'mock').toLowerCase();
   const mock = new MockSkillExecutor();
   switch (kind) {
     case 'real':
-      return new RealSkillExecutor(config, mock);
+      return new RealSkillExecutor(config, mock, scheduling);
     case 'auto':
-      return new AutoSkillExecutor(new RealSkillExecutor(config, mock), mock);
+      return new AutoSkillExecutor(new RealSkillExecutor(config, mock, scheduling), mock);
     case 'mock':
     default:
       return mock;
@@ -59,7 +64,10 @@ function skillExecutorFactory(config: ConfigService): SkillExecutor {
  * KnowledgeModule, so only registerQueue is needed here.
  */
 @Module({
-  imports: [BullModule.registerQueue({ name: CONNECTOR_HEALTH_QUEUE })],
+  imports: [
+    BullModule.registerQueue({ name: CONNECTOR_HEALTH_QUEUE }),
+    SchedulingModule,
+  ],
   controllers: [
     SkillsController,
     EmployeeSkillsController,
@@ -74,7 +82,7 @@ function skillExecutorFactory(config: ConfigService): SkillExecutor {
     ConnectorHealthProcessor,
     {
       provide: SKILL_EXECUTOR_TOKEN,
-      inject: [ConfigService],
+      inject: [ConfigService, SchedulingService],
       useFactory: skillExecutorFactory,
     },
     // Injectable fetch for the token-refresh endpoint call (stubbed in unit tests).

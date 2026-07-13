@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '@/components/app-shell/AppShell';
+import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
 import { CurrentPlanCard } from '@/features/billing/components/CurrentPlanCard';
 import { PlanCatalog } from '@/features/billing/components/PlanCatalog';
 import { UsageSummary } from '@/features/billing/components/UsageSummary';
@@ -11,6 +12,7 @@ import { useSessionStore } from '@/stores/session.store';
 export default function BillingPage() {
   const router = useRouter();
   const accessToken = useSessionStore((s) => s.accessToken);
+  const shellProps = useAppShellProps();
 
   // Client-side route guard, same pattern as the other app pages.
   useEffect(() => {
@@ -24,28 +26,27 @@ export default function BillingPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Account</p>
-          <h1 className="text-2xl font-semibold">Billing &amp; Subscription</h1>
-        </div>
-        <Link href="/dashboard" className="text-sm font-medium text-brand-700">
-          ← Dashboard
-        </Link>
-      </header>
+    <AppShell {...shellProps}>
+      <div className="mb-8 pt-2">
+        <h1 className="text-2xl font-bold text-white">Billing</h1>
+        <p className="mt-1 text-sm text-zinc-400">Manage your subscription and billing.</p>
+      </div>
 
       <div className="space-y-10">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <CurrentPlanCard />
-          <UsageSummary />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-1">
+            <CurrentPlanCard />
+          </div>
+          <div className="lg:col-span-2">
+            <UsageSummary />
+          </div>
         </div>
 
         <section id="plans">
-          <h2 className="mb-3 text-sm font-medium text-gray-500">Plans</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">Plans</h2>
           <PlanCatalog />
         </section>
       </div>
-    </main>
+    </AppShell>
   );
 }

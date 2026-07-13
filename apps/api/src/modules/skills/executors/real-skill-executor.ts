@@ -6,6 +6,7 @@ import type {
   SkillExecutionResult,
 } from './skill-executor';
 import { assertUrlAllowed } from './ssrf';
+import type { SchedulingService } from '../../scheduling/scheduling.service';
 
 /** Coerce a possibly-unknown credential/arg value to a trimmed string (or ''). */
 function str(value: unknown): string {
@@ -40,16 +41,18 @@ async function fetchWithTimeout(
  * REAL skill executor (`SKILL_EXECUTOR=real`, or chosen per-call by the `auto`
  * dispatcher). Dispatches by skillKey using the tenant's DECRYPTED credentials +
  * config that SkillsService resolves into `ctx` (never logged). Implements real
- * network calls for slack/http/gmail; anything else — or a call with no
- * credentials — DELEGATES to the injected `fallback` (the mock executor) so a
- * missing connection degrades gracefully instead of 500-ing.
+ * network calls for slack/http/gmail/calendar/gdrive, plus the internal
+ * scheduling.claim_slot (no external credentials — see SchedulingService);
+ * anything else — or a call with no credentials — DELEGATES to the injected
+ * `fallback` (the mock executor) so a missing connection degrades gracefully
+ * instead of 500-ing.
  *
  * Returns the SAME `{ ok, result?, error? }` shape as MockSkillExecutor and never
  * throws (tool-level failures come back as `{ ok:false, error }`).
  *
- * TODO: real executors for stripe/github/hubspot/jira/calendar/gdrive; OAuth
- * access-token refresh when `expiresAt` has passed (currently the stored token
- * is used as-is and a 401 surfaces as a tool error).
+ * TODO: real executors for stripe/github/hubspot/jira; OAuth access-token
+ * refresh when `expiresAt` has passed (currently the stored token is used
+ * as-is and a 401 surfaces as a tool error).
  */
 @Injectable()
 export class RealSkillExecutor implements SkillExecutor {
@@ -60,6 +63,8 @@ export class RealSkillExecutor implements SkillExecutor {
     private readonly config: ConfigService,
     /** Offline fallback (the mock executor) for unimplemented/unconnected calls. */
     private readonly fallback: SkillExecutor,
+    /** Interview-slot claim primitive for the 'scheduling' skill (no OAuth/API key). */
+    private readonly scheduling: SchedulingService,
   ) {}
 
   async execute(
@@ -76,6 +81,22 @@ export class RealSkillExecutor implements SkillExecutor {
           return await this.httpRequest(args);
         case 'gmail.send_email':
           return await this.gmailSendEmail(args, ctx);
+        case 'calendar.create_event':
+          return await this.calendarCreateEvent(args, ctx);
+        case 'gdrive.upload_file':
+          return await this.gdriveUploadFile(args, ctx);
+        case 'gdrive.create_folder':
+          return await this.gdriveCreateFolder(args, ctx);
+        case 'gdrive.move_file':
+          return await this.gdriveMoveFile(args, ctx);
+        case 'gdrive.list_files':
+          return await this.gdriveListFiles(args, ctx);
+        case 'gdrive.read_file':
+          return await this.gdriveReadFile(args, ctx);
+        case 'scheduling.claim_slot':
+          return await this.schedulingClaimSlot(args, ctx);
+        case 'scheduling.reschedule_slot':
+          return await this.schedulingRescheduleSlot(args, ctx);
         default:
           // No real implementation for this tool → mock (never 500).
           return this.fallback.execute(skillKey, tool, args, ctx);
@@ -123,13 +144,28 @@ export class RealSkillExecutor implements SkillExecutor {
       if (!channel) {
         return { ok: false, error: 'Slack chat.postMessage requires a channel' };
       }
+      // Modern Slack apps (granular OAuth scopes) reject chat.postMessage when
+      // `channel` is a human name like "#general" — it must be a channel ID
+      // (e.g. "C0123ABCD"). Resolve a name to its id first (requires the
+      // channels:read bot scope); pass IDs straight through.
+      let channelId = channel;
+      if (!/^[CG][A-Z0-9]{8,}$/.test(channel)) {
+        const resolved = await this.resolveSlackChannelId(botToken, channel);
+        if (!resolved.id) {
+          return {
+            ok: false,
+            error: `Slack channel "${channel}" not found (${resolved.reason}).`,
+          };
+        }
+        channelId = resolved.id;
+      }
       const res = await fetchWithTimeout('https://slack.com/api/chat.postMessage', {
         method: 'POST',
         headers: {
           authorization: `Bearer ${botToken}`,
           'content-type': 'application/json; charset=utf-8',
         },
-        body: JSON.stringify({ channel, text }),
+        body: JSON.stringify({ channel: channelId, text }),
       });
       const data = (await res.json()) as { ok: boolean; error?: string; ts?: string; channel?: string };
       if (!data.ok) {
@@ -141,6 +177,52 @@ export class RealSkillExecutor implements SkillExecutor {
     return {
       ok: false,
       error: 'Slack not connected: expected a webhookUrl or botToken credential',
+    };
+  }
+
+  /** Look up a public channel's id by name (strips a leading '#'). */
+  private async resolveSlackChannelId(
+    botToken: string,
+    name: string,
+  ): Promise<{ id: string | null; reason: string }> {
+    const target = name.replace(/^#/, '').toLowerCase();
+    let cursor = '';
+    const seen: string[] = [];
+    for (let page = 0; page < 5; page += 1) {
+      // public_channel only: matches the channels:read scope we actually
+      // request. Asking for private_channel too without groups:read makes
+      // Slack reject the WHOLE call as missing_scope, not just omit private ones.
+      const params = new URLSearchParams({
+        types: 'public_channel',
+        limit: '200',
+        exclude_archived: 'true',
+      });
+      if (cursor) params.set('cursor', cursor);
+      const res = await fetchWithTimeout(
+        `https://slack.com/api/conversations.list?${params.toString()}`,
+        { headers: { authorization: `Bearer ${botToken}` } },
+      );
+      const data = (await res.json()) as {
+        ok: boolean;
+        error?: string;
+        channels?: Array<{ id: string; name: string }>;
+        response_metadata?: { next_cursor?: string };
+      };
+      if (!data.ok) {
+        return { id: null, reason: `conversations.list failed: ${data.error ?? 'unknown'}` };
+      }
+      
+      for (const c of data.channels ?? []) seen.push(c.name);
+      const match = data.channels?.find((c) => c.name.toLowerCase() === target);
+      if (match) {
+        return { id: match.id, reason: 'ok' };
+      }
+      cursor = data.response_metadata?.next_cursor ?? '';
+      if (!cursor) break;
+    }
+    return {
+      id: null,
+      reason: `not among the ${seen.length} channels visible to the bot: ${seen.slice(0, 20).join(', ')}${seen.length > 20 ? ', …' : ''}`,
     };
   }
 
@@ -232,5 +314,343 @@ export class RealSkillExecutor implements SkillExecutor {
       };
     }
     return { ok: true, result: { id: data.id, threadId: data.threadId, to } };
+  }
+
+  // --- calendar.create_event -------------------------------------------------
+
+  private async calendarCreateEvent(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const creds = ctx.credentials ?? {};
+    if (!hasCreds(creds)) {
+      return this.fallback.execute('calendar', 'create_event', args, ctx);
+    }
+    const accessToken = str(creds.accessToken) || str(creds.access_token);
+    if (!accessToken) {
+      return { ok: false, error: 'Calendar not connected: no OAuth accessToken in credentials' };
+    }
+    const title = str(args.title);
+    const start = str(args.start);
+    if (!start) {
+      return { ok: false, error: 'Calendar create_event requires a start datetime' };
+    }
+    // No explicit end → default to a 30-minute event.
+    const end = str(args.end) || new Date(new Date(start).getTime() + 30 * 60_000).toISOString();
+    const config = ctx.config ?? {};
+    const calendarId = str(config.defaultCalendar) || 'primary';
+    const timezone = str(config.timezone) || undefined;
+    // Opt-in: a real Google Meet link, auto-generated by the Calendar API
+    // itself (conferenceData.createRequest) — no separate Meet/Teams
+    // integration needed. Used for interview scheduling; other callers
+    // (e.g. "mark leave on calendar") don't set this and get a plain event.
+    const withMeetLink =
+      args.addMeetLink === true || str(args.addMeetLink).toLowerCase() === 'true';
+
+    const params = new URLSearchParams();
+    if (withMeetLink) params.set('conferenceDataVersion', '1');
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events${params.toString() ? `?${params.toString()}` : ''}`;
+
+    const res = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        summary: title,
+        start: { dateTime: start, ...(timezone ? { timeZone: timezone } : {}) },
+        end: { dateTime: end, ...(timezone ? { timeZone: timezone } : {}) },
+        ...(withMeetLink
+          ? {
+              conferenceData: {
+                createRequest: {
+                  requestId: `vaep-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                  conferenceSolutionKey: { type: 'hangoutsMeet' },
+                },
+              },
+            }
+          : {}),
+      }),
+    });
+    const data = (await res.json()) as {
+      id?: string;
+      htmlLink?: string;
+      conferenceData?: { entryPoints?: Array<{ entryPointType?: string; uri?: string }> };
+      error?: { message?: string };
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: `Calendar API error (${res.status}): ${data.error?.message ?? 'create_event failed'}`,
+      };
+    }
+    const meetLink = data.conferenceData?.entryPoints?.find(
+      (e) => e.entryPointType === 'video',
+    )?.uri;
+    return {
+      ok: true,
+      result: { id: data.id, htmlLink: data.htmlLink, meetLink: meetLink ?? null, title, start, end },
+    };
+  }
+
+  // --- gdrive.* (Drive API v3; drive.file scope — sees only app-created files) --
+
+  /** Bearer token + fallback-to-mock guard shared by every gdrive.* call. */
+  private gdriveToken(ctx: ExecutorContext): string | null {
+    const creds = ctx.credentials ?? {};
+    if (!hasCreds(creds)) return null;
+    return str(creds.accessToken) || str(creds.access_token) || null;
+  }
+
+  /** Find a Drive folder id by name (optionally under a parent id); null if none. */
+  private async findDriveFolderId(
+    token: string,
+    name: string,
+    parentId?: string,
+  ): Promise<string | null> {
+    const escaped = name.replace(/'/g, "\\'");
+    let q = `mimeType='application/vnd.google-apps.folder' and name='${escaped}' and trashed=false`;
+    if (parentId) q += ` and '${parentId}' in parents`;
+    const res = await fetchWithTimeout(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    const data = (await res.json()) as { files?: Array<{ id: string; name: string }> };
+    return data.files?.[0]?.id ?? null;
+  }
+
+  /** Find or create a Drive folder by name (optionally nested under a parent name). */
+  private async resolveOrCreateFolderId(
+    token: string,
+    name: string,
+    parentName?: string,
+  ): Promise<string> {
+    let parentId: string | undefined;
+    if (parentName) {
+      parentId = (await this.findDriveFolderId(token, parentName)) ?? undefined;
+      if (!parentId) {
+        parentId = await this.createDriveFolder(token, parentName, undefined);
+      }
+    }
+    const existing = await this.findDriveFolderId(token, name, parentId);
+    if (existing) return existing;
+    return this.createDriveFolder(token, name, parentId);
+  }
+
+  private async createDriveFolder(token: string, name: string, parentId?: string): Promise<string> {
+    const res = await fetchWithTimeout('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        mimeType: 'application/vnd.google-apps.folder',
+        ...(parentId ? { parents: [parentId] } : {}),
+      }),
+    });
+    const data = (await res.json()) as { id?: string; error?: { message?: string } };
+    if (!res.ok || !data.id) {
+      throw new Error(`Drive create_folder failed: ${data.error?.message ?? res.status}`);
+    }
+    return data.id;
+  }
+
+  /** Find a (non-folder) file id by name; null if none. */
+  private async findDriveFileId(token: string, name: string): Promise<string | null> {
+    const escaped = name.replace(/'/g, "\\'");
+    const q = `name='${escaped}' and trashed=false and mimeType!='application/vnd.google-apps.folder'`;
+    const res = await fetchWithTimeout(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,parents)`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    const data = (await res.json()) as { files?: Array<{ id: string }> };
+    return data.files?.[0]?.id ?? null;
+  }
+
+  private async gdriveUploadFile(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const token = this.gdriveToken(ctx);
+    if (!token) return this.fallback.execute('gdrive', 'upload_file', args, ctx);
+    const name = str(args.name);
+    const content = typeof args.content === 'string' ? args.content : '';
+    if (!name) return { ok: false, error: 'Drive upload_file requires a name' };
+
+    const config = ctx.config ?? {};
+    const rootFolder = str(config.rootFolder);
+    const parentId = rootFolder ? await this.resolveOrCreateFolderId(token, rootFolder) : undefined;
+
+    const boundary = `vaep-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const metadata = JSON.stringify({ name, ...(parentId ? { parents: [parentId] } : {}) });
+    const body =
+      `--${boundary}\r\n` +
+      `Content-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Type: text/plain; charset=UTF-8\r\n\r\n${content}\r\n` +
+      `--${boundary}--`;
+
+    const res = await fetchWithTimeout(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': `multipart/related; boundary=${boundary}`,
+        },
+        body,
+      },
+    );
+    const data = (await res.json()) as {
+      id?: string;
+      name?: string;
+      webViewLink?: string;
+      error?: { message?: string };
+    };
+    if (!res.ok || !data.id) {
+      return { ok: false, error: `Drive upload_file failed: ${data.error?.message ?? res.status}` };
+    }
+    return { ok: true, result: { id: data.id, name: data.name, webViewLink: data.webViewLink } };
+  }
+
+  private async gdriveCreateFolder(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const token = this.gdriveToken(ctx);
+    if (!token) return this.fallback.execute('gdrive', 'create_folder', args, ctx);
+    const name = str(args.name);
+    const parent = str(args.parent);
+    if (!name) return { ok: false, error: 'Drive create_folder requires a name' };
+    try {
+      const id = parent
+        ? await this.resolveOrCreateFolderId(token, name, parent)
+        : await this.resolveOrCreateFolderId(token, name);
+      return { ok: true, result: { id, name, parent: parent || null } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'create_folder failed' };
+    }
+  }
+
+  private async gdriveMoveFile(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const token = this.gdriveToken(ctx);
+    if (!token) return this.fallback.execute('gdrive', 'move_file', args, ctx);
+    const name = str(args.name);
+    const toFolder = str(args.toFolder);
+    if (!name || !toFolder) {
+      return { ok: false, error: 'Drive move_file requires name and toFolder' };
+    }
+    const fileId = await this.findDriveFileId(token, name);
+    if (!fileId) {
+      return { ok: false, error: `Drive file "${name}" not found (only sees files this app created)` };
+    }
+    const getRes = await fetchWithTimeout(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    const getData = (await getRes.json()) as { parents?: string[] };
+    const currentParents = (getData.parents ?? []).join(',');
+
+    try {
+      const targetId = await this.resolveOrCreateFolderId(token, toFolder);
+      const params = new URLSearchParams({ addParents: targetId, fields: 'id,parents' });
+      if (currentParents) params.set('removeParents', currentParents);
+      const res = await fetchWithTimeout(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?${params.toString()}`,
+        { method: 'PATCH', headers: { authorization: `Bearer ${token}` } },
+      );
+      const data = (await res.json()) as { id?: string; error?: { message?: string } };
+      if (!res.ok) {
+        return { ok: false, error: `Drive move_file failed: ${data.error?.message ?? res.status}` };
+      }
+      return { ok: true, result: { id: fileId, name, movedTo: toFolder } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'move_file failed' };
+    }
+  }
+
+  private async gdriveListFiles(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const token = this.gdriveToken(ctx);
+    if (!token) return this.fallback.execute('gdrive', 'list_files', args, ctx);
+    const folder = str(args.folder);
+    let q = "trashed=false and mimeType!='application/vnd.google-apps.folder'";
+    if (folder) {
+      const folderId = await this.findDriveFolderId(token, folder);
+      if (!folderId) return { ok: true, result: { files: [] } };
+      q += ` and '${folderId}' in parents`;
+    }
+    const res = await fetchWithTimeout(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    const data = (await res.json()) as { files?: Array<{ id: string; name: string }>; error?: { message?: string } };
+    if (!res.ok) {
+      return { ok: false, error: `Drive list_files failed: ${data.error?.message ?? res.status}` };
+    }
+    return { ok: true, result: { files: data.files ?? [] } };
+  }
+
+  private async gdriveReadFile(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const token = this.gdriveToken(ctx);
+    if (!token) return this.fallback.execute('gdrive', 'read_file', args, ctx);
+    const name = str(args.name);
+    if (!name) return { ok: false, error: 'Drive read_file requires a name' };
+    const fileId = await this.findDriveFileId(token, name);
+    if (!fileId) {
+      return { ok: false, error: `Drive file "${name}" not found (only sees files this app created)` };
+    }
+    const res = await fetchWithTimeout(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) {
+      const body = await res.text();
+      return { ok: false, error: `Drive read_file failed (${res.status}): ${body}` };
+    }
+    const content = await res.text();
+    return { ok: true, result: { name, content } };
+  }
+
+  // --- scheduling.claim_slot / reschedule_slot (internal — no OAuth/API key) --
+  // Both delegate to SchedulingService, which owns the real Calendar
+  // create/delete + FreeBusy conflict-check (see google-calendar.util.ts).
+
+  private async schedulingClaimSlot(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const bookedFor = str(args.candidateEmail) || str(args.bookedFor);
+    if (!bookedFor) {
+      return { ok: false, error: 'scheduling.claim_slot requires candidateEmail' };
+    }
+    const title = str(args.title) || `Interview — ${bookedFor}`;
+    const result = await this.scheduling.claimAndSchedule(ctx.companyId, bookedFor, title);
+    // "No slot available" / a Calendar failure is a normal, branchable OUTCOME,
+    // not a tool failure — ok:false unconditionally fails the whole workflow
+    // run (execToolAction throws), so a workflow can't CONDITION-branch on it.
+    // Always ok:true; the caller checks result.claimed.
+    return { ok: true, result };
+  }
+
+  private async schedulingRescheduleSlot(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const slotId = str(args.slotId);
+    if (!slotId) {
+      return { ok: false, error: 'scheduling.reschedule_slot requires slotId' };
+    }
+    const title = str(args.title) || 'Interview (rescheduled)';
+    const result = await this.scheduling.reschedule(ctx.companyId, slotId, title);
+    return { ok: true, result };
   }
 }

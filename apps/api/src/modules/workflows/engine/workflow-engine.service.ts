@@ -15,7 +15,11 @@ import {
   LLM_PROVIDER_TOKEN,
   type LlmProvider,
 } from '../../employees/llm/llm.provider';
-import { MAX_WAIT_MS, MAX_WORKFLOW_NODES } from '../workflows.constants';
+import {
+  MAX_WAIT_MS,
+  MAX_WORKFLOW_NODES,
+  WORKFLOW_RUN_STUCK_TIMEOUT_MS,
+} from '../workflows.constants';
 import { resolveArgs, resolveTemplate } from './template';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -236,6 +240,44 @@ export class WorkflowEngine {
   }
 
   /**
+   * Watchdog sweep (fired by the repeatable `watchdog` job — see
+   * WorkflowProcessor.onModuleInit): finds runs stuck in PENDING/RUNNING past
+   * WORKFLOW_RUN_STUCK_TIMEOUT_MS and fails them. Exists because a BullMQ job
+   * lock abandoned by a hard process kill is not always reliably requeued/
+   * failed by BullMQ's own stalled-job detection (especially across rapid
+   * repeated restarts) — without this, the DB row (and any WorkflowStepRun
+   * left RUNNING) would stay stuck forever with no visible error. WAITING
+   * runs (paused at an APPROVAL) are untouched — that's an intentional pause,
+   * not a stall.
+   */
+  async sweepStuckRuns(): Promise<{ swept: number }> {
+    const cutoff = new Date(Date.now() - WORKFLOW_RUN_STUCK_TIMEOUT_MS);
+    const stuck = await this.prisma.workflowRun.findMany({
+      where: { status: { in: ['PENDING', 'RUNNING'] }, createdAt: { lt: cutoff } },
+      select: { id: true, companyId: true, workflowId: true, createdAt: true },
+    });
+    if (stuck.length === 0) {
+      return { swept: 0 };
+    }
+    const error =
+      'Orphaned: run exceeded the max expected execution time (likely a worker restart mid-execution) — swept by the workflow-run watchdog.';
+    for (const run of stuck) {
+      await this.prisma.workflowStepRun.updateMany({
+        where: { runId: run.id, status: { in: ['PENDING', 'RUNNING'] } },
+        data: { status: 'FAILED', error, finishedAt: new Date() },
+      });
+      await this.prisma.workflowRun.update({
+        where: { id: run.id },
+        data: { status: 'FAILED', error, finishedAt: new Date() },
+      });
+      this.logger.warn(
+        `workflow-run watchdog: swept orphaned run=${run.id} wf=${run.workflowId} company=${run.companyId} (created ${run.createdAt.toISOString()})`,
+      );
+    }
+    return { swept: stuck.length };
+  }
+
+  /**
    * Core resumable walk. A resume passes a (defined) `context`; a fresh run omits
    * it. Fresh runs start at the TRIGGER with a fresh `{ trigger }`; resumes start
    * at `opts.startNodeId` (or nowhere, if the approval was terminal) with the
@@ -395,8 +437,7 @@ export class WorkflowEngine {
       },
     });
 
-    const rawMessage =
-      typeof node.config?.message === 'string' ? node.config.message.trim() : '';
+    const rawMessage = resolveTemplate(node.config?.message, context).trim();
     await this.prisma.approvalRequest.create({
       data: {
         companyId,

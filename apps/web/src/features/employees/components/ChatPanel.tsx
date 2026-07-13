@@ -3,6 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { Send } from 'lucide-react';
 import type { AiEmployeeDto } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
 import { useMessages, useSendMessage } from '../hooks';
@@ -42,10 +43,10 @@ export function ChatPanel({
   });
 
   return (
-    <section className="flex h-[70vh] flex-col rounded-lg border border-gray-200 bg-gray-50">
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+    <section className="flex h-[70vh] flex-col rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {(messages ?? []).length === 0 ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-zinc-500">
             No messages yet. Say hello to get started.
           </p>
         ) : (
@@ -58,11 +59,11 @@ export function ChatPanel({
 
       <form
         onSubmit={onSubmit}
-        className="border-t border-gray-200 p-3"
+        className="border-t border-white/[0.07] p-3"
         noValidate
       >
         {disabled && (
-          <p className="mb-2 text-sm text-amber-700">
+          <p className="mb-2 text-sm text-amber-400">
             This employee is {employee.status.toLowerCase()}. Resume it to chat.
           </p>
         )}
@@ -70,19 +71,20 @@ export function ChatPanel({
           <input
             type="text"
             placeholder="Ask your employee…"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="field-modern flex-1"
             disabled={disabled || send.isPending}
             {...register('content')}
           />
-          <Button type="submit" disabled={disabled || send.isPending}>
+          <Button variant="violet" type="submit" disabled={disabled || send.isPending}>
+            <Send className="h-4 w-4" />
             {send.isPending ? 'Sending…' : 'Send'}
           </Button>
         </div>
         {errors.content && (
-          <p className="mt-1 text-sm text-red-600">{errors.content.message}</p>
+          <p className="mt-1 text-sm text-red-400">{errors.content.message}</p>
         )}
         {send.isError && (
-          <p className="mt-1 text-sm text-red-600">
+          <p className="mt-1 text-sm text-red-400">
             {send.error?.message ?? 'Message failed'}
           </p>
         )}

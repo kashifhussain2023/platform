@@ -1,6 +1,7 @@
 'use client';
 
-import { Button } from '@/components/ui/Button';
+import { useState } from 'react';
+import { Search } from 'lucide-react';
 import { useCurrentUser } from '@/features/auth/hooks';
 import {
   useCanManageUsers,
@@ -15,6 +16,11 @@ import { type Role, type UserDto } from '../schemas';
 const ADMIN_ASSIGNABLE: Role[] = ['MEMBER', 'ADMIN'];
 const OWNER_ASSIGNABLE: Role[] = ['MEMBER', 'ADMIN', 'OWNER'];
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || 'U';
+}
+
 /** Company roster: role/status per user, with OWNER/ADMIN-gated mutation controls. */
 export function UserList() {
   const { data: users, isLoading, isError, error } = useUsers();
@@ -23,28 +29,35 @@ export function UserList() {
   const callerRole = useCurrentRole();
   const update = useUpdateUser();
   const del = useDeleteUser();
+  const [query, setQuery] = useState('');
 
   const meId = me?.user.id;
   const roleOptions = callerRole === 'OWNER' ? OWNER_ASSIGNABLE : ADMIN_ASSIGNABLE;
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <p className="text-sm text-gray-500">Loading team…</p>
+      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+        <p className="text-sm text-zinc-500">Loading team…</p>
       </div>
     );
   }
   if (isError) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <p className="text-sm text-red-600">
+      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+        <p className="text-sm text-red-400">
           {error?.message ?? 'Could not load users'}
         </p>
       </div>
     );
   }
 
-  const rows = users ?? [];
+  const allUsers = users ?? [];
+  const q = query.trim().toLowerCase();
+  const rows = q
+    ? allUsers.filter(
+        (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+      )
+    : allUsers;
 
   // A row is editable when the caller can manage, it is not the caller's own
   // row, and the caller has authority over the target (only an OWNER edits an
@@ -55,125 +68,158 @@ export function UserList() {
     !(u.role === 'OWNER' && callerRole !== 'OWNER');
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-          <tr>
-            <th className="px-4 py-3 font-medium">User</th>
-            <th className="px-4 py-3 font-medium">Role</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            {canManage && <th className="px-4 py-3 font-medium text-right">Actions</th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {rows.map((u) => {
-            const editable = canEditRow(u);
-            const isSelf = u.id === meId;
-            return (
-              <tr key={u.id} className="align-middle">
-                <td className="px-4 py-3">
-                  <div className="font-medium text-gray-900">
-                    {u.name}
-                    {isSelf && (
-                      <span className="ml-2 text-xs font-normal text-gray-400">
-                        (you)
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500">{u.email}</div>
-                </td>
+    <div>
+      <div className="relative mb-4 max-w-sm">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search members..."
+          aria-label="Search members"
+          className="field-modern"
+          style={{ paddingLeft: '2.75rem' }}
+        />
+      </div>
 
-                <td className="px-4 py-3">
-                  {editable ? (
-                    <select
-                      aria-label={`Role for ${u.name}`}
-                      className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-                      value={u.role}
-                      disabled={update.isPending}
-                      onChange={(e) =>
-                        update.mutate({
-                          id: u.id,
-                          data: { role: e.target.value as Role },
-                        })
-                      }
-                    >
-                      {/* Keep the current role selectable even if outside the
-                          assignable set (e.g. an existing OWNER). */}
-                      {Array.from(new Set([u.role, ...roleOptions])).map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABEL[r]}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${ROLE_BADGE[u.role]}`}
-                    >
-                      {ROLE_LABEL[u.role]}
-                    </span>
-                  )}
-                </td>
-
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_BADGE[u.status]}`}
-                  >
-                    {STATUS_LABEL[u.status]}
-                  </span>
-                </td>
-
-                {canManage && (
+      <div className="overflow-x-auto rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+        <table className="min-w-full divide-y divide-white/[0.06] text-sm">
+          <thead className="bg-white/[0.03] text-left text-xs font-medium uppercase tracking-wide text-zinc-500">
+            <tr>
+              <th className="px-4 py-3">Member</th>
+              <th className="px-4 py-3">Role</th>
+              <th className="px-4 py-3">Status</th>
+              {canManage && <th className="px-4 py-3 text-right">Actions</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.06]">
+            {rows.map((u) => {
+              const editable = canEditRow(u);
+              const isSelf = u.id === meId;
+              return (
+                <tr key={u.id} className="transition-colors hover:bg-white/[0.02]">
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      {editable && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            disabled={update.isPending}
-                            onClick={() =>
-                              update.mutate({
-                                id: u.id,
-                                data: {
-                                  status:
-                                    u.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
-                                },
-                              })
-                            }
-                          >
-                            {u.status === 'ACTIVE' ? 'Disable' : 'Enable'}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="text-red-600 hover:bg-red-50"
-                            disabled={del.isPending}
-                            onClick={() => {
-                              if (
-                                typeof window !== 'undefined' &&
-                                !window.confirm(`Remove ${u.name}?`)
-                              ) {
-                                return;
-                              }
-                              del.mutate(u.id);
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        </>
-                      )}
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#6a30ec_0%,#5216dd_100%)] text-xs font-semibold text-white">
+                        {initials(u.name)}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-white">
+                          {u.name}
+                          {isSelf && (
+                            <span className="ml-2 text-xs font-normal text-zinc-500">
+                              (you)
+                            </span>
+                          )}
+                        </div>
+                        <div className="truncate text-xs text-zinc-500">{u.email}</div>
+                      </div>
                     </div>
                   </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
 
-      {(update.isError || del.isError) && (
-        <p className="border-t border-gray-100 px-4 py-3 text-sm text-red-600">
-          {update.error?.message ?? del.error?.message ?? 'Action failed'}
-        </p>
-      )}
+                  <td className="px-4 py-3">
+                    {editable ? (
+                      <select
+                        aria-label={`Role for ${u.name}`}
+                        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs text-white transition-colors hover:border-white/20 focus:border-[#7c5cf0] focus:outline-none"
+                        value={u.role}
+                        disabled={update.isPending}
+                        onChange={(e) =>
+                          update.mutate({
+                            id: u.id,
+                            data: { role: e.target.value as Role },
+                          })
+                        }
+                      >
+                        {/* Keep the current role selectable even if outside the
+                            assignable set (e.g. an existing OWNER). */}
+                        {Array.from(new Set([u.role, ...roleOptions])).map((r) => (
+                          <option key={r} value={r}>
+                            {ROLE_LABEL[r]}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${ROLE_BADGE[u.role]}`}
+                      >
+                        {ROLE_LABEL[u.role]}
+                      </span>
+                    )}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_BADGE[u.status]}`}
+                    >
+                      {STATUS_LABEL[u.status]}
+                    </span>
+                  </td>
+
+                  {canManage && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        {editable && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={update.isPending}
+                              onClick={() =>
+                                update.mutate({
+                                  id: u.id,
+                                  data: {
+                                    status:
+                                      u.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
+                                  },
+                                })
+                              }
+                              className="rounded-lg border border-white/10 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {u.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={del.isPending}
+                              onClick={() => {
+                                if (
+                                  typeof window !== 'undefined' &&
+                                  !window.confirm(`Remove ${u.name}?`)
+                                ) {
+                                  return;
+                                }
+                                del.mutate(u.id);
+                              }}
+                              className="rounded-lg border border-red-500/30 px-2.5 py-1 text-xs font-medium text-red-400 transition-colors hover:border-red-500/50 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr>
+                <td
+                  colSpan={canManage ? 4 : 3}
+                  className="px-4 py-6 text-center text-sm text-zinc-500"
+                >
+                  {query ? 'No members match your search.' : 'No team members yet.'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {(update.isError || del.isError) && (
+          <p className="border-t border-white/[0.06] px-4 py-3 text-sm text-red-400">
+            {update.error?.message ?? del.error?.message ?? 'Action failed'}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

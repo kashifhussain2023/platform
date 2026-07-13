@@ -3,12 +3,34 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { COMPANY_SIZES } from '@/features/onboarding/labels';
-import { Button } from '@/components/ui/Button';
+import { z } from 'zod';
+import { Mail, User } from 'lucide-react';
+import { AuthButton, IconInput, PasswordInput } from '@/components/auth/fields';
 import { useRegister } from '../hooks';
-import { registerSchema, type RegisterDto } from '../schemas';
+import type { RegisterDto } from '../schemas';
 
-const inputClass = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
+const labelClass = 'mb-1.5 block text-sm font-medium text-zinc-300';
+
+/**
+ * UI-level schema for the mockup's Sign Up (name + email + password + confirm
+ * + terms). The backend RegisterDto still requires a company name, so on submit
+ * we derive a workspace name from the person's name; the real company profile
+ * is collected in the onboarding wizard. Backend contract is unchanged.
+ */
+const signupSchema = z
+  .object({
+    name: z.string().min(1, 'Please enter your name'),
+    email: z.string().min(1, 'Email is required').email('Enter a valid email'),
+    password: z.string().min(8, 'Use at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+    agree: z.literal(true, { errorMap: () => ({ message: 'Please accept the terms to continue' }) }),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    path: ['confirmPassword'],
+    message: 'Passwords do not match',
+  });
+
+type SignupForm = z.infer<typeof signupSchema>;
 
 export function RegisterForm() {
   const router = useRouter();
@@ -17,198 +39,99 @@ export function RegisterForm() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterDto>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      companyName: '',
-      name: '',
-      email: '',
-      password: '',
-      industry: '',
-      size: '',
-      country: '',
-      timezone: '',
-      website: '',
-      logoUrl: '',
-      phone: '',
-    },
+  } = useForm<SignupForm>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { name: '', email: '', password: '', confirmPassword: '', agree: false as unknown as true },
   });
 
   const onSubmit = handleSubmit(async (values) => {
-    // Strip empty optional strings so we don't persist "".
     const payload: RegisterDto = {
-      companyName: values.companyName,
-      name: values.name,
-      email: values.email,
+      companyName: `${values.name.trim()}'s Workspace`,
+      name: values.name.trim(),
+      email: values.email.trim(),
       password: values.password,
-      industry: values.industry?.trim() || undefined,
-      size: values.size || undefined,
-      country: values.country?.trim() || undefined,
-      timezone: values.timezone?.trim() || undefined,
-      website: values.website?.trim() || undefined,
-      logoUrl: values.logoUrl?.trim() || undefined,
-      phone: values.phone?.trim() || undefined,
     };
     try {
       await registerMutation.mutateAsync(payload);
-      // New company → always start the onboarding wizard.
       router.push('/onboarding');
     } catch {
-      // Error is surfaced below via `registerMutation.error`.
+      // surfaced below via registerMutation.error
     }
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <div>
-        <label htmlFor="companyName" className="mb-1 block text-sm font-medium">
-          Company name
+        <label htmlFor="name" className={labelClass}>
+          Full name
         </label>
-        <input id="companyName" className={inputClass} {...register('companyName')} />
-        {errors.companyName && (
-          <p className="mt-1 text-sm text-red-600">{errors.companyName.message}</p>
-        )}
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="name" className="mb-1 block text-sm font-medium">
-            Your name
-          </label>
-          <input
-            id="name"
-            autoComplete="name"
-            className={inputClass}
-            {...register('name')}
-          />
-          {errors.name && (
-            <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-            Phone <span className="text-gray-400">(optional)</span>
-          </label>
-          <input
-            id="phone"
-            autoComplete="tel"
-            className={inputClass}
-            {...register('phone')}
-          />
-        </div>
+        <IconInput id="name" icon={User} autoComplete="name" placeholder="John Doe" {...register('name')} />
+        {errors.name && <p className="mt-1.5 text-sm text-red-400">{errors.name.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium">
+        <label htmlFor="email" className={labelClass}>
           Work email
         </label>
-        <input
+        <IconInput
           id="email"
+          icon={Mail}
           type="email"
           autoComplete="email"
-          className={inputClass}
+          placeholder="you@company.com"
           {...register('email')}
         />
-        {errors.email && (
-          <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="mt-1.5 text-sm text-red-400">{errors.email.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium">
+        <label htmlFor="password" className={labelClass}>
           Password
         </label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
-          className={inputClass}
+          placeholder="Create a strong password"
           {...register('password')}
         />
-        {errors.password && (
-          <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+        {errors.password && <p className="mt-1.5 text-sm text-red-400">{errors.password.message}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="confirmPassword" className={labelClass}>
+          Confirm password
+        </label>
+        <PasswordInput
+          id="confirmPassword"
+          autoComplete="new-password"
+          placeholder="Confirm your password"
+          {...register('confirmPassword')}
+        />
+        {errors.confirmPassword && (
+          <p className="mt-1.5 text-sm text-red-400">{errors.confirmPassword.message}</p>
         )}
       </div>
 
-      <fieldset className="space-y-4 rounded-md border border-gray-200 p-4">
-        <legend className="px-1 text-xs font-medium text-gray-500">
-          Company profile (optional)
-        </legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="industry" className="mb-1 block text-sm font-medium">
-              Industry
-            </label>
-            <input id="industry" className={inputClass} {...register('industry')} />
-          </div>
-          <div>
-            <label htmlFor="size" className="mb-1 block text-sm font-medium">
-              Company size
-            </label>
-            <select id="size" className={inputClass} {...register('size')}>
-              <option value="">Select…</option>
-              {COMPANY_SIZES.map((s) => (
-                <option key={s} value={s}>
-                  {s} employees
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="country" className="mb-1 block text-sm font-medium">
-              Country
-            </label>
-            <input id="country" className={inputClass} {...register('country')} />
-          </div>
-          <div>
-            <label htmlFor="timezone" className="mb-1 block text-sm font-medium">
-              Time zone
-            </label>
-            <input
-              id="timezone"
-              className={inputClass}
-              placeholder="e.g. Europe/London"
-              {...register('timezone')}
-            />
-          </div>
-          <div>
-            <label htmlFor="website" className="mb-1 block text-sm font-medium">
-              Website
-            </label>
-            <input
-              id="website"
-              className={inputClass}
-              placeholder="https://…"
-              {...register('website')}
-            />
-          </div>
-          <div>
-            <label htmlFor="logoUrl" className="mb-1 block text-sm font-medium">
-              Company logo URL
-            </label>
-            <input
-              id="logoUrl"
-              className={inputClass}
-              placeholder="https://…/logo.png"
-              {...register('logoUrl')}
-            />
-          </div>
-        </div>
-      </fieldset>
+      <label className="flex cursor-pointer items-start gap-2.5 text-sm text-zinc-400">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/5 accent-[#6a30ec]"
+          {...register('agree')}
+        />
+        <span>
+          I agree to the <span className="text-[#8b6ef2]">Terms of Service</span> and{' '}
+          <span className="text-[#8b6ef2]">Privacy Policy</span>
+        </span>
+      </label>
+      {errors.agree && <p className="text-sm text-red-400">{errors.agree.message}</p>}
 
       {registerMutation.isError && (
-        <p className="text-sm text-red-600">
-          {registerMutation.error?.message ?? 'Registration failed'}
-        </p>
+        <p className="text-sm text-red-400">{registerMutation.error?.message ?? 'Registration failed'}</p>
       )}
 
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={isSubmitting || registerMutation.isPending}
-      >
-        {registerMutation.isPending ? 'Creating…' : 'Create account'}
-      </Button>
+      <AuthButton type="submit" disabled={isSubmitting || registerMutation.isPending}>
+        {registerMutation.isPending ? 'Creating…' : 'Create Account'}
+      </AuthButton>
     </form>
   );
 }

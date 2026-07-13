@@ -77,8 +77,11 @@ interface InboundMessage {
    * within an existing thread, not a fresh message). A candidate replying
    * "thanks for letting me know" to their OWN rejection email would otherwise
    * be fed back into the scoring AI_STEP as if it were a new CV submission —
-   * this drives a hard skip (never fires a workflow for a reply), regardless
-   * of which workflow/company is listening.
+   * so replies fire a DISTINCT eventType ('NEW_EMAIL_REPLY' instead of
+   * 'NEW_EMAIL'). Every existing NEW_EMAIL-triggered workflow is completely
+   * unaffected (fireEvent matches by exact eventType); only a workflow that
+   * explicitly sets `triggerConfig.eventType: 'NEW_EMAIL_REPLY'` receives
+   * replies at all.
    */
   isReply: boolean;
   /**
@@ -374,16 +377,21 @@ export class GmailInboundService {
     }
 
     let firedRuns = 0;
-    if (created && canonical && message.isReply) {
-      // A reply within an existing thread (e.g. a candidate replying "thanks"
-      // to their own rejection email) — recorded above for audit, but never
-      // fed into a workflow: re-scoring/re-notifying an existing conversation
-      // as if it were a fresh submission is never correct.
-      this.logger.log(
-        `Gmail message ${message.messageId} is a thread reply — not fired`,
-      );
-    } else if (created && canonical) {
+    if (created && canonical) {
       try {
+        // A reply within an existing thread (e.g. a candidate replying with
+        // requested details, or "thanks" to their own rejection email) fires
+        // a DISTINCT event type ('NEW_EMAIL_REPLY') rather than 'NEW_EMAIL' —
+        // every existing NEW_EMAIL-triggered workflow is completely unaffected
+        // (fireEvent matches by exact eventType), so re-scoring/re-notifying
+        // an existing conversation as a fresh submission still never happens
+        // unless a workflow explicitly opts in to NEW_EMAIL_REPLY.
+        const eventType = message.isReply ? 'NEW_EMAIL_REPLY' : canonical.type;
+        if (message.isReply) {
+          this.logger.log(
+            `Gmail message ${message.messageId} is a thread reply — firing as NEW_EMAIL_REPLY (opt-in only)`,
+          );
+        }
         // Flatten the email fields to the TOP LEVEL of the trigger payload so
         // workflow templates can use {{trigger.subject}} / {{trigger.body}} /
         // {{trigger.from}} / {{trigger.snippet}} naturally. The canonical
@@ -409,9 +417,42 @@ export class GmailInboundService {
             })
           : 0;
 
+        // A reply (e.g. "here are my CTC/experience details") carries NO CV/role
+        // context of its own — the reply-handling workflow would otherwise have
+        // to judge role/salary-band fit completely blind. Look up the sender's
+        // most recent PRIOR application (the actual CV submission) and carry its
+        // cv/subject along so `{{trigger.originalCv}}` is available to a reply
+        // workflow's AI_STEP. Only fetched for replies — a fresh application has
+        // nothing "prior" worth looking up.
+        let originalCv: string | null = null;
+        let originalSubject: string | null = null;
+        if (message.isReply && senderEmail) {
+          // Take a few recent candidates (not just the single most recent — an
+          // earlier REPLY from the same sender has no `cv` either) and use the
+          // first one that actually carries a CV, i.e. the real application.
+          const priorCandidates = await this.prisma.canonicalEvent.findMany({
+            where: {
+              companyId: connector.companyId,
+              type: 'NEW_EMAIL',
+              id: { not: canonical.id },
+              data: { path: ['from'], string_contains: senderEmail },
+            },
+            orderBy: { receivedAt: 'desc' },
+            take: 5,
+          });
+          for (const candidate of priorCandidates) {
+            const data = (candidate.data ?? {}) as Record<string, unknown>;
+            if (typeof data.cv === 'string' && data.cv) {
+              originalCv = data.cv;
+              originalSubject = typeof data.subject === 'string' ? data.subject : null;
+              break;
+            }
+          }
+        }
+
         const result = await this.workflows.fireEvent(
           connector.companyId,
-          canonical.type,
+          eventType,
           {
             eventId: canonical.id,
             from: email.from ?? null,
@@ -422,6 +463,9 @@ export class GmailInboundService {
             body: email.body ?? email.snippet ?? null,
             // Attachment (CV) text extracted from the email's PDF/text parts.
             cv: email.cv ?? null,
+            // The ORIGINAL application's CV/subject (replies only) — see above.
+            originalCv,
+            originalSubject,
             attachments: email.attachments ?? [],
             messageId: email.messageId ?? null,
             // Precomputed "does this look like a job application" signal — a
@@ -493,7 +537,9 @@ export class GmailInboundService {
    * Collect NEW inbound message ids from the history feed since `cursor`,
    * following pagination up to a page bound. Returns the newest historyId to
    * advance the cursor to. `stale=true` signals a 404 (cursor expired) so the
-   * caller re-baselines. Sent-only messages (SENT without INBOX) are skipped.
+   * caller re-baselines. Any message carrying the SENT label is skipped
+   * (including self-emails with both SENT+INBOX) — see the inline comment
+   * below for why.
    */
   private async collectAddedMessageIds(
     token: string,
@@ -539,9 +585,13 @@ export class GmailInboundService {
             continue;
           }
           const labels = msg?.labelIds ?? [];
-          // Only inbound: skip sent-only messages (a self-email carries BOTH
-          // SENT and INBOX and is kept, since it was delivered to the inbox).
-          if (labels.includes('SENT') && !labels.includes('INBOX')) {
+          // Only inbound: skip ANY message carrying SENT, including self-emails
+          // (both SENT+INBOX). A workflow's own outbound notification sent to
+          // the same monitored inbox was previously kept here (self-email =
+          // "inbound"), got re-detected as a new candidate application, and
+          // re-fired the workflow every poll cycle — an infinite feedback
+          // loop. Real candidates never send FROM the connected account.
+          if (labels.includes('SENT')) {
             continue;
           }
           seen.add(id);

@@ -11,7 +11,7 @@ import {
   type UpdateSecurityPolicyDto,
 } from '../schemas';
 
-const inputClass = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
+const labelClass = 'mb-1 block text-sm font-medium text-zinc-300';
 
 /** Empty string / null / undefined → undefined; otherwise a Number. */
 const numOrUndef = (v: unknown): number | undefined =>
@@ -71,10 +71,10 @@ function PolicyForm({
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
-          <label htmlFor="sp-minlen" className="mb-1 block text-sm font-medium">
+          <label htmlFor="sp-minlen" className={labelClass}>
             Password min length
           </label>
           <input
@@ -82,56 +82,61 @@ function PolicyForm({
             type="number"
             min={8}
             max={128}
-            className={inputClass}
+            className="field-modern disabled:opacity-50"
             disabled={!canManage}
             {...register('passwordMinLength', { setValueAs: numOrUndef })}
           />
           {errors.passwordMinLength && (
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 text-sm text-red-400">
               {errors.passwordMinLength.message}
             </p>
           )}
         </div>
         <div>
-          <label htmlFor="sp-session" className="mb-1 block text-sm font-medium">
+          <label htmlFor="sp-session" className={labelClass}>
             Session timeout (min)
           </label>
           <input
             id="sp-session"
             type="number"
             min={0}
-            className={inputClass}
+            className="field-modern disabled:opacity-50"
             disabled={!canManage}
             {...register('sessionTimeoutMinutes', { setValueAs: numOrUndef })}
           />
-          <p className="mt-1 text-xs text-gray-400">0 = no timeout (stored only)</p>
+          <p className="mt-1 text-xs text-zinc-500">0 = no timeout (stored only)</p>
         </div>
         <div>
-          <label htmlFor="sp-retention" className="mb-1 block text-sm font-medium">
+          <label htmlFor="sp-retention" className={labelClass}>
             Data retention (days)
           </label>
           <input
             id="sp-retention"
             type="number"
             min={0}
-            className={inputClass}
+            className="field-modern disabled:opacity-50"
             disabled={!canManage}
             {...register('dataRetentionDays', { setValueAs: numOrUndef })}
           />
-          <p className="mt-1 text-xs text-gray-400">0 = keep forever (stored only)</p>
+          <p className="mt-1 text-xs text-zinc-500">0 = keep forever (stored only)</p>
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" disabled={!canManage} {...register('mfaRequired')} />
-        Require MFA <span className="text-gray-400">(stored only)</span>
+      <label className="flex items-center gap-2 text-sm text-zinc-300">
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-violet"
+          disabled={!canManage}
+          {...register('mfaRequired')}
+        />
+        Require MFA <span className="text-zinc-500">(stored only)</span>
       </label>
 
-      <fieldset className="rounded-md border border-gray-200 p-4">
-        <legend className="px-1 text-xs font-medium text-gray-500">
+      <fieldset className="rounded-xl border border-white/[0.07] p-4">
+        <legend className="px-1 text-xs font-medium text-zinc-500">
           Allowed email domains
         </legend>
-        <p className="mb-3 text-xs text-gray-400">
+        <p className="mb-3 text-xs text-zinc-500">
           When set, new users (POST /users) must have an email in one of these
           domains. Empty = no restriction.
         </p>
@@ -140,14 +145,14 @@ function PolicyForm({
             {domains.map((d, i) => (
               <li
                 key={`${d}-${i}`}
-                className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm"
+                className="flex items-center gap-2 rounded-full bg-white/[0.06] px-3 py-1 text-sm"
               >
-                <span className="text-gray-800">{d}</span>
+                <span className="text-zinc-200">{d}</span>
                 {canManage && (
                   <button
                     type="button"
                     onClick={() => removeDomain(i)}
-                    className="text-xs font-medium text-red-600 hover:underline"
+                    className="text-xs font-medium text-red-400 hover:text-red-300"
                   >
                     ×
                   </button>
@@ -156,13 +161,13 @@ function PolicyForm({
             ))}
           </ul>
         ) : (
-          <p className="mb-3 text-sm text-gray-400">No domain restriction.</p>
+          <p className="mb-3 text-sm text-zinc-500">No domain restriction.</p>
         )}
         {canManage && (
           <div className="flex items-center gap-2">
             <input
               aria-label="New allowed email domain"
-              className={inputClass}
+              className="field-modern"
               placeholder="e.g. acme.com"
               value={newDomain}
               onChange={(e) => setNewDomain(e.target.value)}
@@ -173,26 +178,30 @@ function PolicyForm({
                 }
               }}
             />
-            <Button type="button" variant="ghost" onClick={addDomain}>
+            <button
+              type="button"
+              className="shrink-0 rounded-lg border border-white/[0.12] bg-white/[0.03] px-3.5 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06]"
+              onClick={addDomain}
+            >
               Add
-            </Button>
+            </button>
           </div>
         )}
       </fieldset>
 
       {update.isError && (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-red-400">
           {update.error?.message ?? 'Could not save security policy'}
         </p>
       )}
 
       {canManage && (
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={update.isPending || !isDirty}>
+          <Button type="submit" variant="violet" disabled={update.isPending || !isDirty}>
             {update.isPending ? 'Saving…' : 'Save security policy'}
           </Button>
           {update.isSuccess && !update.isPending && (
-            <span className="text-sm text-green-600">Saved.</span>
+            <span className="text-sm text-green-400">Saved.</span>
           )}
         </div>
       )}
@@ -206,12 +215,12 @@ export function SecurityPolicyForm() {
   const canManage = useCanManageOrg();
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-medium text-gray-500">Security policy</h2>
+    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+      <h2 className="mb-4 text-sm font-medium text-zinc-400">Security policy</h2>
       {isLoading ? (
-        <p className="text-sm text-gray-500">Loading security policy…</p>
+        <p className="text-sm text-zinc-500">Loading security policy…</p>
       ) : isError || !policy ? (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-red-400">
           {error?.message ?? 'Could not load security policy'}
         </p>
       ) : (

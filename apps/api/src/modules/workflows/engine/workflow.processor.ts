@@ -1,8 +1,11 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
-import type { Job } from 'bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger, type OnModuleInit } from '@nestjs/common';
+import type { Job, Queue } from 'bullmq';
 import {
   WORKFLOW_RUN_QUEUE,
+  WORKFLOW_RUN_WATCHDOG_EVERY_MS,
+  WORKFLOW_RUN_WATCHDOG_JOB,
+  WORKFLOW_RUN_WATCHDOG_SCHEDULER,
   type WorkflowRunJobData,
 } from '../workflows.constants';
 import { WorkflowEngine } from './workflow-engine.service';
@@ -16,21 +19,54 @@ import { WorkflowEngine } from './workflow-engine.service';
  * - `{ runId, resume: true }` — resume a WAITING run whose APPROVAL was approved.
  * - `{ workflowId, source }` — a SCHEDULE/repeatable fire: create a run (with
  *   that source) then execute it.
+ * - `{ watchdog: true }` — repeatable stuck-run sweep, registered on boot below
+ *   (same `upsertJobScheduler` pattern as ConnectorHealthProcessor).
  *
  * The engine owns all status transitions and error handling, so this handler
  * stays thin — a node failure is recorded as a FAILED run (a terminal domain
  * outcome the poller reads), not a thrown job error.
  */
 @Processor(WORKFLOW_RUN_QUEUE)
-export class WorkflowProcessor extends WorkerHost {
+export class WorkflowProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(WorkflowProcessor.name);
 
-  constructor(private readonly engine: WorkflowEngine) {
+  constructor(
+    @InjectQueue(WORKFLOW_RUN_QUEUE) private readonly queue: Queue,
+    private readonly engine: WorkflowEngine,
+  ) {
     super();
+  }
+
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.queue.upsertJobScheduler(
+        WORKFLOW_RUN_WATCHDOG_SCHEDULER,
+        { every: WORKFLOW_RUN_WATCHDOG_EVERY_MS },
+        {
+          name: WORKFLOW_RUN_WATCHDOG_JOB,
+          data: { watchdog: true },
+          opts: { removeOnComplete: true, removeOnFail: 100 },
+        },
+      );
+    } catch (err) {
+      // A Redis hiccup at boot must not crash the app; the sweep is best-effort.
+      this.logger.warn(
+        `Could not register workflow-run watchdog scheduler: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   async process(job: Job<WorkflowRunJobData>): Promise<void> {
     const data = job.data;
+    if ('watchdog' in data && data.watchdog) {
+      const { swept } = await this.engine.sweepStuckRuns();
+      if (swept > 0) {
+        this.logger.warn(`workflow-run watchdog swept ${swept} orphaned run(s)`);
+      }
+      return;
+    }
     if ('runId' in data && data.runId) {
       if (data.resume) {
         this.logger.debug(`Resuming workflow run ${data.runId}`);

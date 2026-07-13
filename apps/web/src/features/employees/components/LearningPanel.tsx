@@ -37,24 +37,24 @@ export function LearningPanel({ employeeId }: { employeeId: string }) {
   const recent = learning?.recentFeedback ?? [];
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-medium text-gray-500">Learning</h2>
+    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+      <h2 className="mb-4 text-sm font-medium text-white">Learning</h2>
 
       {/* Feedback summary */}
       <div className="mb-5 grid grid-cols-3 gap-3">
-        <div className="rounded-md border border-gray-200 p-3 text-center">
-          <p className="text-lg font-semibold text-green-600">{fb?.up ?? 0}</p>
-          <p className="text-xs text-gray-500">👍 Helpful</p>
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-3 text-center">
+          <p className="text-lg font-semibold text-green-400">{fb?.up ?? 0}</p>
+          <p className="text-xs text-zinc-500">👍 Helpful</p>
         </div>
-        <div className="rounded-md border border-gray-200 p-3 text-center">
-          <p className="text-lg font-semibold text-red-600">{fb?.down ?? 0}</p>
-          <p className="text-xs text-gray-500">👎 Needs work</p>
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-3 text-center">
+          <p className="text-lg font-semibold text-red-400">{fb?.down ?? 0}</p>
+          <p className="text-xs text-zinc-500">👎 Needs work</p>
         </div>
-        <div className="rounded-md border border-gray-200 p-3 text-center">
-          <p className="text-lg font-semibold text-gray-800">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-3 text-center">
+          <p className="text-lg font-semibold text-white">
             {learning?.memories.total ?? 0}
           </p>
-          <p className="text-xs text-gray-500">Memories</p>
+          <p className="text-xs text-zinc-500">Memories</p>
         </div>
       </div>
 
@@ -65,9 +65,10 @@ export function LearningPanel({ employeeId }: { employeeId: string }) {
           value={fact}
           onChange={(e) => setFact(e.target.value)}
           placeholder="Teach the employee a fact it should remember…"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="field-modern"
         />
         <Button
+          variant="violet"
           type="button"
           onClick={onTeach}
           disabled={teach.isPending || !fact.trim()}
@@ -77,11 +78,11 @@ export function LearningPanel({ employeeId }: { employeeId: string }) {
       </div>
 
       {/* Memories list */}
-      <h3 className="mb-2 text-xs font-medium text-gray-500">
+      <h3 className="mb-2 text-xs font-medium text-zinc-500">
         What this employee has learned
       </h3>
       {(memories ?? []).length === 0 ? (
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-4 text-sm text-zinc-500">
           Nothing learned yet. Teach a fact or leave feedback in chat.
         </p>
       ) : (
@@ -89,18 +90,18 @@ export function LearningPanel({ employeeId }: { employeeId: string }) {
           {(memories ?? []).map((m) => (
             <li
               key={m.id}
-              className="flex items-start justify-between gap-3 rounded-md border border-gray-100 bg-gray-50 px-3 py-2"
+              className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2"
             >
               <div className="min-w-0">
-                <p className="break-words text-sm text-gray-800">{m.content}</p>
-                <p className="mt-0.5 text-xs text-gray-400">
+                <p className="break-words text-sm text-zinc-200">{m.content}</p>
+                <p className="mt-0.5 text-xs text-zinc-500">
                   {m.kind}
                   {m.source ? ` · ${SOURCE_LABELS[m.source] ?? m.source}` : ''}
                 </p>
               </div>
               <button
                 type="button"
-                className="shrink-0 text-xs text-gray-400 hover:text-red-600"
+                className="shrink-0 text-xs text-zinc-500 hover:text-red-400"
                 disabled={forget.isPending}
                 onClick={() => forget.mutate(m.id)}
               >
@@ -114,16 +115,16 @@ export function LearningPanel({ employeeId }: { employeeId: string }) {
       {/* Recent feedback */}
       {recent.length > 0 && (
         <>
-          <h3 className="mb-2 text-xs font-medium text-gray-500">
+          <h3 className="mb-2 text-xs font-medium text-zinc-500">
             Recent feedback
           </h3>
           <ul className="space-y-1">
             {recent.map((f) => (
               <li key={f.id} className="flex items-start gap-2 text-sm">
                 <span>{f.rating === 'UP' ? '👍' : '👎'}</span>
-                <span className="text-gray-600">
+                <span className="text-zinc-400">
                   {f.correction || f.note || (
-                    <span className="text-gray-400">(no note)</span>
+                    <span className="text-zinc-600">(no note)</span>
                   )}
                 </span>
               </li>

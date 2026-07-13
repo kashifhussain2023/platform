@@ -4,46 +4,65 @@ import Link from 'next/link';
 import { useUsage } from '../hooks';
 import { formatLimit, formatNumber } from '../labels';
 
+/** "Used / total" row with a progress bar — only meaningful when a real plan limit exists. */
+function UsageBar({ label, used, max }: { label: string; used: number; max: number | null }) {
+  const pct = max === null ? null : Math.min(100, (used / max) * 100);
+  const barColor = pct !== null && pct >= 70 ? 'bg-violet' : 'bg-green-500';
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <p className="text-sm text-zinc-400">{label}</p>
+        <p className="text-xs tabular-nums text-zinc-500">
+          {formatNumber(used)} / {formatLimit(max)}
+        </p>
+      </div>
+      {pct !== null && (
+        <div className="mt-2 h-2 rounded-full bg-white/[0.08]">
+          <div style={{ width: `${pct}%` }} className={`h-2 rounded-full ${barColor}`} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Plain count row for usage metrics that have no configured plan limit. */
+function UsageCount({ label, value, helper }: { label: string; value: number; helper?: string }) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <div>
+        <p className="text-sm text-zinc-400">{label}</p>
+        {helper && <p className="mt-0.5 text-xs text-zinc-600">{helper}</p>}
+      </div>
+      <p className="text-sm font-semibold tabular-nums text-white">{formatNumber(value)}</p>
+    </div>
+  );
+}
+
 /** Usage summary: employees vs limit (with soft over-limit hint), skills, tasks. */
 export function UsageSummary() {
   const { data: usage, isLoading } = useUsage();
 
   if (isLoading || !usage) {
-    return <p className="text-sm text-gray-500">Loading usage…</p>;
+    return (
+      <div className="flex h-full flex-col rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+        <p className="text-sm text-zinc-500">Loading usage…</p>
+      </div>
+    );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <p className="text-sm font-medium text-gray-500">AI employees</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 tabular-nums">
-            {formatNumber(usage.employees)}
-            <span className="text-sm font-normal text-gray-400">
-              {' '}
-              / {formatLimit(usage.maxEmployees)}
-            </span>
-          </p>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-gray-500">Installed skills</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 tabular-nums">
-            {formatNumber(usage.installedSkills)}
-          </p>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-gray-500">Tasks</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 tabular-nums">
-            {formatNumber(usage.tasks)}
-          </p>
-          <p className="mt-0.5 text-xs text-gray-400">
-            tools + messages + workflows
-          </p>
-        </div>
+    <div className="flex h-full flex-col rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+      <h2 className="text-base font-bold text-white">Usage This Month</h2>
+
+      <div className="mt-5 space-y-5">
+        <UsageBar label="AI Employees" used={usage.employees} max={usage.maxEmployees} />
+        <UsageCount label="Installed Skills" value={usage.installedSkills} />
+        <UsageCount label="Tasks" value={usage.tasks} helper="tools + messages + workflows" />
       </div>
 
       {usage.overEmployeeLimit && (
-        <div className="mt-4 flex items-center justify-between rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="mt-5 flex items-center justify-between gap-3 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-400">
           <span>
             You&rsquo;re over your plan&rsquo;s AI employee limit
             {usage.maxEmployees !== null
@@ -53,14 +72,14 @@ export function UsageSummary() {
           </span>
           <Link
             href="#plans"
-            className="font-semibold text-amber-900 underline underline-offset-2"
+            className="shrink-0 font-semibold text-amber-300 underline underline-offset-2"
           >
             Upgrade
           </Link>
         </div>
       )}
 
-      <p className="mt-4 text-xs text-gray-400">
+      <p className="mt-5 text-xs text-zinc-600">
         Token &amp; voice-minute metering is coming soon.
       </p>
     </div>

@@ -7,6 +7,9 @@ import { authorizeOAuth } from '../api';
 import { useConnectSkill, useDisconnectSkill } from '../hooks';
 import type { InstalledSkillDto, SkillDefinitionDto } from '../schemas';
 
+const outlinePill =
+  'rounded-xl border border-white/[0.12] bg-white/[0.03] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50';
+
 /**
  * Connect / disconnect control for an installed skill.
  * - `api_key` skills prompt inline for a secret key (stored in credentials).
@@ -48,35 +51,37 @@ export function ConnectSkillControl({
   const isTemp = installed.id.startsWith('temp_');
 
   if (type === 'none') {
-    return <span className="text-xs text-gray-400">No connection required</span>;
+    return <span className="text-xs text-zinc-500">No connection required</span>;
   }
 
   if (isConnected) {
     return (
-      <Button
-        variant="ghost"
+      <button
+        type="button"
         onClick={() => disconnect.mutate(installed.id)}
         disabled={isTemp || disconnect.isPending}
+        className={outlinePill}
       >
-        Disconnect
-      </Button>
+        {disconnect.isPending ? 'Disconnecting…' : 'Disconnect'}
+      </button>
     );
   }
 
   if (type === 'oauth') {
     return (
-      <div className="flex flex-col items-end gap-1">
-        <Button
-          variant="ghost"
+      <div className="flex flex-col items-start gap-1">
+        <button
+          type="button"
           onClick={startOAuth}
           disabled={isTemp || authorizing}
+          className={outlinePill}
         >
-          {authorizing ? 'Redirecting…' : def.connection?.label ?? 'Connect'}
-        </Button>
+          {authorizing ? 'Redirecting…' : (def.connection?.label ?? 'Connect')}
+        </button>
         {oauthError ? (
-          <span className="text-[10px] text-red-500">{oauthError}</span>
+          <span className="text-[10px] text-red-400">{oauthError}</span>
         ) : (
-          <span className="text-[10px] text-gray-400">OAuth</span>
+          <span className="text-[10px] text-zinc-600">OAuth</span>
         )}
       </div>
     );
@@ -85,25 +90,41 @@ export function ConnectSkillControl({
   // api_key
   if (!open) {
     return (
-      <Button variant="ghost" onClick={() => setOpen(true)} disabled={isTemp}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={isTemp}
+        className={outlinePill}
+      >
         {def.connection?.label ?? 'Connect'}
-      </Button>
+      </button>
     );
   }
 
+  // Slack's real executor reads `botToken` (or `webhookUrl`), not a generic
+  // `apiKey` — every other api_key skill here (stripe/github/email) is
+  // mock-only so the field name doesn't matter for them yet.
+  const isSlack = def.key === 'slack';
+
   return (
     <div className="flex items-center gap-2">
-      <input
-        type="password"
-        value={apiKey}
-        onChange={(e) => setApiKey(e.target.value)}
-        placeholder="API key"
-        className="w-40 rounded-md border border-gray-300 px-2 py-1 text-sm"
-      />
+      <div className="w-40">
+        <input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder={isSlack ? 'Bot token (xoxb-...)' : 'API key'}
+          className="field-modern"
+        />
+      </div>
       <Button
+        variant="violet"
         onClick={() =>
           connect.mutate(
-            { id: installed.id, data: { credentials: { apiKey } } },
+            {
+              id: installed.id,
+              data: { credentials: isSlack ? { botToken: apiKey } : { apiKey } },
+            },
             {
               onSuccess: () => {
                 setApiKey('');
@@ -114,7 +135,7 @@ export function ConnectSkillControl({
         }
         disabled={!apiKey || connect.isPending}
       >
-        Save
+        {connect.isPending ? 'Saving…' : 'Save'}
       </Button>
     </div>
   );

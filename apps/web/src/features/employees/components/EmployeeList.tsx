@@ -8,22 +8,22 @@ export function EmployeeList() {
   const { data: employees, isLoading } = useEmployees();
 
   if (isLoading) {
-    return <p className="text-sm text-gray-500">Loading employees…</p>;
+    return <p className="text-sm text-zinc-500">Loading employees…</p>;
   }
 
   if (!employees || employees.length === 0) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-zinc-500">
         No employees yet. Hire one above to get started.
       </p>
     );
   }
 
   return (
-    <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {employees.map((employee) => (
         <EmployeeCard key={employee.id} employee={employee} />
       ))}
-    </ul>
+    </div>
   );
 }

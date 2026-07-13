@@ -1,0 +1,293 @@
+{
+  "project": {
+    "name": "V-AEP",
+    "title": "Vertical AI Employee Platform",
+    "designStyle": "Modern Enterprise SaaS",
+    "inspiration": [
+      "Airbnb",
+      "Adobe",
+      "Linear",
+      "Vercel",
+      "Stripe",
+      "OpenAI",
+      "Notion",
+      "Framer",
+      "Arc Browser",
+      "Apple"
+    ]
+  },
+
+  "theme": {
+    "mode": "dark",
+    "borderRadius": "24px",
+    "glassmorphism": true,
+    "animations": true,
+    "blur": true
+  },
+
+  "colors": {
+    "primary": "#7C3AED",
+    "primaryHover": "#8B5CF6",
+    "secondary": "#A855F7",
+    "accent": "#9333EA",
+
+    "background": {
+      "main": "#05060A",
+      "section": "#0B0B13",
+      "card": "#111118",
+      "cardHover": "#171723"
+    },
+
+    "text": {
+      "heading": "#FFFFFF",
+      "body": "#A1A1AA",
+      "muted": "#71717A"
+    },
+
+    "status": {
+      "success": "#22C55E",
+      "warning": "#F59E0B",
+      "danger": "#EF4444",
+      "info": "#3B82F6"
+    },
+
+    "border": "rgba(255,255,255,0.08)"
+  },
+
+  "gradients": {
+    "hero": "linear-gradient(180deg,#05060A 0%,#0B0B13 60%,#05060A 100%)",
+    "cta": "linear-gradient(135deg,#7C3AED,#9333EA)",
+    "purpleGlow": "radial-gradient(circle,rgba(124,58,237,.35),transparent 70%)"
+  },
+
+  "typography": {
+    "headingFont": "Satoshi",
+    "bodyFont": "Inter",
+    "buttonFont": "Inter",
+
+    "fontWeights": {
+      "hero": 900,
+      "heading": 700,
+      "button": 600,
+      "body": 400
+    },
+
+    "sizes": {
+      "hero": "72px",
+      "sectionHeading": "52px",
+      "subHeading": "24px",
+      "cardTitle": "24px",
+      "body": "18px",
+      "small": "16px",
+      "caption": "14px"
+    }
+  },
+
+  "layout": {
+    "container": "1440px",
+    "content": "1280px",
+    "padding": "120px 80px",
+    "grid": {
+      "columns": 12,
+      "gap": "32px"
+    }
+  },
+
+  "navigation": {
+    "height": "88px",
+    "sticky": true,
+    "transparent": true,
+    "glassOnScroll": true
+  },
+
+  "buttons": {
+    "primary": {
+      "background": "#7C3AED",
+      "text": "#FFFFFF",
+      "radius": "16px"
+    },
+    "secondary": {
+      "background": "rgba(255,255,255,0.04)",
+      "border": "rgba(255,255,255,0.08)",
+      "radius": "16px"
+    },
+    "ghost": {
+      "background": "transparent",
+      "text": "#FFFFFF"
+    }
+  },
+
+  "cards": {
+    "background": "rgba(255,255,255,0.03)",
+    "border": "rgba(255,255,255,0.08)",
+    "radius": "24px",
+    "blur": "18px",
+    "shadow": "0 10px 40px rgba(0,0,0,.45)"
+  },
+
+  "icons": {
+    "library": "Lucide",
+    "style": "Outline",
+    "stroke": 2,
+    "sizes": [20, 24, 32]
+  },
+
+  "animations": {
+    "library": "Framer Motion",
+    "hero": {
+      "effect": "fade-up",
+      "duration": "0.6s"
+    },
+    "cards": {
+      "effect": "stagger",
+      "delay": "100ms"
+    },
+    "buttons": {
+      "hover": "scale(1.03)"
+    },
+    "dashboard": {
+      "effect": "parallax"
+    },
+    "glow": {
+      "effect": "pulse"
+    }
+  },
+
+  "homepage": {
+    "sections": [
+      {
+        "id": "hero",
+        "title": "Hero Section",
+        "components": [
+          "Announcement Badge",
+          "Headline",
+          "Description",
+          "Primary CTA",
+          "Secondary CTA",
+          "3D AI Head",
+          "Floating AI Employee Cards"
+        ]
+      },
+      {
+        "id": "companies",
+        "title": "Trusted Companies",
+        "logos": [
+          "Microsoft",
+          "Google",
+          "Airbnb",
+          "HubSpot",
+          "Stripe",
+          "Notion"
+        ]
+      },
+      {
+        "id": "stats",
+        "items": [
+          "12+ AI Employees",
+          "500+ Integrations",
+          "98.6% Success Rate",
+          "300+ Hours Saved"
+        ]
+      },
+      {
+        "id": "platform",
+        "title": "AI Workforce Platform",
+        "components": [
+          "Dashboard Preview",
+          "Feature List",
+          "Analytics",
+          "Charts"
+        ]
+      },
+      {
+        "id": "workflow",
+        "title": "Workflow Builder",
+        "flow": [
+          "Trigger",
+          "Knowledge",
+          "AI Step",
+          "Condition",
+          "Approval",
+          "Slack",
+          "Email",
+          "Notify"
+        ]
+      },
+      {
+        "id": "employees",
+        "roles": [
+          "AI Recruiter",
+          "AI Sales",
+          "AI HR",
+          "AI Support",
+          "AI Accountant",
+          "AI Marketing",
+          "AI Project Manager",
+          "AI Legal"
+        ]
+      },
+      {
+        "id": "skills",
+        "title": "Integrations",
+        "items": [
+          "Slack",
+          "Gmail",
+          "Google Drive",
+          "HubSpot",
+          "Salesforce",
+          "GitHub",
+          "Jira",
+          "Stripe",
+          "WhatsApp",
+          "Notion"
+        ]
+      },
+      {
+        "id": "knowledge",
+        "title": "Knowledge Brain",
+        "flow": [
+          "Upload",
+          "Chunk",
+          "Embedding",
+          "Vector Search",
+          "AI Response"
+        ]
+      },
+      {
+        "id": "security",
+        "items": [
+          "SOC2",
+          "GDPR",
+          "RBAC",
+          "Audit Logs",
+          "Encryption"
+        ]
+      },
+      {
+        "id": "testimonials"
+      },
+      {
+        "id": "pricing"
+      },
+      {
+        "id": "faq"
+      },
+      {
+        "id": "cta"
+      },
+      {
+        "id": "footer"
+      }
+    ]
+  },
+
+  "techStack": {
+    "frontend": "Next.js 15",
+    "ui": "Tailwind CSS v4",
+    "components": "shadcn/ui",
+    "animations": "Framer Motion",
+    "icons": "Lucide React",
+    "charts": "Recharts",
+    "3d": "React Three Fiber"
+  }
+}

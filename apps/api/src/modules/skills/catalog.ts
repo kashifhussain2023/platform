@@ -20,7 +20,7 @@ const CATALOG: readonly SkillDefinition[] = [
     name: 'Slack',
     description: 'Post messages to Slack channels on behalf of the employee.',
     category: 'communication',
-    connection: { type: 'api_key', label: 'Connect Slack' },
+    connection: { type: 'oauth', label: 'Connect Slack' },
     configSchema: [
       {
         key: 'defaultChannel',
@@ -189,13 +189,28 @@ const CATALOG: readonly SkillDefinition[] = [
           required: ['repo', 'title', 'body'],
         },
       },
+      {
+        // No real executor case exists for this (intentional — revoking a real
+        // person's org access is a destructive, hard-to-reverse action on a
+        // live external system). Always falls through to the mock executor.
+        name: 'remove_collaborator',
+        description: 'Remove a collaborator\'s access to a repository (simulated — no live GitHub call is made).',
+        parameters: {
+          type: 'object',
+          properties: {
+            repo: { type: 'string', description: 'Repository in owner/name form, e.g. octo/hello.' },
+            username: { type: 'string', description: 'GitHub username to remove.' },
+          },
+          required: ['repo', 'username'],
+        },
+      },
     ],
   },
   {
     key: 'http',
     name: 'HTTP',
     description:
-      'Make outbound HTTP requests. MOCK ONLY — never makes a real network call.',
+      'Make outbound HTTP requests (real, SSRF-guarded — blocks private/internal hosts).',
     category: 'utility',
     connection: { type: 'none' },
     configSchema: [
@@ -381,13 +396,14 @@ const CATALOG: readonly SkillDefinition[] = [
     tools: [
       {
         name: 'create_event',
-        description: 'Create a calendar event.',
+        description: 'Create a calendar event, optionally with a real Google Meet video link.',
         parameters: {
           type: 'object',
           properties: {
             title: { type: 'string', description: 'Event title.' },
             start: { type: 'string', description: 'ISO start datetime.' },
             end: { type: 'string', description: 'ISO end datetime.' },
+            addMeetLink: { type: 'boolean', description: 'Auto-generate a real Google Meet join link for this event.' },
           },
           required: ['title', 'start'],
         },
@@ -440,6 +456,69 @@ const CATALOG: readonly SkillDefinition[] = [
             name: { type: 'string', description: 'File name to read.' },
           },
           required: ['name'],
+        },
+      },
+      {
+        name: 'create_folder',
+        description: 'Create a folder in Google Drive (nested under an optional parent folder).',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Folder name.' },
+            parent: { type: 'string', description: 'Parent folder name (created if missing); default: root folder.' },
+          },
+          required: ['name'],
+        },
+      },
+      {
+        name: 'move_file',
+        description: 'Move a file (by name) into a destination folder (by name, created if missing).',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'File name to move.' },
+            toFolder: { type: 'string', description: 'Destination folder name.' },
+          },
+          required: ['name', 'toFolder'],
+        },
+      },
+    ],
+  },
+  {
+    // Internal capability, not a third-party integration — no OAuth/API key
+    // (connection: 'none', like http). Backs bulk-hiring interview scheduling:
+    // atomically claims the next open slot from the company's InterviewSlot
+    // pool (see modules/scheduling) so concurrent candidate workflow runs
+    // never double-book the same interview time.
+    key: 'scheduling',
+    name: 'Interview Scheduling',
+    description: 'Claim the next available interview slot from the company\'s bookable pool and create the real Calendar event (+ Meet link) for it.',
+    category: 'productivity',
+    connection: { type: 'none' },
+    configSchema: [],
+    tools: [
+      {
+        name: 'claim_slot',
+        description: 'Atomically claim the next open interview slot for a candidate; creates the real Calendar event + Meet link and skips any slot that conflicts with the real calendar.',
+        parameters: {
+          type: 'object',
+          properties: {
+            candidateEmail: { type: 'string', description: 'Candidate email the slot is booked for.' },
+            title: { type: 'string', description: 'Calendar event title (default: "Interview — <email>").' },
+          },
+          required: ['candidateEmail'],
+        },
+      },
+      {
+        name: 'reschedule_slot',
+        description: "Reschedule an already-booked interview: deletes the old Calendar event, cancels the old slot, and claims + schedules a new one for the same candidate.",
+        parameters: {
+          type: 'object',
+          properties: {
+            slotId: { type: 'string', description: 'The BOOKED InterviewSlot id to reschedule.' },
+            title: { type: 'string', description: 'Calendar event title for the new slot.' },
+          },
+          required: ['slotId'],
         },
       },
     ],

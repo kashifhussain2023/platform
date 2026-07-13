@@ -176,6 +176,7 @@ model Company {
   departments        Department[]
   teams              Team[]
   securityPolicy     SecurityPolicy?
+  interviewSlots     InterviewSlot[]
 }
 
 model User {
@@ -644,4 +645,39 @@ model CanonicalEvent {
 
   @@unique([companyId, dedupeKey])
   @@index([companyId, type])
+}
+
+// --- Interview scheduling (bulk-hiring slot management) --------------------
+// A company-wide pool of bookable interview slots (single shared calendar for
+// now — see docs/interview-scheduling.md). Bulk-generated ahead of time via
+// SchedulingService; a workflow's TOOL_ACTION (skillKey 'scheduling', tool
+// 'claim_slot') atomically claims the next OPEN one per candidate, so
+// concurrent candidate workflow runs never double-book the same slot.
+
+enum SlotStatus {
+  OPEN
+  BOOKED
+  CANCELLED
+}
+
+model InterviewSlot {
+  id         String     @id @default(cuid())
+  companyId  String
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  start      DateTime
+  end        DateTime
+  status     SlotStatus @default(OPEN)
+  // Set when claimed: who it was booked for + which workflow run claimed it.
+  bookedFor       String?
+  workflowRunId   String?
+  // Set once the real Google Calendar event is created for this booking —
+  // needed to delete/replace it on reschedule (see SchedulingService.reschedule).
+  calendarEventId String?
+  meetLink        String?
+  // Why a slot was cancelled without ever being booked (e.g. "holiday",
+  // "google-calendar-conflict", "rescheduled") — null for a plain booked-then-cancelled slot.
+  cancelReason    String?
+  createdAt  DateTime   @default(now())
+
+  @@index([companyId, status, start])
 }

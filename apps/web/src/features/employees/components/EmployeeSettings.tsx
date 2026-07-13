@@ -14,7 +14,9 @@ import {
   type KpiTargets,
 } from '../schemas';
 
-const inputClass = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
+const inputClass = 'field-modern';
+const secondaryBtnClass =
+  'rounded-xl border border-white/[0.12] bg-white/[0.03] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50';
 
 /** Turn a stored record into a full {key: boolean} map for the checkboxes. */
 function toFlags(
@@ -118,21 +120,21 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
   });
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-medium text-gray-500">Employee settings</h2>
+    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+      <h2 className="mb-4 text-sm font-medium text-white">Employee settings</h2>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="s-name" className="mb-1 block text-sm font-medium">
+            <label htmlFor="s-name" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Name
             </label>
             <input id="s-name" className={inputClass} {...register('name')} />
             {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+              <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>
             )}
           </div>
           <div>
-            <label htmlFor="s-department" className="mb-1 block text-sm font-medium">
+            <label htmlFor="s-department" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Department
             </label>
             <input
@@ -142,7 +144,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
             />
           </div>
           <div>
-            <label htmlFor="s-manager" className="mb-1 block text-sm font-medium">
+            <label htmlFor="s-manager" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Manager
             </label>
             <input
@@ -152,7 +154,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
             />
           </div>
           <div>
-            <label htmlFor="s-language" className="mb-1 block text-sm font-medium">
+            <label htmlFor="s-language" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Language
             </label>
             <input
@@ -163,7 +165,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
             />
           </div>
           <div>
-            <label htmlFor="s-start" className="mb-1 block text-sm font-medium">
+            <label htmlFor="s-start" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Working hours start
             </label>
             <input
@@ -174,7 +176,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
             />
           </div>
           <div>
-            <label htmlFor="s-end" className="mb-1 block text-sm font-medium">
+            <label htmlFor="s-end" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Working hours end
             </label>
             <input
@@ -185,7 +187,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
             />
           </div>
           <div>
-            <label htmlFor="s-timezone" className="mb-1 block text-sm font-medium">
+            <label htmlFor="s-timezone" className="mb-1.5 block text-sm font-medium text-zinc-300">
               Time zone
             </label>
             <input
@@ -198,7 +200,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
           <div>
             <label
               htmlFor="s-knowledge"
-              className="mb-1 block text-sm font-medium"
+              className="mb-1.5 block text-sm font-medium text-zinc-300"
             >
               Knowledge access
             </label>
@@ -215,8 +217,8 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
             </select>
           </div>
           <div>
-            <label htmlFor="s-budget" className="mb-1 block text-sm font-medium">
-              Budget limit <span className="text-gray-400">(optional)</span>
+            <label htmlFor="s-budget" className="mb-1.5 block text-sm font-medium text-zinc-300">
+              Budget limit <span className="text-zinc-500">(optional)</span>
             </label>
             <input
               id="s-budget"
@@ -229,7 +231,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
               })}
             />
             {errors.budgetLimit && (
-              <p className="mt-1 text-sm text-red-600">
+              <p className="mt-1 text-sm text-red-400">
                 {errors.budgetLimit.message}
               </p>
             )}
@@ -237,20 +239,20 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
         </div>
 
         {/* Goals (P1 #6): a free-form list of objectives (add/remove). */}
-        <fieldset className="rounded-md border border-gray-200 p-4">
-          <legend className="px-1 text-xs font-medium text-gray-500">Goals</legend>
+        <fieldset className="rounded-xl border border-white/[0.07] p-4">
+          <legend className="px-1 text-xs font-medium text-zinc-500">Goals</legend>
           {goals.length > 0 ? (
             <ul className="mb-3 space-y-2">
               {goals.map((g, i) => (
                 <li
                   key={`${g}-${i}`}
-                  className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-3 py-2 text-sm"
                 >
-                  <span className="text-gray-800">{g}</span>
+                  <span className="text-zinc-200">{g}</span>
                   <button
                     type="button"
                     onClick={() => removeGoal(i)}
-                    className="text-xs font-medium text-red-600 hover:underline"
+                    className="text-xs font-medium text-red-400 hover:text-red-300 hover:underline"
                   >
                     Remove
                   </button>
@@ -258,7 +260,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
               ))}
             </ul>
           ) : (
-            <p className="mb-3 text-sm text-gray-400">No goals yet.</p>
+            <p className="mb-3 text-sm text-zinc-500">No goals yet.</p>
           )}
           <div className="flex items-center gap-2">
             <input
@@ -274,25 +276,25 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
                 }
               }}
             />
-            <Button type="button" variant="ghost" onClick={addGoal}>
+            <button type="button" className={secondaryBtnClass} onClick={addGoal}>
               Add
-            </Button>
+            </button>
           </div>
           {errors.goals && (
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 text-sm text-red-400">
               {errors.goals.message ?? 'Invalid goals'}
             </p>
           )}
         </fieldset>
 
         {/* KPI targets (P1 #6): drive the actual-vs-target attainment in analytics. */}
-        <fieldset className="rounded-md border border-gray-200 p-4">
-          <legend className="px-1 text-xs font-medium text-gray-500">
+        <fieldset className="rounded-xl border border-white/[0.07] p-4">
+          <legend className="px-1 text-xs font-medium text-zinc-500">
             KPI targets
           </legend>
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <label htmlFor="k-tasks" className="mb-1 block text-sm font-medium">
+              <label htmlFor="k-tasks" className="mb-1.5 block text-sm font-medium text-zinc-300">
                 Tasks / week
               </label>
               <input
@@ -308,7 +310,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
               />
             </div>
             <div>
-              <label htmlFor="k-success" className="mb-1 block text-sm font-medium">
+              <label htmlFor="k-success" className="mb-1.5 block text-sm font-medium text-zinc-300">
                 Success rate %
               </label>
               <input
@@ -325,7 +327,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
               />
             </div>
             <div>
-              <label htmlFor="k-approvals" className="mb-1 block text-sm font-medium">
+              <label htmlFor="k-approvals" className="mb-1.5 block text-sm font-medium text-zinc-300">
                 Max pending approvals
               </label>
               <input
@@ -341,20 +343,21 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
               />
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-2 text-xs text-zinc-500">
             Attainment (actual vs target) is shown on the analytics dashboard.
           </p>
         </fieldset>
 
-        <fieldset className="rounded-md border border-gray-200 p-4">
-          <legend className="px-1 text-xs font-medium text-gray-500">
+        <fieldset className="rounded-xl border border-white/[0.07] p-4">
+          <legend className="px-1 text-xs font-medium text-zinc-500">
             Permissions
           </legend>
           <div className="grid gap-2 sm:grid-cols-2">
             {PERMISSION_OPTIONS.map((p) => (
-              <label key={p.key} className="flex items-center gap-2 text-sm">
+              <label key={p.key} className="flex items-center gap-2 text-sm text-zinc-300">
                 <input
                   type="checkbox"
+                  className="h-4 w-4 rounded border-white/20 bg-white/5 accent-[#6a30ec]"
                   {...register(`permissions.${p.key}` as const)}
                 />
                 {p.label}
@@ -363,15 +366,16 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
           </div>
         </fieldset>
 
-        <fieldset className="rounded-md border border-gray-200 p-4">
-          <legend className="px-1 text-xs font-medium text-gray-500">
+        <fieldset className="rounded-xl border border-white/[0.07] p-4">
+          <legend className="px-1 text-xs font-medium text-zinc-500">
             Approval rules
           </legend>
           <div className="grid gap-2 sm:grid-cols-2">
             {APPROVAL_RULE_OPTIONS.map((a) => (
-              <label key={a.key} className="flex items-center gap-2 text-sm">
+              <label key={a.key} className="flex items-center gap-2 text-sm text-zinc-300">
                 <input
                   type="checkbox"
+                  className="h-4 w-4 rounded border-white/20 bg-white/5 accent-[#6a30ec]"
                   {...register(`approvalRules.${a.key}` as const)}
                 />
                 {a.label}
@@ -381,17 +385,17 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
         </fieldset>
 
         {update.isError && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-red-400">
             {update.error?.message ?? 'Could not save settings'}
           </p>
         )}
 
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={update.isPending || !isDirty}>
+          <Button variant="violet" type="submit" disabled={update.isPending || !isDirty}>
             {update.isPending ? 'Saving…' : 'Save settings'}
           </Button>
           {update.isSuccess && !update.isPending && (
-            <span className="text-sm text-green-600">Saved.</span>
+            <span className="text-sm text-green-400">Saved.</span>
           )}
         </div>
       </form>

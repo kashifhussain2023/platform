@@ -3,9 +3,20 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
-import { Button } from '@/components/ui/Button';
+import { Mail } from 'lucide-react';
+import {
+  AuthButton,
+  AuthCheckbox,
+  AuthLink,
+  Divider,
+  IconInput,
+  PasswordInput,
+  SocialRow,
+} from '@/components/auth/fields';
 import { useLogin } from '../hooks';
 import { loginSchema, type LoginDto } from '../schemas';
+
+const labelClass = 'mb-1.5 block text-sm font-medium text-zinc-300';
 
 export function LoginForm() {
   const router = useRouter();
@@ -22,60 +33,57 @@ export function LoginForm() {
   const onSubmit = handleSubmit(async (values) => {
     try {
       const result = await login.mutateAsync(values);
-      // Route by onboarding state: unfinished tenants go to the wizard.
       router.push(result.company.onboardedAt ? '/dashboard' : '/onboarding');
     } catch {
-      // Error is surfaced below via `login.error`.
+      // surfaced below via login.error
     }
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium">
-          Email
+        <label htmlFor="email" className={labelClass}>
+          Email address
         </label>
-        <input
+        <IconInput
           id="email"
+          icon={Mail}
           type="email"
           autoComplete="email"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          placeholder="you@example.com"
           {...register('email')}
         />
-        {errors.email && (
-          <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="mt-1.5 text-sm text-red-400">{errors.email.message}</p>}
       </div>
 
       <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium">
+        <label htmlFor="password" className={labelClass}>
           Password
         </label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="current-password"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          placeholder="Enter your password"
           {...register('password')}
         />
-        {errors.password && (
-          <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-        )}
+        {errors.password && <p className="mt-1.5 text-sm text-red-400">{errors.password.message}</p>}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <AuthCheckbox label="Remember me" />
+        <AuthLink href="/forgot-password">Forgot password?</AuthLink>
       </div>
 
       {login.isError && (
-        <p className="text-sm text-red-600">
-          {login.error?.message ?? 'Login failed'}
-        </p>
+        <p className="text-sm text-red-400">{login.error?.message ?? 'Login failed'}</p>
       )}
 
-      <Button
-        type="submit"
-        className="w-full"
-        disabled={isSubmitting || login.isPending}
-      >
-        {login.isPending ? 'Signing in…' : 'Sign in'}
-      </Button>
+      <AuthButton type="submit" disabled={isSubmitting || login.isPending}>
+        {login.isPending ? 'Signing in…' : 'Sign In'}
+      </AuthButton>
+
+      <Divider label="or continue with" />
+      <SocialRow />
     </form>
   );
 }

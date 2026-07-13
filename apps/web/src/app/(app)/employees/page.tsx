@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { UserPlus } from 'lucide-react';
+import { AppShell } from '@/components/app-shell/AppShell';
+import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
+import { buttonClasses } from '@/components/ui/Button';
 import { EmployeeForm } from '@/features/employees/components/EmployeeForm';
 import { EmployeeList } from '@/features/employees/components/EmployeeList';
 import { useSessionStore } from '@/stores/session.store';
@@ -10,6 +13,7 @@ import { useSessionStore } from '@/stores/session.store';
 export default function EmployeesPage() {
   const router = useRouter();
   const accessToken = useSessionStore((s) => s.accessToken);
+  const shellProps = useAppShellProps();
 
   // Client-side route guard, same pattern as the knowledge page.
   useEffect(() => {
@@ -23,26 +27,25 @@ export default function EmployeesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
-      <header className="mb-8 flex items-center justify-between">
+    <AppShell {...shellProps}>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4 pt-2">
         <div>
-          <p className="text-sm text-gray-500">AI workforce</p>
-          <h1 className="text-2xl font-semibold">Employees</h1>
+          <p className="text-sm text-zinc-500">AI workforce</p>
+          <h1 className="text-2xl font-bold text-white">AI Employees</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <Link href="/skills" className="text-sm font-medium text-brand-700">
-            Skills
-          </Link>
-          <Link href="/dashboard" className="text-sm font-medium text-brand-700">
-            ← Dashboard
-          </Link>
-        </div>
-      </header>
-
-      <div className="space-y-6">
-        <EmployeeForm />
-        <EmployeeList />
+        <a href="#hire-employee" className={buttonClasses('violet')}>
+          <UserPlus className="h-4 w-4" />
+          New employee
+        </a>
       </div>
-    </main>
+
+      <div className="space-y-8">
+        <EmployeeForm />
+        <div>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">Your roster</h2>
+          <EmployeeList />
+        </div>
+      </div>
+    </AppShell>
   );
 }

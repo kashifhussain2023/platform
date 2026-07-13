@@ -1,26 +1,27 @@
 import type { SkillCategory, SkillConnectionStatus } from '@vaep/types';
 
-/** Tailwind classes for the category badge, keyed by category. */
+/** Tailwind classes for the category badge, keyed by category (dark theme). */
 export const CATEGORY_STYLES: Record<SkillCategory, string> = {
-  communication: 'bg-blue-100 text-blue-700',
-  payments: 'bg-purple-100 text-purple-700',
-  development: 'bg-gray-200 text-gray-700',
-  utility: 'bg-teal-100 text-teal-700',
-  crm: 'bg-amber-100 text-amber-700',
-  productivity: 'bg-green-100 text-green-700',
+  communication: 'bg-blue-500/15 text-blue-400',
+  payments: 'bg-purple-500/15 text-purple-400',
+  development: 'bg-zinc-500/20 text-zinc-300',
+  utility: 'bg-teal-500/15 text-teal-400',
+  crm: 'bg-amber-500/15 text-amber-400',
+  productivity: 'bg-green-500/15 text-green-400',
 };
 
-/** "communication" → "Communication". */
+/** "communication" → "Communication" ("crm" → "CRM"). */
 export function formatCategory(category: SkillCategory): string {
+  if (category === 'crm') return 'CRM';
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
-/** Tailwind classes for the connection/health-status badge. */
+/** Tailwind classes for the connection/health-status badge (dark theme). */
 export const CONNECTION_STATUS_STYLES: Record<SkillConnectionStatus, string> = {
-  CONNECTED: 'bg-green-100 text-green-700',
-  NOT_CONNECTED: 'bg-gray-100 text-gray-500',
-  DEGRADED: 'bg-amber-100 text-amber-700',
-  DISCONNECTED: 'bg-red-100 text-red-700',
+  CONNECTED: 'bg-green-500/15 text-green-400',
+  NOT_CONNECTED: 'bg-white/[0.06] text-zinc-400',
+  DEGRADED: 'bg-amber-500/15 text-amber-400',
+  DISCONNECTED: 'bg-red-500/15 text-red-400',
 };
 
 /** Human label for a connection/health status, e.g. "NOT_CONNECTED" → "Not connected". */

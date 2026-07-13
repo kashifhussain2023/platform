@@ -19,7 +19,11 @@ import {
   type TeamDto,
 } from '../schemas';
 
-const inputClass = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
+const secondaryBtnClass =
+  'rounded-lg border border-white/[0.12] bg-white/[0.03] px-3.5 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50';
+const dangerBtnClass =
+  'rounded-lg border border-white/[0.12] bg-white/[0.03] px-3.5 py-1.5 text-sm font-medium text-red-400 transition-colors hover:border-red-400/40 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50';
+const labelClass = 'mb-1 block text-sm font-medium text-zinc-300';
 
 /** '' (no selection) → null so the nullable schema/API accept "no department". */
 const toDeptId = (v: unknown): string | null =>
@@ -58,13 +62,13 @@ function TeamRow({
       <li className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center">
         <input
           aria-label={`Name for ${team.name}`}
-          className={inputClass}
+          className="field-modern sm:max-w-xs"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <select
           aria-label={`Department for ${team.name}`}
-          className={inputClass}
+          className="field-modern sm:max-w-xs"
           value={departmentId}
           onChange={(e) => setDepartmentId(e.target.value)}
         >
@@ -76,12 +80,12 @@ function TeamRow({
           ))}
         </select>
         <div className="flex shrink-0 gap-2">
-          <Button type="button" onClick={save} disabled={update.isPending}>
+          <Button type="button" variant="violet" onClick={save} disabled={update.isPending}>
             {update.isPending ? 'Saving…' : 'Save'}
           </Button>
-          <Button
+          <button
             type="button"
-            variant="ghost"
+            className={secondaryBtnClass}
             onClick={() => {
               setName(team.name);
               setDepartmentId(team.departmentId ?? '');
@@ -89,7 +93,7 @@ function TeamRow({
             }}
           >
             Cancel
-          </Button>
+          </button>
         </div>
       </li>
     );
@@ -98,20 +102,19 @@ function TeamRow({
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-3">
       <div>
-        <div className="font-medium text-gray-900">{team.name}</div>
-        <div className="text-xs text-gray-500">
-          {deptName ? deptName : <span className="text-gray-400">No department</span>}
+        <div className="font-medium text-white">{team.name}</div>
+        <div className="text-xs text-zinc-500">
+          {deptName ? deptName : <span className="text-zinc-600">No department</span>}
         </div>
       </div>
       {canManage && (
         <div className="flex shrink-0 gap-2">
-          <Button type="button" variant="ghost" onClick={() => setEditing(true)}>
+          <button type="button" className={secondaryBtnClass} onClick={() => setEditing(true)}>
             Edit
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
-            variant="ghost"
-            className="text-red-600 hover:bg-red-50"
+            className={dangerBtnClass}
             disabled={del.isPending}
             onClick={() => {
               if (
@@ -124,7 +127,7 @@ function TeamRow({
             }}
           >
             Remove
-          </Button>
+          </button>
         </div>
       )}
     </li>
@@ -159,33 +162,33 @@ export function TeamSection() {
   const rows = teams ?? [];
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-medium text-gray-500">Teams</h2>
+    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+      <h2 className="mb-4 text-sm font-medium text-zinc-400">Teams</h2>
 
       {canManage && (
         <form onSubmit={onSubmit} className="mb-4 space-y-3" noValidate>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor="team-name" className="mb-1 block text-sm font-medium">
+              <label htmlFor="team-name" className={labelClass}>
                 Name
               </label>
               <input
                 id="team-name"
-                className={inputClass}
+                className="field-modern"
                 placeholder="e.g. Platform"
                 {...register('name')}
               />
               {errors.name && (
-                <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+                <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>
               )}
             </div>
             <div>
-              <label htmlFor="team-dept" className="mb-1 block text-sm font-medium">
-                Department <span className="text-gray-400">(optional)</span>
+              <label htmlFor="team-dept" className={labelClass}>
+                Department <span className="text-zinc-500">(optional)</span>
               </label>
               <select
                 id="team-dept"
-                className={inputClass}
+                className="field-modern"
                 {...register('departmentId', { setValueAs: toDeptId })}
               >
                 <option value="">No department</option>
@@ -198,26 +201,26 @@ export function TeamSection() {
             </div>
           </div>
           {create.isError && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-400">
               {create.error?.message ?? 'Could not add team'}
             </p>
           )}
-          <Button type="submit" disabled={create.isPending}>
+          <Button type="submit" variant="violet" disabled={create.isPending}>
             {create.isPending ? 'Adding…' : 'Add team'}
           </Button>
         </form>
       )}
 
       {isLoading ? (
-        <p className="text-sm text-gray-500">Loading teams…</p>
+        <p className="text-sm text-zinc-500">Loading teams…</p>
       ) : isError ? (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-red-400">
           {error?.message ?? 'Could not load teams'}
         </p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-400">No teams yet.</p>
+        <p className="text-sm text-zinc-500">No teams yet.</p>
       ) : (
-        <ul className="divide-y divide-gray-100 rounded-md border border-gray-200">
+        <ul className="divide-y divide-white/[0.06] rounded-xl border border-white/[0.07]">
           {rows.map((t) => (
             <TeamRow key={t.id} team={t} departments={depts} canManage={canManage} />
           ))}

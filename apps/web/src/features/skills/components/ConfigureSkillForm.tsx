@@ -6,8 +6,6 @@ import { useConfigureSkill } from '../hooks';
 import { configureSkillSchema } from '../schemas';
 import type { ConfigFieldDto, InstalledSkillDto, SkillDefinitionDto } from '../schemas';
 
-const inputClass = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm';
-
 /** Initial value for a field from the stored config (secrets stay blank). */
 function initial(field: ConfigFieldDto, config: Record<string, unknown> | null) {
   if (field.secret) return field.type === 'boolean' ? false : '';
@@ -63,13 +61,13 @@ export function ConfigureSkillForm({
 
   if (fields.length === 0) {
     return (
-      <p className="text-xs text-gray-500">This skill has no configuration.</p>
+      <p className="text-xs text-zinc-500">This skill has no configuration.</p>
     );
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3" noValidate>
-      <div className="grid gap-3 sm:grid-cols-2">
+    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      <div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => {
           const id = `cfg-${installed.id}-${field.key}`;
           return (
@@ -78,26 +76,31 @@ export function ConfigureSkillForm({
               className={field.type === 'textarea' ? 'sm:col-span-2' : ''}
             >
               {field.type === 'boolean' ? (
-                <label htmlFor={id} className="flex items-center gap-2 text-sm">
-                  <input id={id} type="checkbox" {...register(field.key)} />
+                <label htmlFor={id} className="flex items-center gap-2 text-sm text-zinc-300">
+                  <input
+                    id={id}
+                    type="checkbox"
+                    className="h-4 w-4 accent-violet"
+                    {...register(field.key)}
+                  />
                   {field.label}
                 </label>
               ) : (
                 <>
-                  <label htmlFor={id} className="mb-1 block text-sm font-medium">
+                  <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-zinc-300">
                     {field.label}
-                    {field.required && <span className="text-red-500"> *</span>}
+                    {field.required && <span className="text-red-400"> *</span>}
                   </label>
                   {field.type === 'textarea' ? (
                     <textarea
                       id={id}
-                      className={inputClass}
+                      className="field-modern"
                       rows={3}
                       placeholder={field.placeholder}
                       {...register(field.key)}
                     />
                   ) : field.type === 'select' ? (
-                    <select id={id} className={inputClass} {...register(field.key)}>
+                    <select id={id} className="field-modern" {...register(field.key)}>
                       <option value="">Select…</option>
                       {(field.options ?? []).map((o) => (
                         <option key={o} value={o}>
@@ -115,7 +118,7 @@ export function ConfigureSkillForm({
                             ? 'number'
                             : 'text'
                       }
-                      className={inputClass}
+                      className="field-modern"
                       placeholder={field.placeholder}
                       {...register(field.key)}
                     />
@@ -123,7 +126,7 @@ export function ConfigureSkillForm({
                 </>
               )}
               {field.help && (
-                <p className="mt-1 text-xs text-gray-400">{field.help}</p>
+                <p className="mt-1 text-xs text-zinc-500">{field.help}</p>
               )}
             </div>
           );
@@ -131,17 +134,17 @@ export function ConfigureSkillForm({
       </div>
 
       {configure.isError && (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-red-400">
           {configure.error?.message ?? 'Could not save configuration'}
         </p>
       )}
 
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={configure.isPending}>
+        <Button type="submit" variant="violet" disabled={configure.isPending}>
           {configure.isPending ? 'Saving…' : 'Save configuration'}
         </Button>
         {configure.isSuccess && !configure.isPending && (
-          <span className="text-sm text-green-600">Saved.</span>
+          <span className="text-sm text-green-400">Saved.</span>
         )}
       </div>
     </form>

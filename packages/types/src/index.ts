@@ -1840,3 +1840,72 @@ export interface DlqSummaryEntryDto {
   /** Failed jobs belonging to the company in this queue. */
   failed: number;
 }
+
+// ---------------------------------------------------------------------------
+// Interview Scheduling (bulk-hiring slot pool) contracts.
+// ---------------------------------------------------------------------------
+
+export type SlotStatus = 'OPEN' | 'BOOKED' | 'CANCELLED';
+
+export interface InterviewSlotDto {
+  id: string;
+  companyId: string;
+  start: string;
+  end: string;
+  status: SlotStatus;
+  bookedFor: string | null;
+  workflowRunId: string | null;
+  calendarEventId: string | null;
+  meetLink: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+}
+
+export interface SlotSummaryDto {
+  open: number;
+  booked: number;
+  cancelled: number;
+}
+
+export const generateSlotsSchema = z.object({
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+  dailyStartHour: z.number().int().min(0).max(23),
+  dailyEndHour: z.number().int().min(0).max(23),
+  slotMinutes: z.number().int().min(5).max(480),
+});
+export type GenerateSlotsDto = z.infer<typeof generateSlotsSchema>;
+
+export const addSlotSchema = z.object({
+  start: z.string().min(1),
+  end: z.string().min(1),
+});
+export type AddSlotDto = z.infer<typeof addSlotSchema>;
+
+export const blockDateSchema = z.object({
+  date: z.string().min(1),
+});
+export type BlockDateDto = z.infer<typeof blockDateSchema>;
+
+export const rescheduleSlotSchema = z.object({
+  title: z.string().max(200).optional(),
+});
+export type RescheduleSlotDto = z.infer<typeof rescheduleSlotSchema>;
+
+/** Result of atomically claiming the next OPEN slot and scheduling a real Calendar event. */
+export interface ClaimAndScheduleResultDto {
+  claimed: boolean;
+  slotId?: string;
+  start?: string;
+  end?: string;
+  meetLink?: string | null;
+  htmlLink?: string | null;
+  error?: string;
+}
+
+/** Result of POST /scheduling/slots/:id/reschedule. */
+export interface RescheduleResultDto {
+  oldSlotId: string;
+  newSlot: ClaimAndScheduleResultDto;
+}

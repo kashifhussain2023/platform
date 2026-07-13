@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AppShell } from '@/components/app-shell/AppShell';
+import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
 import { EmployeeTemplateList } from '@/features/marketplace/components/EmployeeTemplateList';
 import { WorkflowTemplateList } from '@/features/marketplace/components/WorkflowTemplateList';
 // Skills section reuses the existing Skills catalog + install flow (no duplication).
@@ -12,6 +13,7 @@ import { useSessionStore } from '@/stores/session.store';
 export default function MarketplacePage() {
   const router = useRouter();
   const accessToken = useSessionStore((s) => s.accessToken);
+  const shellProps = useAppShellProps();
 
   // Client-side route guard, same pattern as the other app pages.
   useEffect(() => {
@@ -25,35 +27,30 @@ export default function MarketplacePage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Expand</p>
-          <h1 className="text-2xl font-semibold">Marketplace</h1>
-        </div>
-        <Link href="/dashboard" className="text-sm font-medium text-brand-700">
-          ← Dashboard
-        </Link>
+    <AppShell {...shellProps}>
+      <header className="mb-8 pt-2">
+        <p className="text-sm text-zinc-500">Expand</p>
+        <h1 className="text-2xl font-bold text-white">Marketplace</h1>
       </header>
 
       <div className="space-y-10">
         <section>
-          <h2 className="mb-3 text-sm font-medium text-gray-500">AI Employees</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">AI Employees</h2>
           <EmployeeTemplateList />
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-gray-500">
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">
             Workflow Templates
           </h2>
           <WorkflowTemplateList />
         </section>
 
         <section>
-          <h2 className="mb-3 text-sm font-medium text-gray-500">Skills</h2>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400">Skills</h2>
           <SkillCatalog />
         </section>
       </div>
-    </main>
+    </AppShell>
   );
 }

@@ -9,25 +9,25 @@ export function ToolCallsPanel({ toolCalls }: { toolCalls: ToolCallDto[] }) {
   }
 
   return (
-    <div className="mt-2 space-y-1 rounded-md border border-gray-100 bg-gray-50 p-3 text-xs">
-      <p className="mb-1 font-medium text-gray-500">Actions taken</p>
-      <ul className="space-y-1">
+    <div className="mt-2 space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 text-xs">
+      <p className="mb-1 font-medium text-zinc-400">Actions taken</p>
+      <ul className="space-y-1.5">
         {toolCalls.map((call, i) => (
           <li
             key={`${call.skillKey}-${call.tool}-${i}`}
-            className="rounded border border-gray-100 bg-white p-2"
+            className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2"
           >
             <div className="mb-0.5 flex items-center justify-between gap-2">
-              <span className="font-medium text-gray-600">
+              <span className="font-medium text-zinc-300">
                 {call.skillKey} · {call.tool}
               </span>
               <span
                 className={`inline-block rounded-full px-2 py-0.5 font-medium ${
                   call.pendingApproval
-                    ? 'bg-amber-100 text-amber-700'
+                    ? 'bg-amber-500/15 text-amber-400'
                     : call.ok
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
+                      ? 'bg-green-500/15 text-green-400'
+                      : 'bg-red-500/15 text-red-400'
                 }`}
               >
                 {call.pendingApproval
@@ -37,7 +37,7 @@ export function ToolCallsPanel({ toolCalls }: { toolCalls: ToolCallDto[] }) {
                     : 'failed'}
               </span>
             </div>
-            <pre className="overflow-x-auto whitespace-pre-wrap break-words text-gray-500">
+            <pre className="overflow-x-auto whitespace-pre-wrap break-words text-zinc-500">
               {JSON.stringify(call.result ?? call.args)}
             </pre>
           </li>

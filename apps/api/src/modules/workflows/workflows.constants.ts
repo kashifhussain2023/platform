@@ -12,12 +12,34 @@ export const WORKFLOW_RUN_JOB = 'run';
 export const WORKFLOW_TRIGGER_JOB = 'trigger';
 
 /**
+ * Repeatable watchdog job name + scheduler id (registered once at boot via
+ * `upsertJobScheduler`, same pattern as ConnectorHealthProcessor). Fires the
+ * stuck-run sweep (see WORKFLOW_RUN_STUCK_TIMEOUT_MS below).
+ */
+export const WORKFLOW_RUN_WATCHDOG_JOB = 'watchdog';
+export const WORKFLOW_RUN_WATCHDOG_SCHEDULER = 'workflow-run-watchdog';
+export const WORKFLOW_RUN_WATCHDOG_EVERY_MS = 5 * 60_000;
+
+/**
+ * A run stuck in PENDING/RUNNING longer than this is presumed orphaned (e.g.
+ * the worker process died mid-execution — a BullMQ job lock abandoned by a
+ * hard process kill is NOT always reliably requeued/failed by BullMQ's own
+ * stalled-job detection, especially across rapid repeated restarts) and is
+ * swept to FAILED by the watchdog rather than being left stuck forever with
+ * no visible error. Generous relative to a real run's actual duration (single
+ * AI_STEP calls take seconds; a full multi-node run well under a minute) so
+ * there is no realistic false-positive sweep of a merely-slow run.
+ */
+export const WORKFLOW_RUN_STUCK_TIMEOUT_MS = 10 * 60_000;
+
+/**
  * Payload of a workflow-run job. Shapes that flow through the SAME queue:
  * - `{ runId }` — an already-created run (MANUAL/EVENT/WEBHOOK enqueue this).
  * - `{ runId, resume: true }` — resume a WAITING run whose APPROVAL was approved;
  *   the engine continues from `WorkflowRun.resumeNodeId` with the saved context.
  * - `{ workflowId, source }` — a scheduled/triggered fire; the processor
  *   creates a run (with that source) then executes it.
+ * - `{ watchdog: true }` — the repeatable stuck-run sweep (no run/workflow id).
  */
 export type WorkflowRunJobData =
   | {
@@ -25,6 +47,7 @@ export type WorkflowRunJobData =
       resume?: boolean;
       workflowId?: never;
       source?: never;
+      watchdog?: never;
       companyId?: string;
     }
   | {
@@ -32,7 +55,16 @@ export type WorkflowRunJobData =
       source: string;
       runId?: never;
       resume?: never;
+      watchdog?: never;
       companyId?: string;
+    }
+  | {
+      watchdog: true;
+      runId?: never;
+      workflowId?: never;
+      resume?: never;
+      source?: never;
+      companyId?: never;
     };
 
 /** Minimum SCHEDULE interval (ms) — guards against runaway repeatable jobs. */

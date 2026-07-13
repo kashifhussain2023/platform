@@ -5,8 +5,7 @@ import type { ConditionOp, WorkflowNode } from '@vaep/types';
 import { CONDITION_OPS } from '../schemas';
 import { NODE_HINTS } from '../labels';
 
-const inputCls =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono';
+const inputCls = 'field-modern font-mono text-sm';
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value : value == null ? '' : String(value);
@@ -24,11 +23,11 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-gray-600">
+      <label className="mb-1 block text-xs font-medium text-zinc-400">
         {label}
       </label>
       {children}
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-zinc-500">{hint}</p>}
     </div>
   );
 }
@@ -67,7 +66,7 @@ function ArgsEditor({
         value={text}
         onChange={(e) => onEdit(e.target.value)}
       />
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </div>
   );
 }
@@ -86,11 +85,11 @@ export function NodeEditor({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500">{NODE_HINTS[node.type]}</p>
+      <p className="text-xs text-zinc-500">{NODE_HINTS[node.type]}</p>
 
       <Field label="Step name (optional)">
         <input
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="field-modern text-sm"
           value={node.name ?? ''}
           placeholder={node.type}
           onChange={(e) => onChange({ ...node, name: e.target.value })}
@@ -209,7 +208,7 @@ export function NodeEditor({
           </Field>
           <Field label="Operator">
             <select
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="field-modern text-sm"
               value={str(cfg.op) || 'eq'}
               onChange={(e) =>
                 setConfig({ op: e.target.value as ConditionOp })
@@ -260,11 +259,12 @@ export function NodeEditor({
             label="Approval mode"
             hint="On: this step is skipped entirely — no approval queue, no pause; the run continues straight to the next step the moment it's reached. Off (default): pauses and waits for a manager in Approvals."
           >
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-zinc-300">
               <input
                 type="checkbox"
                 checked={cfg.autoApprove === true}
                 onChange={(e) => setConfig({ autoApprove: e.target.checked })}
+                className="accent-violet"
               />
               Skip approval — auto-approve when reached
             </label>
@@ -273,7 +273,7 @@ export function NodeEditor({
       )}
 
       {node.type === 'TRIGGER' && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-zinc-500">
           No configuration. The run trigger payload seeds the context.
         </p>
       )}

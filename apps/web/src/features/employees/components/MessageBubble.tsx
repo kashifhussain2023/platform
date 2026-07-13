@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Bot } from 'lucide-react';
 import type { MessageDto } from '@vaep/types';
 import { ToolCallsPanel } from '@/features/skills/components/ToolCallsPanel';
 import { useSubmitFeedback } from '../hooks';
@@ -53,13 +54,18 @@ export function MessageBubble({
   };
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex items-start gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
+      {!isUser && (
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet/20 text-violet-secondary">
+          <Bot className="h-4 w-4" />
+        </span>
+      )}
       <div className="max-w-[85%]">
         <div
-          className={`whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
+          className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm ${
             isUser
-              ? 'bg-brand-600 text-white'
-              : 'border border-gray-200 bg-white text-gray-800'
+              ? 'bg-[linear-gradient(135deg,#6a30ec_0%,#5216dd_100%)] text-white'
+              : 'border border-white/[0.07] bg-white/[0.04] text-zinc-200'
           }`}
         >
           {message.content}
@@ -72,12 +78,12 @@ export function MessageBubble({
         )}
 
         {canRate && (
-          <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
+          <div className="mt-1.5 flex items-center gap-2 text-xs text-zinc-500">
             <button
               type="button"
               aria-label="Good answer"
-              className={`rounded px-1 hover:text-green-600 ${
-                rated === 'UP' ? 'text-green-600' : ''
+              className={`rounded px-1 hover:text-green-400 ${
+                rated === 'UP' ? 'text-green-400' : ''
               }`}
               disabled={feedback.isPending}
               onClick={() => rate('UP')}
@@ -87,8 +93,8 @@ export function MessageBubble({
             <button
               type="button"
               aria-label="Bad answer"
-              className={`rounded px-1 hover:text-red-600 ${
-                rated === 'DOWN' ? 'text-red-600' : ''
+              className={`rounded px-1 hover:text-red-400 ${
+                rated === 'DOWN' ? 'text-red-400' : ''
               }`}
               disabled={feedback.isPending}
               onClick={() => rate('DOWN')}
@@ -97,29 +103,29 @@ export function MessageBubble({
             </button>
             <button
               type="button"
-              className="rounded px-1 hover:text-brand-700"
+              className="rounded px-1 hover:text-violet-secondary"
               onClick={() => setTeaching((t) => !t)}
             >
               Teach…
             </button>
             {rated && !teaching && (
-              <span className="text-gray-400">Thanks — noted.</span>
+              <span className="text-zinc-500">Thanks — noted.</span>
             )}
           </div>
         )}
 
         {canRate && teaching && (
-          <div className="mt-1 flex gap-2">
+          <div className="mt-1.5 flex gap-2">
             <input
               type="text"
               value={correction}
               onChange={(e) => setCorrection(e.target.value)}
               placeholder="Teach a correction the employee should remember…"
-              className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs"
+              className="field-modern"
             />
             <button
               type="button"
-              className="rounded-md bg-brand-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-violet px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-hover disabled:cursor-not-allowed disabled:opacity-50"
               disabled={feedback.isPending || !correction.trim()}
               onClick={submitTeach}
             >
