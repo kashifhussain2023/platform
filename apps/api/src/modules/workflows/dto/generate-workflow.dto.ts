@@ -1,5 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsIn,
+  IsString,
+  MaxLength,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 import type {
   GenerateWorkflowDto as IGenerateWorkflowDto,
   GenerateWorkflowMessageDto as IGenerateWorkflowMessageDto,
@@ -18,6 +26,7 @@ export class GenerateWorkflowMessageDto implements IGenerateWorkflowMessageDto {
 /** POST /workflows/generate body — the whole chat so far. */
 export class GenerateWorkflowDto implements IGenerateWorkflowDto {
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => GenerateWorkflowMessageDto)
   messages!: GenerateWorkflowMessageDto[];

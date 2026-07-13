@@ -19,6 +19,7 @@ import {
   EMPLOYEES_CLOSE,
   EMPLOYEES_OPEN,
   GENERATION_MAX_ATTEMPTS,
+  GENERATION_MAX_QUESTION_ROUNDS,
   INSTALLED_SKILLS_CLOSE,
   INSTALLED_SKILLS_OPEN,
   WORKFLOW_GENERATOR_MARKER,
@@ -68,6 +69,9 @@ export class WorkflowGeneratorService {
     companyId: string,
     messages: LlmMessage[],
   ): Promise<GenerateWorkflowResultDto> {
+    const userTurns = messages.filter((m) => m.role === 'user').length;
+    const mustDraftNow = userTurns >= GENERATION_MAX_QUESTION_ROUNDS;
+
     const [installed, employees] = await Promise.all([
       this.skills.listInstalled(companyId),
       this.prisma.aiEmployee.findMany({
@@ -84,7 +88,7 @@ export class WorkflowGeneratorService {
 
     let correction: string | undefined;
     for (let attempt = 1; attempt <= GENERATION_MAX_ATTEMPTS; attempt++) {
-      const system = this.buildSystemPrompt(groundingSkills, employees, correction);
+      const system = this.buildSystemPrompt(groundingSkills, employees, correction, mustDraftNow);
       const result = await this.llm.complete({ system, messages });
       const parsed = this.parseResponse(result.content);
       const isLastAttempt = attempt === GENERATION_MAX_ATTEMPTS;
@@ -101,6 +105,15 @@ export class WorkflowGeneratorService {
         };
       }
       if (parsed.type === 'question') {
+        // Server-side guarantee of the design spec's 3-round question cap
+        // (docs/specs/2026-07-13-ai-workflow-generator-design.md, "User flow"
+        // point 3): the model MUST NOT be trusted to obey the prompt
+        // instruction alone. Once the cap is reached, a question is never
+        // returned to the caller — don't waste a retry on it either, just
+        // hand back a minimal usable draft immediately.
+        if (mustDraftNow) {
+          return this.fallbackDraftResult();
+        }
         return parsed;
       }
 
@@ -137,6 +150,7 @@ export class WorkflowGeneratorService {
     skills: GroundingSkill[],
     employees: GroundingEmployee[],
     correction?: string,
+    mustDraftNow?: boolean,
   ): string {
     const lines = [
       WORKFLOW_GENERATOR_MARKER,
@@ -156,7 +170,38 @@ export class WorkflowGeneratorService {
         `Your previous reply had a problem: ${correction} Fix it and reply again with the same JSON contract.`,
       );
     }
+    if (mustDraftNow) {
+      lines.push(
+        `The user has already replied ${GENERATION_MAX_QUESTION_ROUNDS} times — you MUST return {"type":"draft",...} now, never another {"type":"question",...}. For anything still unclear, make a reasonable assumption and proceed; do not ask for it.`,
+      );
+    }
     return lines.join('\n');
+  }
+
+  /**
+   * Minimal, always-usable draft returned once the question-round cap is
+   * reached and the model still tried to ask a question. Guarantees the user
+   * reaches something within GENERATION_MAX_QUESTION_ROUNDS turns regardless
+   * of whether the model actually obeys the "must draft now" instruction.
+   */
+  private fallbackDraftResult(): GenerateWorkflowResultDto {
+    return {
+      type: 'draft',
+      definition: {
+        nodes: [
+          { id: 'trigger', type: 'TRIGGER', config: {} },
+          { id: 'notify', type: 'NOTIFY', config: { message: 'Configure this workflow further.' } },
+        ],
+        edges: [{ from: 'trigger', to: 'notify' }],
+      },
+      unresolvedNodes: [
+        {
+          nodeId: 'notify',
+          reason:
+            "AI needed more detail than you provided — this is a starting skeleton; add the steps you need.",
+        },
+      ],
+    };
   }
 
   private parseResponse(content: string | undefined): ParsedResponse {
