@@ -49,3 +49,22 @@ export const MAX_WORKFLOW_NODES = 50;
  * resumable waits via delayed jobs are a TODO; for now WAIT is a bounded sleep.
  */
 export const MAX_WAIT_MS = 10_000;
+
+/**
+ * Marker placed in a system prompt identifying an AI-workflow-generation
+ * request (WorkflowGeneratorService builds it; MockLlmProvider keys off it for
+ * deterministic offline output — same contract pattern as employees.constants'
+ * PLAN_PROMPT_MARKER).
+ */
+export const WORKFLOW_GENERATOR_MARKER = '[[VAEP:WORKFLOW_GENERATOR]]';
+
+/** Delimiters wrapping the JSON list of the company's installed skills+tools. */
+export const INSTALLED_SKILLS_OPEN = '<<<VAEP_SKILLS';
+export const INSTALLED_SKILLS_CLOSE = 'VAEP_SKILLS>>>';
+
+/** Delimiters wrapping the JSON list of the company's hired AI employees. */
+export const EMPLOYEES_OPEN = '<<<VAEP_EMPLOYEES';
+export const EMPLOYEES_CLOSE = 'VAEP_EMPLOYEES>>>';
+
+/** Max LLM calls per generate() invocation: one attempt + one self-correction. */
+export const GENERATION_MAX_ATTEMPTS = 2;

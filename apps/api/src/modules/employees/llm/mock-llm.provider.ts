@@ -7,6 +7,13 @@ import {
   TOOL_RESULT_MARKER,
 } from '../employees.constants';
 import { SkillCatalog } from '../../skills/catalog';
+import {
+  EMPLOYEES_CLOSE,
+  EMPLOYEES_OPEN,
+  INSTALLED_SKILLS_CLOSE,
+  INSTALLED_SKILLS_OPEN,
+  WORKFLOW_GENERATOR_MARKER,
+} from '../../workflows/workflows.constants';
 import type {
   LlmCompletionInput,
   LlmCompletionResult,
@@ -38,6 +45,81 @@ function toolTokens(tool: ToolDefinitionDto): string[] {
   // ambiguous global catalog search (docs/test-cases WF-E3).
   const skillKey = tool.skillKey ?? SkillCatalog.skillKeyForTool(tool.name);
   return skillKey ? [...nameParts, skillKey.toLowerCase()] : nameParts;
+}
+
+interface GroundingSkill {
+  skillKey: string;
+  tools: string[];
+}
+interface GroundingEmployee {
+  id: string;
+  name: string;
+  role: string;
+}
+
+/**
+ * Deterministic workflow-generation mode (docs/specs/2026-07-13-ai-workflow-
+ * generator-design.md). Derives everything from what the system prompt
+ * embeds: asks one clarifying question on the first turn if nothing is
+ * installed yet; otherwise drafts a 4-node workflow (TRIGGER → AI_STEP →
+ * TOOL_ACTION → NOTIFY), grounded in the FIRST installed skill/employee it was
+ * given, or a deliberately-nonexistent skillKey/tool when nothing real is
+ * available even after the follow-up — exercising WorkflowGeneratorService's
+ * validation/fallback path deterministically and offline.
+ */
+function completeWorkflowGeneration(input: LlmCompletionInput): LlmCompletionResult {
+  const { system, messages } = input;
+  const userTurns = messages.filter((m) => m.role === 'user').length;
+
+  const skillsRaw = between(system, INSTALLED_SKILLS_OPEN, INSTALLED_SKILLS_CLOSE);
+  const employeesRaw = between(system, EMPLOYEES_OPEN, EMPLOYEES_CLOSE);
+  const skills: GroundingSkill[] = skillsRaw ? JSON.parse(skillsRaw) : [];
+  const employees: GroundingEmployee[] = employeesRaw ? JSON.parse(employeesRaw) : [];
+
+  if (skills.length === 0 && userTurns <= 1) {
+    return {
+      content: JSON.stringify({
+        type: 'question',
+        message: 'Which tool or integration should this workflow use (e.g. Slack, email)?',
+      }),
+    };
+  }
+
+  const trigger = { id: 'trigger', type: 'TRIGGER', config: {} };
+  const aiStep = {
+    id: 'ai_step',
+    type: 'AI_STEP',
+    config: {
+      prompt: 'Summarize the request: {{trigger.payload}}',
+      ...(employees[0] ? { employeeId: employees[0].id } : {}),
+    },
+  };
+  const toolAction = skills[0]
+    ? {
+        id: 'tool_action',
+        type: 'TOOL_ACTION',
+        config: { skillKey: skills[0].skillKey, tool: skills[0].tools[0], args: {} },
+      }
+    : {
+        id: 'tool_action',
+        type: 'TOOL_ACTION',
+        config: { skillKey: 'imaginary_skill', tool: 'imaginary_tool', args: {} },
+      };
+  const notify = { id: 'notify', type: 'NOTIFY', config: { message: 'Workflow finished.' } };
+
+  return {
+    content: JSON.stringify({
+      type: 'draft',
+      definition: {
+        nodes: [trigger, aiStep, toolAction, notify],
+        edges: [
+          { from: 'trigger', to: 'ai_step' },
+          { from: 'ai_step', to: 'tool_action' },
+          { from: 'tool_action', to: 'notify' },
+        ],
+      },
+    }),
+  };
 }
 
 /** Pick the tool best matching the user text (token overlap); fallback: first. */
@@ -142,6 +224,11 @@ export class MockLlmProvider implements LlmProvider {
     tools?: ToolDefinitionDto[],
   ): Promise<LlmCompletionResult> {
     const { system, messages } = input;
+
+    if (system.includes(WORKFLOW_GENERATOR_MARKER)) {
+      return completeWorkflowGeneration(input);
+    }
+
     const userText =
       [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
 
