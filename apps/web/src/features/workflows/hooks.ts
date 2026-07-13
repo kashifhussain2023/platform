@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateWorkflowDto,
+  GenerateWorkflowMessageDto,
+  GenerateWorkflowResultDto,
   UpdateWorkflowDto,
   WorkflowDto,
   WorkflowRunDto,
@@ -14,6 +16,7 @@ import {
   createWorkflow,
   deactivateWorkflow,
   deleteWorkflow,
+  generateWorkflowDraft,
   getWorkflow,
   getWorkflowRun,
   listWorkflowRuns,
@@ -255,5 +258,12 @@ export function useWorkflowRun(runId: string | null) {
     queryFn: () => getWorkflowRun(runId as string),
     enabled: Boolean(accessToken && runId),
     refetchInterval: (query) => (isActive(query.state.data) ? 1000 : false),
+  });
+}
+
+/** AI-assisted draft generation — no cache to update; the chat holds its own state. */
+export function useGenerateWorkflowDraft() {
+  return useMutation<GenerateWorkflowResultDto, NormalizedApiError, GenerateWorkflowMessageDto[]>({
+    mutationFn: generateWorkflowDraft,
   });
 }

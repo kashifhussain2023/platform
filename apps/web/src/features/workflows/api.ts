@@ -1,6 +1,8 @@
 import { apiClient } from '@/lib/apiClient';
 import type {
   CreateWorkflowDto,
+  GenerateWorkflowMessageDto,
+  GenerateWorkflowResultDto,
   UpdateWorkflowDto,
   WorkflowDto,
   WorkflowRunDto,
@@ -77,6 +79,18 @@ export async function listWorkflowRuns(id: string): Promise<WorkflowRunDto[]> {
 export async function getWorkflowRun(runId: string): Promise<WorkflowRunDto> {
   const { data } = await apiClient.get<WorkflowRunDto>(
     `/workflows/runs/${runId}`,
+  );
+  return data;
+}
+
+// --- AI generation -----------------------------------------------------------
+
+export async function generateWorkflowDraft(
+  messages: GenerateWorkflowMessageDto[],
+): Promise<GenerateWorkflowResultDto> {
+  const { data } = await apiClient.post<GenerateWorkflowResultDto>(
+    '/workflows/generate',
+    { messages },
   );
   return data;
 }
