@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BillingController } from './billing.controller';
 import { BillingWebhookController } from './billing-webhook.controller';
 import { BillingService } from './billing.service';
+import { PlanGuard } from './plan.guard';
 import {
   BILLING_PROVIDER_TOKEN,
   type BillingProvider,
@@ -37,12 +38,13 @@ function billingProviderFactory(config: ConfigService): BillingProvider {
   controllers: [BillingController, BillingWebhookController],
   providers: [
     BillingService,
+    PlanGuard,
     {
       provide: BILLING_PROVIDER_TOKEN,
       inject: [ConfigService],
       useFactory: billingProviderFactory,
     },
   ],
-  exports: [BillingService],
+  exports: [BillingService, PlanGuard],
 })
 export class BillingModule {}
