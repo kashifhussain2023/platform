@@ -1168,6 +1168,38 @@ export interface WorkflowDto {
   warnings: string[];
 }
 
+/** One turn in the AI-workflow-generation chat (never persisted). */
+export interface GenerateWorkflowMessageDto {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** POST /workflows/generate body — the whole chat so far, sent each turn. */
+export interface GenerateWorkflowDto {
+  messages: GenerateWorkflowMessageDto[];
+}
+
+/** A node in a generated draft the AI couldn't confidently resolve. */
+export interface UnresolvedWorkflowNodeDto {
+  nodeId: string;
+  reason: string;
+}
+
+/**
+ * Response of POST /workflows/generate. `question` means the AI needs more
+ * info before it can draft anything (send it back as the next `assistant`
+ * message + the user's reply as the next `user` message). `draft` is a
+ * ready-to-review definition — `unresolvedNodes` lists any step the AI
+ * couldn't confidently fill in (see docs/specs/2026-07-13-ai-workflow-generator-design.md).
+ */
+export type GenerateWorkflowResultDto =
+  | { type: 'question'; message: string }
+  | {
+      type: 'draft';
+      definition: WorkflowDefinition;
+      unresolvedNodes: UnresolvedWorkflowNodeDto[];
+    };
+
 /** Result of firing an internal event (POST /workflows/events). */
 export interface FireEventResultDto {
   eventType: string;
