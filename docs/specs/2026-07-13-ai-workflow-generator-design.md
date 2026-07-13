@@ -89,7 +89,7 @@ already installed — matching the "never suggest something they'd need to go se
 from the brainstorm.
 
 ## Anti-hallucination / fallback strategy (this is the core safety mechanism)
-Three layers, in order, and **nothing invalid is ever returned to the user, let alone saved**:
+Three layers, in order, and **nothing invalid is ever returned to the user or persisted**:
 
 1. **Validate before showing anything.** After the LLM returns a draft, before the response even
    leaves the backend: (a) run it through the *existing* `WorkflowDefinitionDto` validation (structural
@@ -106,10 +106,11 @@ Three layers, in order, and **nothing invalid is ever returned to the user, let 
    step's name to the `warnings` array in the response. The builder UI visibly flags that one step; the
    rest of the workflow is untouched. The user always gets *something* usable back.
 
-Because nothing is persisted until the user clicks the existing Save button (see above), there is no
-scenario in which a hallucinated reference ends up sitting in the `workflows` table — the worst case is
-a draft with one step marked "needs your input," which is exactly the same state a human would be in
-if they'd left a step unconfigured while building it by hand.
+Because validation and degrade-to-placeholder (steps 1-3 above) always run *before* the frontend
+persists the draft as a DRAFT-status `Workflow` (see "User flow" point 5), there is no scenario in which
+a raw hallucinated reference ends up sitting in the `workflows` table — the worst case is a draft with
+one step marked "needs your input," which is exactly the same state a human would be in if they'd left a
+step unconfigured while building it by hand.
 
 **Existing workflows are never touched.** Generation only ever produces a brand-new draft; it cannot
 edit or overwrite an existing (possibly active/running) workflow. Regenerating or discarding a bad draft
