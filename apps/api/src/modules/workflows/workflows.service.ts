@@ -19,6 +19,7 @@ import type {
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { evaluateConditions } from './engine/conditions';
+import { validateDefinitionStructure } from './engine/definition-validator';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import {
@@ -425,27 +426,7 @@ export class WorkflowsService {
     if (!definition) {
       return;
     }
-    const ids = new Set<string>();
-    for (const node of definition.nodes) {
-      if (ids.has(node.id)) {
-        throw new BadRequestException(
-          `Duplicate node id "${node.id}" in workflow definition`,
-        );
-      }
-      ids.add(node.id);
-    }
-    for (const edge of definition.edges) {
-      if (!ids.has(edge.from)) {
-        throw new BadRequestException(
-          `Edge references unknown node id "${edge.from}"`,
-        );
-      }
-      if (!ids.has(edge.to)) {
-        throw new BadRequestException(
-          `Edge references unknown node id "${edge.to}"`,
-        );
-      }
-    }
+    validateDefinitionStructure(definition);
   }
 
   /** Validate a trigger's config shape (SCHEDULE/EVENT); 400 otherwise. */
