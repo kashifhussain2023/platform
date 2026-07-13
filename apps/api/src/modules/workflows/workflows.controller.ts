@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type {
   FireEventResultDto,
+  GenerateWorkflowResultDto,
   WorkflowDto,
   WorkflowRunDto,
 } from '@vaep/types';
@@ -18,10 +19,14 @@ import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { RequirePlan } from '../billing/decorators/plan.decorator';
+import { PlanGuard } from '../billing/plan.guard';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { FireEventDto } from './dto/fire-event.dto';
+import { GenerateWorkflowDto } from './dto/generate-workflow.dto';
 import { RunWorkflowDto } from './dto/run-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
+import { WorkflowGeneratorService } from './engine/workflow-generator.service';
 import { WorkflowsService } from './workflows.service';
 
 /**
@@ -32,7 +37,10 @@ import { WorkflowsService } from './workflows.service';
 @Controller('workflows')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkflowsController {
-  constructor(private readonly workflows: WorkflowsService) {}
+  constructor(
+    private readonly workflows: WorkflowsService,
+    private readonly generator: WorkflowGeneratorService,
+  ) {}
 
   @Post()
   @Roles('OWNER', 'ADMIN')
@@ -72,6 +80,20 @@ export class WorkflowsController {
     @Param('runId') runId: string,
   ): Promise<WorkflowRunDto> {
     return this.workflows.getRun(companyId, runId);
+  }
+
+  /**
+   * AI-assisted draft generation (BUSINESS/ENTERPRISE only). Never persists —
+   * hand the returned `definition` to POST / (create) once the user accepts it.
+   */
+  @Post('generate')
+  @UseGuards(PlanGuard)
+  @RequirePlan('BUSINESS', 'ENTERPRISE')
+  generateDraft(
+    @CurrentTenant() companyId: string,
+    @Body() dto: GenerateWorkflowDto,
+  ): Promise<GenerateWorkflowResultDto> {
+    return this.generator.generate(companyId, dto.messages);
   }
 
   @Get(':id')

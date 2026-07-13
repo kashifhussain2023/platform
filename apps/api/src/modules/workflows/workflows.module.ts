@@ -5,6 +5,7 @@ import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { LlmModule } from '../employees/llm/llm.module';
 import { SkillsModule } from '../skills/skills.module';
 import { WorkflowEngine } from './engine/workflow-engine.service';
+import { WorkflowGeneratorService } from './engine/workflow-generator.service';
 import { WorkflowProcessor } from './engine/workflow.processor';
 import { WorkflowsController } from './workflows.controller';
 import { WorkflowWebhooksController } from './webhooks.controller';
@@ -37,7 +38,7 @@ import { WORKFLOW_RUN_QUEUE } from './workflows.constants';
     BillingModule,
   ],
   controllers: [WorkflowsController, WorkflowWebhooksController],
-  providers: [WorkflowsService, WorkflowEngine, WorkflowProcessor],
+  providers: [WorkflowsService, WorkflowEngine, WorkflowProcessor, WorkflowGeneratorService],
   exports: [WorkflowsService],
 })
 export class WorkflowsModule {}
