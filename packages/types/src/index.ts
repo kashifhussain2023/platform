@@ -692,6 +692,8 @@ export interface InstalledSkillDto {
   id: string;
   companyId: string;
   skillKey: string;
+  /** null = company-wide; set = owned by, and only by, that one AiEmployee. */
+  employeeId: string | null;
   displayName: string;
   /** Non-secret company-specific settings. */
   config: Record<string, unknown> | null;
@@ -776,6 +778,8 @@ export interface SkillExecutionDto {
 /** POST /skills/install body. */
 export const installSkillSchema = z.object({
   skillKey: z.string().min(1, 'Skill key is required').max(80),
+  /** Owning employee for a per-employee connection; omit for company-wide. */
+  employeeId: z.string().min(1).optional(),
   displayName: z.string().min(1).max(120).optional(),
   config: z.record(z.unknown()).optional(),
 });
@@ -913,6 +917,12 @@ export interface TriggerConfig {
    * passes against the fired payload. Empty/absent → always fire (back-compat).
    */
   conditions?: Condition[];
+  /**
+   * EVENT: restrict this trigger to ONE specific connector (InstalledSkill.id) —
+   * e.g. one employee's own Gmail connection. Absent → matches every connector
+   * of this eventType (today's exact behavior, unchanged).
+   */
+  connectorId?: string;
 }
 
 /**
@@ -1149,6 +1159,8 @@ export const runWorkflowSchema = z.object({
 export const fireEventSchema = z.object({
   eventType: z.string().min(1).max(120),
   payload: z.record(z.unknown()).optional(),
+  /** Restrict which connector-scoped triggers this fire can match (see TriggerConfig.connectorId). */
+  connectorId: z.string().optional(),
 });
 
 export type CreateWorkflowDto = z.infer<typeof createWorkflowSchema>;
