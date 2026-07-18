@@ -80,6 +80,7 @@ export function useInstallSkill() {
         id: `temp_${Date.now()}`,
         companyId: '',
         skillKey: payload.skillKey,
+        employeeId: payload.employeeId ?? null,
         displayName: payload.displayName ?? payload.skillKey,
         config: payload.config ?? null,
         enabled: true,
