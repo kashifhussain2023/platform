@@ -272,10 +272,11 @@ model AiEmployee {
   kpiTargets        Json?
   createdAt DateTime       @default(now())
 
-  conversations  Conversation[]
-  memories       EmployeeMemory[]
-  employeeSkills EmployeeSkill[]
-  feedback       EmployeeFeedback[]
+  conversations   Conversation[]
+  memories        EmployeeMemory[]
+  employeeSkills  EmployeeSkill[]
+  feedback        EmployeeFeedback[]
+  installedSkills InstalledSkill[]
 
   @@index([companyId])
 }
@@ -351,6 +352,11 @@ model InstalledSkill {
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   skillKey    String
+  // null = company-wide (today's exact behavior, unchanged for every existing
+  // row); set = this connection is owned by, and only by, that one AiEmployee
+  // (docs/specs/2026-07-18-per-employee-skill-connections-design.md).
+  employeeId  String?
+  employee    AiEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   displayName String
   // Non-secret company-specific settings (mirrors the catalog configSchema).
   config      Json?
@@ -377,8 +383,9 @@ model InstalledSkill {
 
   employees EmployeeSkill[]
 
-  @@unique([companyId, skillKey])
+  @@unique([companyId, skillKey, employeeId])
   @@index([companyId])
+  @@index([employeeId])
 }
 
 model EmployeeSkill {
