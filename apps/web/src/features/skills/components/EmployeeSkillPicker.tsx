@@ -2,78 +2,138 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
+import { ConnectSkillControl } from './ConnectSkillControl';
 import {
   useAssignSkill,
+  useCatalog,
   useEmployeeSkills,
   useInstalledSkills,
+  useInstallSkill,
   useUnassignSkill,
 } from '../hooks';
 
-/** Assign / unassign installed skills to a specific employee (optimistic). */
+/**
+ * Assign / unassign already-installed company skills to a specific employee
+ * (optimistic), plus a section to give this employee its OWN connection of an
+ * OAuth-capable skill (e.g. its own Gmail mailbox) — separate from any
+ * company-wide connection managed on the global /skills page.
+ */
 export function EmployeeSkillPicker({ employeeId }: { employeeId: string }) {
   const { data: installed, isLoading } = useInstalledSkills();
+  const { data: catalog } = useCatalog();
   const { data: assigned } = useEmployeeSkills(employeeId);
   const assign = useAssignSkill(employeeId);
   const unassign = useUnassignSkill(employeeId);
+  const install = useInstallSkill();
 
   const assignedIds = new Set((assigned ?? []).map((a) => a.installedSkillId));
   const busy = assign.isPending || unassign.isPending;
 
-  return (
-    <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-      <h2 className="mb-3 text-sm font-medium text-zinc-400">Skills</h2>
+  // OAuth-capable catalog skills this employee doesn't already own a connection for.
+  const ownedSkillKeys = new Set(
+    (installed ?? [])
+      .filter((s) => s.employeeId === employeeId)
+      .map((s) => s.skillKey),
+  );
+  const connectableForEmployee = (catalog ?? []).filter(
+    (def) => def.connection?.type === 'oauth' && !ownedSkillKeys.has(def.key),
+  );
 
-      {isLoading ? (
-        <p className="text-sm text-zinc-500">Loading skills…</p>
-      ) : !installed || installed.length === 0 ? (
-        <p className="text-sm text-zinc-500">
-          No skills installed.{' '}
-          <Link href="/skills" className="font-medium text-violet-secondary hover:text-white">
-            Install skills
-          </Link>{' '}
-          to assign them here.
-        </p>
-      ) : (
-        <ul className="divide-y divide-white/[0.06]">
-          {installed.map((skill) => {
-            const isAssigned = assignedIds.has(skill.id);
-            return (
-              <li
-                key={skill.id}
-                className="flex items-center justify-between gap-4 py-2.5"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-white">
-                    {skill.displayName}
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    {skill.skillKey}
-                    {!skill.enabled && ' · disabled'}
-                  </p>
-                </div>
-                {isAssigned ? (
-                  <button
-                    type="button"
-                    onClick={() => unassign.mutate({ installedSkillId: skill.id })}
-                    disabled={busy}
-                    className="rounded-xl border border-white/[0.12] bg-white/[0.03] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Unassign
-                  </button>
-                ) : (
-                  <Button
-                    variant="violet"
-                    onClick={() => assign.mutate({ installedSkillId: skill.id })}
-                    disabled={busy}
-                  >
-                    Assign
-                  </Button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+        <h2 className="mb-3 text-sm font-medium text-zinc-400">Skills</h2>
+
+        {isLoading ? (
+          <p className="text-sm text-zinc-500">Loading skills…</p>
+        ) : !installed || installed.length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            No skills installed.{' '}
+            <Link href="/skills" className="font-medium text-violet-secondary hover:text-white">
+              Install skills
+            </Link>{' '}
+            to assign them here.
+          </p>
+        ) : (
+          <ul className="divide-y divide-white/[0.06]">
+            {installed.map((skill) => {
+              const isAssigned = assignedIds.has(skill.id);
+              return (
+                <li
+                  key={skill.id}
+                  className="flex items-center justify-between gap-4 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white">
+                      {skill.displayName}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {skill.skillKey}
+                      {!skill.enabled && ' · disabled'}
+                    </p>
+                  </div>
+                  {isAssigned ? (
+                    <button
+                      type="button"
+                      onClick={() => unassign.mutate({ installedSkillId: skill.id })}
+                      disabled={busy}
+                      className="rounded-xl border border-white/[0.12] bg-white/[0.03] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Unassign
+                    </button>
+                  ) : (
+                    <Button
+                      variant="violet"
+                      onClick={() => assign.mutate({ installedSkillId: skill.id })}
+                      disabled={busy}
+                    >
+                      Assign
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {connectableForEmployee.length > 0 && (
+        <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+          <h2 className="mb-1 text-sm font-medium text-zinc-400">
+            Connect a skill for this employee
+          </h2>
+          <p className="mb-3 text-xs text-zinc-500">
+            Gives this employee its own connection (e.g. its own mailbox), separate
+            from any company-wide connection on the Skills page.
+          </p>
+          <ul className="space-y-2">
+            {connectableForEmployee.map((def) => {
+              const ownRow = (installed ?? []).find(
+                (s) => s.skillKey === def.key && s.employeeId === employeeId,
+              );
+              return (
+                <li
+                  key={def.key}
+                  className="flex items-center justify-between gap-4"
+                >
+                  <span className="text-sm text-zinc-300">{def.name}</span>
+                  {ownRow ? (
+                    <ConnectSkillControl installed={ownRow} def={def} />
+                  ) : (
+                    <Button
+                      variant="violet"
+                      onClick={() => install.mutate({ skillKey: def.key, employeeId })}
+                      disabled={install.isPending}
+                    >
+                      {install.isPending ? 'Connecting…' : `Connect ${def.name}`}
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
-    </section>
+    </div>
   );
 }
