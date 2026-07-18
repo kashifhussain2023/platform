@@ -252,4 +252,101 @@ describeIfDb('Workflow EVENT condition DSL + correlation/lineage e2e', () => {
       .get('/events/canonical/whatever/lineage')
       .expect(401);
   });
+
+  it('a workflow with triggerConfig.connectorId only fires for that connector', async () => {
+    const wfA = await request(app.getHttpServer())
+      .post('/workflows')
+      .set(auth())
+      .send({
+        name: 'Connector-scoped A',
+        definition: {
+          nodes: [
+            { id: 't', type: 'TRIGGER', config: {} },
+            { id: 'n', type: 'NOTIFY', config: { message: 'A fired' } },
+          ],
+          edges: [{ from: 't', to: 'n' }],
+        },
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/workflows/${wfA.body.id}`)
+      .set(auth())
+      .send({ triggerType: 'EVENT', triggerConfig: { eventType: 'CONNECTOR_TEST', connectorId: 'conn_A' } })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/workflows/${wfA.body.id}/activate`)
+      .set(auth())
+      .expect(200);
+
+    const wfB = await request(app.getHttpServer())
+      .post('/workflows')
+      .set(auth())
+      .send({
+        name: 'Connector-scoped B',
+        definition: {
+          nodes: [
+            { id: 't', type: 'TRIGGER', config: {} },
+            { id: 'n', type: 'NOTIFY', config: { message: 'B fired' } },
+          ],
+          edges: [{ from: 't', to: 'n' }],
+        },
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/workflows/${wfB.body.id}`)
+      .set(auth())
+      .send({ triggerType: 'EVENT', triggerConfig: { eventType: 'CONNECTOR_TEST', connectorId: 'conn_B' } })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/workflows/${wfB.body.id}/activate`)
+      .set(auth())
+      .expect(200);
+
+    const fired = await request(app.getHttpServer())
+      .post('/workflows/events')
+      .set(auth())
+      .send({ eventType: 'CONNECTOR_TEST', payload: {}, connectorId: 'conn_A' })
+      .expect(200);
+
+    expect(fired.body.runIds).toHaveLength(1);
+    const run = await request(app.getHttpServer())
+      .get(`/workflows/runs/${fired.body.runIds[0]}`)
+      .set(auth())
+      .expect(200);
+    expect(run.body.workflowId).toBe(wfA.body.id);
+  });
+
+  it('a workflow with no connectorId still fires for any connector (regression check)', async () => {
+    const wf = await request(app.getHttpServer())
+      .post('/workflows')
+      .set(auth())
+      .send({
+        name: 'Unscoped trigger',
+        definition: {
+          nodes: [
+            { id: 't', type: 'TRIGGER', config: {} },
+            { id: 'n', type: 'NOTIFY', config: { message: 'fired' } },
+          ],
+          edges: [{ from: 't', to: 'n' }],
+        },
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .patch(`/workflows/${wf.body.id}`)
+      .set(auth())
+      .send({ triggerType: 'EVENT', triggerConfig: { eventType: 'UNSCOPED_TEST' } })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/workflows/${wf.body.id}/activate`)
+      .set(auth())
+      .expect(200);
+
+    const fired = await request(app.getHttpServer())
+      .post('/workflows/events')
+      .set(auth())
+      .send({ eventType: 'UNSCOPED_TEST', payload: {}, connectorId: 'any_connector_id' })
+      .expect(200);
+
+    expect(fired.body.runIds).toHaveLength(1);
+  });
 });

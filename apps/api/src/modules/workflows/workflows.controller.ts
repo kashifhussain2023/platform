@@ -67,7 +67,7 @@ export class WorkflowsController {
     @CurrentTenant() companyId: string,
     @Body() dto: FireEventDto,
   ): Promise<FireEventResultDto> {
-    return this.workflows.fireEvent(companyId, dto.eventType, dto.payload);
+    return this.workflows.fireEvent(companyId, dto.eventType, dto.payload, dto.connectorId);
   }
 
   /**

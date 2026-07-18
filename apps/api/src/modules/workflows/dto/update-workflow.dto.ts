@@ -67,6 +67,15 @@ export class TriggerConfigDto implements TriggerConfig {
   @ValidateNested({ each: true })
   @Type(() => ConditionDto)
   conditions?: ConditionDto[];
+
+  /**
+   * EVENT: restrict this trigger to ONE specific connector (InstalledSkill.id).
+   * Absent → matches every connector of this eventType (unchanged back-compat).
+   */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  connectorId?: string;
 }
 
 /** PATCH /workflows/:id body. Mirrors the shared @vaep/types contract. */

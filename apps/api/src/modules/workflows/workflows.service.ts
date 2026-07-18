@@ -220,6 +220,7 @@ export class WorkflowsService {
     companyId: string,
     eventType: string,
     payload?: Record<string, unknown>,
+    connectorId?: string,
   ): Promise<FireEventResultDto> {
     const workflows = await this.prisma.workflow.findMany({
       where: {
@@ -236,6 +237,13 @@ export class WorkflowsService {
 
     const runIds: string[] = [];
     for (const wf of workflows) {
+      // Connector-scoped triggers (per-employee skill connections) only fire for
+      // events from THEIR OWN connector; a trigger with no connectorId keeps
+      // matching every connector of this eventType — today's exact behavior.
+      const cfg = (wf.triggerConfig ?? null) as TriggerConfig | null;
+      if (cfg?.connectorId && cfg.connectorId !== connectorId) {
+        continue;
+      }
       // Richer EVENT filtering: a workflow fires only if ALL its conditions pass
       // (empty/absent → always fire, so existing EVENT workflows are unaffected).
       const conditions = this.extractConditions(wf.triggerConfig);

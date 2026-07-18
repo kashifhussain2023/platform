@@ -11,4 +11,9 @@ export class FireEventDto implements IFireEventDto {
   @IsOptional()
   @IsObject()
   payload?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  connectorId?: string;
 }
