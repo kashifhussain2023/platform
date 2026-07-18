@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  EmployeeRole,
   KnowledgeDocumentDto,
   SearchQueryDto,
   SearchResultDto,
@@ -13,11 +14,13 @@ import {
   getDocumentContent,
   listDocuments,
   searchKnowledge,
+  updateDocumentCategory,
   uploadDocument,
 } from './api';
 
 export const knowledgeKeys = {
-  documents: ['knowledge', 'documents'] as const,
+  documents: (category?: EmployeeRole) =>
+    ['knowledge', 'documents', category ?? 'all'] as const,
 };
 
 /** True while any document is still being ingested. */
@@ -31,11 +34,11 @@ function hasActiveIngestion(docs: KnowledgeDocumentDto[] | undefined): boolean {
  * Documents query. Polls every 2s WHILE any doc is PENDING/PROCESSING so status
  * badges advance to READY/FAILED live, then stops (refetchInterval → false).
  */
-export function useDocuments() {
+export function useDocuments(category?: EmployeeRole) {
   const accessToken = useSessionStore((s) => s.accessToken);
   return useQuery<KnowledgeDocumentDto[], NormalizedApiError>({
-    queryKey: knowledgeKeys.documents,
-    queryFn: listDocuments,
+    queryKey: knowledgeKeys.documents(category),
+    queryFn: () => listDocuments(category),
     enabled: Boolean(accessToken),
     refetchInterval: (query) =>
       hasActiveIngestion(query.state.data) ? 2000 : false,
@@ -56,14 +59,14 @@ export function useUploadDocument() {
   return useMutation<
     KnowledgeDocumentDto,
     NormalizedApiError,
-    File,
+    { file: File; category?: EmployeeRole },
     UploadContext
   >({
-    mutationFn: uploadDocument,
-    onMutate: async (file) => {
-      await qc.cancelQueries({ queryKey: knowledgeKeys.documents });
+    mutationFn: ({ file, category }) => uploadDocument(file, category),
+    onMutate: async ({ file, category }) => {
+      await qc.cancelQueries({ queryKey: knowledgeKeys.documents() });
       const previous = qc.getQueryData<KnowledgeDocumentDto[]>(
-        knowledgeKeys.documents,
+        knowledgeKeys.documents(),
       );
       const optimistic: KnowledgeDocumentDto = {
         id: `temp_${Date.now()}`,
@@ -74,9 +77,10 @@ export function useUploadDocument() {
         status: 'PENDING',
         error: null,
         chunkCount: 0,
+        category: category ?? null,
         createdAt: new Date().toISOString(),
       };
-      qc.setQueryData<KnowledgeDocumentDto[]>(knowledgeKeys.documents, (old) => [
+      qc.setQueryData<KnowledgeDocumentDto[]>(knowledgeKeys.documents(), (old) => [
         optimistic,
         ...(old ?? []),
       ]);
@@ -84,11 +88,11 @@ export function useUploadDocument() {
     },
     onError: (_err, _file, context) => {
       if (context?.previous) {
-        qc.setQueryData(knowledgeKeys.documents, context.previous);
+        qc.setQueryData(knowledgeKeys.documents(), context.previous);
       }
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: knowledgeKeys.documents });
+      void qc.invalidateQueries({ queryKey: knowledgeKeys.documents() });
     },
   });
 }
@@ -99,22 +103,22 @@ export function useDeleteDocument() {
   return useMutation<void, NormalizedApiError, string, UploadContext>({
     mutationFn: deleteDocument,
     onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: knowledgeKeys.documents });
+      await qc.cancelQueries({ queryKey: knowledgeKeys.documents() });
       const previous = qc.getQueryData<KnowledgeDocumentDto[]>(
-        knowledgeKeys.documents,
+        knowledgeKeys.documents(),
       );
-      qc.setQueryData<KnowledgeDocumentDto[]>(knowledgeKeys.documents, (old) =>
+      qc.setQueryData<KnowledgeDocumentDto[]>(knowledgeKeys.documents(), (old) =>
         (old ?? []).filter((d) => d.id !== id),
       );
       return { previous };
     },
     onError: (_err, _id, context) => {
       if (context?.previous) {
-        qc.setQueryData(knowledgeKeys.documents, context.previous);
+        qc.setQueryData(knowledgeKeys.documents(), context.previous);
       }
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: knowledgeKeys.documents });
+      void qc.invalidateQueries({ queryKey: knowledgeKeys.documents() });
     },
   });
 }
@@ -151,5 +155,20 @@ export function useViewDocument() {
 export function useSearchKnowledge() {
   return useMutation<SearchResultDto[], NormalizedApiError, SearchQueryDto>({
     mutationFn: searchKnowledge,
+  });
+}
+
+/** Retag mutation — invalidates the documents cache on success so every open view (global + per-employee) refetches. */
+export function useUpdateDocumentCategory() {
+  const qc = useQueryClient();
+  return useMutation<
+    KnowledgeDocumentDto,
+    NormalizedApiError,
+    { id: string; category: EmployeeRole | null }
+  >({
+    mutationFn: ({ id, category }) => updateDocumentCategory(id, category),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['knowledge', 'documents'] });
+    },
   });
 }
