@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { KnowledgeAccess, SearchResultDto } from '@vaep/types';
+import type { EmployeeRole, KnowledgeAccess, SearchResultDto } from '@vaep/types';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { RETRIEVAL_K } from '../employees.constants';
 
@@ -11,6 +11,10 @@ import { RETRIEVAL_K } from '../employees.constants';
  *
  * An employee whose `knowledgeAccess` is `NONE` skips retrieval entirely
  * (returns []); the default `ALL` preserves the original behaviour.
+ *
+ * `category` (the calling employee's role) scopes the search to that role's
+ * documents plus Shared ones (docs/specs/2026-07-14-knowledge-role-scoping-
+ * design.md) — omitting it preserves the original unfiltered behaviour.
  */
 @Injectable()
 export class RetrievalService {
@@ -21,6 +25,7 @@ export class RetrievalService {
     query: string,
     knowledgeAccess: KnowledgeAccess = 'ALL',
     k: number = RETRIEVAL_K,
+    category?: EmployeeRole,
   ): Promise<SearchResultDto[]> {
     if (knowledgeAccess === 'NONE') {
       return [];
@@ -29,6 +34,6 @@ export class RetrievalService {
     if (!text) {
       return [];
     }
-    return this.knowledge.retrieve(companyId, text, k);
+    return this.knowledge.retrieve(companyId, text, k, category);
   }
 }

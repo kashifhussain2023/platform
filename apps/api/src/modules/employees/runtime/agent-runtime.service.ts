@@ -11,6 +11,7 @@ import {
   CONTEXT_CLOSE,
   CONTEXT_OPEN,
   MAX_ACT_ITERATIONS,
+  RETRIEVAL_K,
   ROLE_SCOPE,
   TOOL_RESULT_MARKER,
 } from '../employees.constants';
@@ -88,6 +89,8 @@ export class AgentRuntimeService {
       companyId,
       userText,
       employee.knowledgeAccess,
+      RETRIEVAL_K,
+      employee.role,
     );
     const memory = await this.memory.load(
       companyId,
