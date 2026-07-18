@@ -75,8 +75,8 @@ export class IngestionProcessor extends WorkerHost {
           // raw SQL with a ::vector cast. id/createdAt have no DB-level default
           // (Prisma applies those client-side), so we supply them explicitly.
           await this.prisma.$executeRaw`
-            INSERT INTO "KnowledgeChunk" ("id", "documentId", "companyId", "content", "chunkIndex", "embedding", "createdAt")
-            VALUES (${randomUUID()}, ${documentId}, ${doc.companyId}, ${batch[j]}, ${inserted}, ${literal}::vector, now())
+            INSERT INTO "KnowledgeChunk" ("id", "documentId", "companyId", "content", "chunkIndex", "embedding", "category", "createdAt")
+            VALUES (${randomUUID()}, ${documentId}, ${doc.companyId}, ${batch[j]}, ${inserted}, ${literal}::vector, ${doc.category}::"EmployeeRole", now())
           `;
           inserted += 1;
         }
