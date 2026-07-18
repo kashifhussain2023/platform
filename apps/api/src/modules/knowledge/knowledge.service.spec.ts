@@ -133,6 +133,8 @@ describe('KnowledgeService category scoping', () => {
       where: { documentId: 'doc_1' },
       data: { category: 'HR' },
     });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction.mock.calls[0][0]).toHaveLength(2);
     expect(result.category).toBe('HR');
   });
 
@@ -165,6 +167,7 @@ describe('KnowledgeService category scoping', () => {
       where: { documentId: 'doc_1' },
       data: { category: null },
     });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(result.category).toBeNull();
   });
 });
