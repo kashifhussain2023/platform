@@ -47,6 +47,12 @@ export const loginSchema = z.object({
 export const searchSchema = z.object({
   query: z.string().min(1, 'Enter a search query').max(1000),
   k: z.number().int().min(1).max(50).optional(),
+  // Hardcoded (not EMPLOYEE_ROLES) because EMPLOYEE_ROLES is declared later in
+  // this file as a `const` — referencing it here would hit the temporal dead
+  // zone at module-eval time. Keep in sync with EMPLOYEE_ROLES below.
+  category: z
+    .enum(['SUPPORT', 'SALES', 'RECRUITER', 'HR', 'ACCOUNTANT', 'PROJECT_MANAGER', 'CUSTOM'])
+    .optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -176,6 +182,13 @@ export interface KnowledgeDocumentDto {
   error: string | null;
   chunkCount: number;
   createdAt: string;
+  /** null = Shared/company-wide; otherwise scoped to that AI-employee role. */
+  category: EmployeeRole | null;
+}
+
+/** PATCH /knowledge/documents/:id/category body. `category: null` = Shared/company-wide. */
+export interface UpdateDocumentCategoryDto {
+  category: EmployeeRole | null;
 }
 
 /** POST /knowledge/search body. */
