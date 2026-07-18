@@ -401,17 +401,33 @@ git commit -m "feat: add employeeId to InstalledSkillDto/installSkillSchema, con
 
 ### Task 3: `SkillsService` — employee-owned install + execution-time resolution
 
+**Note (discovered during Task 1's review, confirmed by direct grep against the current repo):**
+widening `InstalledSkill`'s unique constraint from `(companyId, skillKey)` to `(companyId, skillKey,
+employeeId)` breaks the Prisma-generated `companyId_skillKey` compound-key name everywhere it's used —
+**6 call sites across 4 files**, not just the 2 in `skills.service.ts` originally scoped here:
+`skills.service.ts` (install's duplicate check, `resolveExecutorContext`), `scheduling.service.ts`
+(`getCalendarAccessToken`, `getCalendarSettings`), `workflow-engine.service.ts` (the TOOL_ACTION
+quarantine check), and `connector-health.service.ts` (`byKey`). This task now fixes all 6, so the whole
+package typechecks clean again in one commit rather than leaving it partially broken between tasks. The
+3 call sites outside `skills.service.ts` are NOT employee-context-aware and don't need to become so —
+they're fixed as pure mechanical, behavior-preserving compiles (explicit `employeeId: null`, reproducing
+the exact query the old 2-field key already performed).
+
 **Files:**
 - Modify: `apps/api/src/modules/skills/skills.service.ts`
 - Modify: `apps/api/src/modules/skills/dto/install-skill.dto.ts`
 - Modify: `apps/api/src/modules/skills/skills.mapper.ts`
+- Modify: `apps/api/src/modules/scheduling/scheduling.service.ts`
+- Modify: `apps/api/src/modules/workflows/engine/workflow-engine.service.ts`
+- Modify: `apps/api/src/modules/skills/connectors/connector-health.service.ts`
 - Modify: `apps/api/test/skills.e2e-spec.ts`
 
 **Interfaces:**
 - Consumes: `InstalledSkill.employeeId` (Task 1), `InstallSkillDto.employeeId`/`InstalledSkillDto.employeeId` (Task 2).
 - Produces: `SkillsService.install()` accepting an optional owning employee; `resolveExecutorContext`
   preferring an employee's own connection over the company-wide one — Task 6 (frontend) and the runtime
-  tool-calling path both depend on this.
+  tool-calling path both depend on this. The whole `apps/api` package typechecks clean again after this
+  task (it does not before, by design, since Task 1 alone leaves the widened constraint's call sites broken).
 
 - [ ] **Step 1: Add `employeeId` to the install DTO**
 
@@ -649,7 +665,99 @@ Then add a new private method right after `resolveExecutorContext` ends (immedia
   }
 ```
 
-- [ ] **Step 5: Add e2e coverage**
+- [ ] **Step 5: Fix the 3 other call sites broken by the widened compound key**
+
+These are pure mechanical, behavior-preserving fixes — none of these 3 call sites are employee-context-
+aware, and none becomes so; `employeeId: null` reproduces exactly what the old 2-field compound key
+already matched (these lookups have only ever found company-wide connections).
+
+In `apps/api/src/modules/scheduling/scheduling.service.ts`, change:
+
+```typescript
+  private async getCalendarAccessToken(companyId: string): Promise<string> {
+    const installed = await this.prisma.installedSkill.findUnique({
+      where: { companyId_skillKey: { companyId, skillKey: 'calendar' } },
+    });
+    if (!installed || installed.connectionStatus !== 'CONNECTED') return '';
+    const creds = readCredentials(this.crypto, installed.credentials);
+    return credString(creds, 'accessToken', 'access_token');
+  }
+
+  private async getCalendarSettings(
+    companyId: string,
+  ): Promise<{ calendarId?: string; timezone?: string }> {
+    const installed = await this.prisma.installedSkill.findUnique({
+      where: { companyId_skillKey: { companyId, skillKey: 'calendar' } },
+    });
+```
+
+to:
+
+```typescript
+  private async getCalendarAccessToken(companyId: string): Promise<string> {
+    const installed = await this.prisma.installedSkill.findUnique({
+      where: { companyId_skillKey_employeeId: { companyId, skillKey: 'calendar', employeeId: null } },
+    });
+    if (!installed || installed.connectionStatus !== 'CONNECTED') return '';
+    const creds = readCredentials(this.crypto, installed.credentials);
+    return credString(creds, 'accessToken', 'access_token');
+  }
+
+  private async getCalendarSettings(
+    companyId: string,
+  ): Promise<{ calendarId?: string; timezone?: string }> {
+    const installed = await this.prisma.installedSkill.findUnique({
+      where: { companyId_skillKey_employeeId: { companyId, skillKey: 'calendar', employeeId: null } },
+    });
+```
+
+In `apps/api/src/modules/workflows/engine/workflow-engine.service.ts`, change:
+
+```typescript
+    if (skillKey) {
+      const connector = await this.prisma.installedSkill.findUnique({
+        where: { companyId_skillKey: { companyId, skillKey } },
+        select: { connectionStatus: true },
+      });
+```
+
+to:
+
+```typescript
+    if (skillKey) {
+      const connector = await this.prisma.installedSkill.findUnique({
+        where: { companyId_skillKey_employeeId: { companyId, skillKey, employeeId: null } },
+        select: { connectionStatus: true },
+      });
+```
+
+In `apps/api/src/modules/skills/connectors/connector-health.service.ts`, change:
+
+```typescript
+  private byKey(
+    companyId: string,
+    skillKey: string,
+  ): Promise<InstalledSkill | null> {
+    return this.prisma.installedSkill.findUnique({
+      where: { companyId_skillKey: { companyId, skillKey } },
+    });
+  }
+```
+
+to:
+
+```typescript
+  private byKey(
+    companyId: string,
+    skillKey: string,
+  ): Promise<InstalledSkill | null> {
+    return this.prisma.installedSkill.findUnique({
+      where: { companyId_skillKey_employeeId: { companyId, skillKey, employeeId: null } },
+    });
+  }
+```
+
+- [ ] **Step 6: Add e2e coverage**
 
 In `apps/api/test/skills.e2e-spec.ts`, add these tests at the end of the `describeIfDb` block (after its
 last existing test) — each is self-contained (creates its own employee) rather than depending on the
@@ -751,27 +859,35 @@ file's shared mutable state:
   });
 ```
 
-- [ ] **Step 6: Run the e2e suite and typecheck**
+- [ ] **Step 7: Run the e2e suites and typecheck**
 
 ```bash
 DATABASE_URL=postgresql://vaep:vaep@localhost:5433/vaep?schema=public REDIS_URL=redis://127.0.0.1:6380 \
 LLM_PROVIDER=mock EMBEDDINGS_PROVIDER=hash STORAGE_PROVIDER=local JWT_ACCESS_SECRET=test JWT_REFRESH_SECRET=test \
-npx jest --config ./test/jest-e2e.json skills.e2e-spec.ts
+npx jest --config ./test/jest-e2e.json skills.e2e-spec.ts connector-health.e2e-spec.ts integrations.e2e-spec.ts
 ```
 
-from `apps/api`, then:
+from `apps/api` — `connector-health.e2e-spec.ts` and `integrations.e2e-spec.ts` (which covers the
+scheduling/calendar path) are regression checks for Step 5's 3 mechanical fixes, not new coverage. Expect
+all `skills.e2e-spec.ts`/`connector-health.e2e-spec.ts` tests to pass; `integrations.e2e-spec.ts` has ONE
+pre-existing, already-documented unrelated failure in this local environment (its OAuth-UNCONFIGURED test,
+because `apps/api/.env` has real `OAUTH_GOOGLE_CLIENT_ID/SECRET` set locally — see `platform/CLAUDE.md`) —
+confirm that failure is the SAME one that exists on `main` before this task's changes (e.g. via a quick
+`git stash` + re-run if there's any doubt), not a new one you introduced.
+
+Then:
 
 ```bash
 pnpm --filter @vaep/api exec tsc --noEmit -p tsconfig.json
 ```
 
-Expected: all tests pass (existing + 4 new); typecheck now clean for this file (the `companyId_skillKey`
-errors from Task 1 are resolved).
+Expected: clean, zero errors — this confirms all 6 call sites (not just the 2 in `skills.service.ts`) are
+fixed.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add apps/api/src/modules/skills/skills.service.ts apps/api/src/modules/skills/dto/install-skill.dto.ts apps/api/src/modules/skills/skills.mapper.ts apps/api/test/skills.e2e-spec.ts
+git add apps/api/src/modules/skills/skills.service.ts apps/api/src/modules/skills/dto/install-skill.dto.ts apps/api/src/modules/skills/skills.mapper.ts apps/api/src/modules/scheduling/scheduling.service.ts apps/api/src/modules/workflows/engine/workflow-engine.service.ts apps/api/src/modules/skills/connectors/connector-health.service.ts apps/api/test/skills.e2e-spec.ts
 git commit -m "feat: employee-owned skill connections (install + execution-time resolution)"
 ```
 
