@@ -5,7 +5,9 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
+  Query,
   Res,
   StreamableFile,
   UploadedFile,
@@ -17,7 +19,10 @@ import type { Response } from 'express';
 import type { KnowledgeDocumentDto, SearchResultDto } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ListDocumentsQueryDto } from './dto/list-documents-query.dto';
 import { SearchDto } from './dto/search.dto';
+import { UpdateDocumentCategoryDto } from './dto/update-document-category.dto';
+import { UploadDocumentDto } from './dto/upload-document.dto';
 import { KnowledgeService, type UploadedDocFile } from './knowledge.service';
 
 /** All routes are tenant-scoped by companyId from the JWT and JWT-guarded. */
@@ -32,13 +37,17 @@ export class KnowledgeController {
   upload(
     @CurrentTenant() companyId: string,
     @UploadedFile() file: UploadedDocFile,
+    @Body() dto: UploadDocumentDto,
   ): Promise<KnowledgeDocumentDto> {
-    return this.knowledge.upload(companyId, file);
+    return this.knowledge.upload(companyId, file, dto.category);
   }
 
   @Get('documents')
-  list(@CurrentTenant() companyId: string): Promise<KnowledgeDocumentDto[]> {
-    return this.knowledge.list(companyId);
+  list(
+    @CurrentTenant() companyId: string,
+    @Query() query: ListDocumentsQueryDto,
+  ): Promise<KnowledgeDocumentDto[]> {
+    return this.knowledge.list(companyId, query.category);
   }
 
   @Get('documents/:id')
@@ -65,6 +74,15 @@ export class KnowledgeController {
       'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`,
     });
     return new StreamableFile(buffer);
+  }
+
+  @Patch('documents/:id/category')
+  updateCategory(
+    @CurrentTenant() companyId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateDocumentCategoryDto,
+  ): Promise<KnowledgeDocumentDto> {
+    return this.knowledge.updateCategory(companyId, id, dto.category);
   }
 
   @Delete('documents/:id')

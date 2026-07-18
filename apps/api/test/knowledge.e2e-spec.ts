@@ -103,4 +103,45 @@ describeIfDb('Knowledge e2e (upload -> ingest -> search)', () => {
   it('rejects knowledge routes without a token', async () => {
     await request(app.getHttpServer()).get('/knowledge/documents').expect(401);
   });
+
+  it('uploads a document tagged with a category, and it is included when listing that category', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/knowledge/documents')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .field('category', 'SALES')
+      .attach('file', Buffer.from('Sales playbook content.', 'utf8'), {
+        filename: 'sales-playbook.txt',
+        contentType: 'text/plain',
+      })
+      .expect(201);
+    expect(res.body.category).toBe('SALES');
+
+    const listed = await request(app.getHttpServer())
+      .get('/knowledge/documents?category=SALES')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(listed.body.some((d: { id: string }) => d.id === res.body.id)).toBe(true);
+
+    const listedHr = await request(app.getHttpServer())
+      .get('/knowledge/documents?category=HR')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(listedHr.body.some((d: { id: string }) => d.id === res.body.id)).toBe(false);
+  });
+
+  it('retags a document via PATCH .../category, moving it between categories', async () => {
+    const updated = await request(app.getHttpServer())
+      .patch(`/knowledge/documents/${documentId}/category`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ category: 'HR' })
+      .expect(200);
+    expect(updated.body.category).toBe('HR');
+
+    const backToShared = await request(app.getHttpServer())
+      .patch(`/knowledge/documents/${documentId}/category`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ category: null })
+      .expect(200);
+    expect(backToShared.body.category).toBeNull();
+  });
 });
