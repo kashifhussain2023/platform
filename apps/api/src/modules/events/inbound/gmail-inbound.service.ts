@@ -476,6 +476,11 @@ export class GmailInboundService {
             priorSubmissionCount,
             data: email,
           },
+          // This mailbox's own connector id -- lets a workflow's EVENT trigger
+          // scope itself to ONE specific mailbox via triggerConfig.connectorId
+          // (per-employee skill connections), instead of firing for every
+          // Gmail connector in the company.
+          connector.id,
         );
         firedRuns = result.count;
       } catch (err) {
