@@ -29,14 +29,20 @@ export function EmployeeSkillPicker({ employeeId }: { employeeId: string }) {
   const assignedIds = new Set((assigned ?? []).map((a) => a.installedSkillId));
   const busy = assign.isPending || unassign.isPending;
 
-  // OAuth-capable catalog skills this employee doesn't already own a connection for.
-  const ownedSkillKeys = new Set(
+  // OAuth-capable catalog skills this employee doesn't already have a CONNECTED
+  // connection for. A NOT_CONNECTED owned row (e.g. right after clicking
+  // "Connect" below) must stay in this list so ConnectSkillControl can render
+  // and actually complete the OAuth handshake -- excluding it entirely the
+  // moment the row is created would make that control unreachable.
+  const ownedByEmployee = new Map(
     (installed ?? [])
       .filter((s) => s.employeeId === employeeId)
-      .map((s) => s.skillKey),
+      .map((s) => [s.skillKey, s] as const),
   );
   const connectableForEmployee = (catalog ?? []).filter(
-    (def) => def.connection?.type === 'oauth' && !ownedSkillKeys.has(def.key),
+    (def) =>
+      def.connection?.type === 'oauth' &&
+      ownedByEmployee.get(def.key)?.connectionStatus !== 'CONNECTED',
   );
 
   return (
@@ -108,9 +114,7 @@ export function EmployeeSkillPicker({ employeeId }: { employeeId: string }) {
           </p>
           <ul className="space-y-2">
             {connectableForEmployee.map((def) => {
-              const ownRow = (installed ?? []).find(
-                (s) => s.skillKey === def.key && s.employeeId === employeeId,
-              );
+              const ownRow = ownedByEmployee.get(def.key);
               return (
                 <li
                   key={def.key}
