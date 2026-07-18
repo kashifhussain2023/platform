@@ -4,6 +4,12 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import {
+  SKILL_EXECUTOR_TOKEN,
+  type ExecutorContext,
+  type SkillExecutionResult,
+  type SkillExecutor,
+} from '../src/modules/skills/executors/skill-executor';
 
 // Skills + tool-execution e2e: needs a live Postgres + Redis. Skipped when
 // DATABASE_URL is unset so it never blocks the build. Run it with:
@@ -175,6 +181,161 @@ describeIfDb('Skills e2e (catalog -> install -> assign -> tool-calling run)', ()
       where: { companyId, employeeId, skillKey: 'slack', status: 'SUCCESS' },
     });
     expect(rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  describe('per-employee skill connection priority (real chat path)', () => {
+    // resolveInstalledForExecution (skills.service.ts) — the priority logic
+    // under test — only runs for executors that set usesInstalledCredentials
+    // (real/auto). This whole suite's ambient SKILL_EXECUTOR=mock leaves that
+    // falsy on MockSkillExecutor, so a chat call through the SHARED `app` above
+    // would never reach it (see runTool: `usesInstalledCredentials ? resolve...
+    // : ctx`). Give this one test its own app with SKILL_EXECUTOR_TOKEN
+    // overridden to a tiny probe executor (usesInstalledCredentials=true) that
+    // echoes back exactly which InstalledSkill row got resolved — the same
+    // .overrideProvider(SKILL_EXECUTOR_TOKEN) technique integrations.e2e-spec.ts
+    // already uses to force a non-default executor for one dedicated app. This
+    // stays fully offline/deterministic: the probe never makes a network call,
+    // unlike routing through the real gmail executor would.
+    let priorityApp: INestApplication;
+
+    class ProbeSkillExecutor implements SkillExecutor {
+      readonly name = 'probe';
+      readonly usesInstalledCredentials = true;
+      async execute(
+        _skillKey: string,
+        _tool: string,
+        _args: Record<string, unknown>,
+        ctx: ExecutorContext,
+      ): Promise<SkillExecutionResult> {
+        // Echo back connection-specific state so the test can assert DIRECTLY
+        // on which InstalledSkill row resolveExecutorContext resolved, instead
+        // of inferring it indirectly from ok:true/false.
+        return {
+          ok: true,
+          result: {
+            installedSkillId: ctx.installedSkillId ?? null,
+            companyEmail:
+              (ctx.config as { companyEmail?: string } | null)?.companyEmail ??
+              null,
+          },
+        };
+      }
+    }
+
+    beforeAll(async () => {
+      const moduleRef: TestingModule = await Test.createTestingModule({
+        imports: [AppModule],
+      })
+        .overrideProvider(SKILL_EXECUTOR_TOKEN)
+        .useValue(new ProbeSkillExecutor())
+        .compile();
+      priorityApp = moduleRef.createNestApplication();
+      priorityApp.use(cookieParser());
+      priorityApp.useGlobalPipes(
+        new ValidationPipe({ whitelist: true, transform: true }),
+      );
+      await priorityApp.init();
+    });
+
+    afterAll(async () => {
+      await priorityApp?.close();
+    });
+
+    it("uses the acting employee's OWN gmail connection, not the company-wide one, when both exist", async () => {
+      const server = priorityApp.getHttpServer();
+      const priorityEmail = `skill_priority_e2e_${Date.now()}@example.com`;
+
+      // A dedicated, self-contained company (fresh STARTER seat cap of 2, only
+      // 1 employee created below) so this test never depends on run order or
+      // the shared company's BUSINESS-plan bump above still being in effect.
+      const reg = await request(server)
+        .post('/auth/register')
+        .send({
+          companyName: 'Skill Priority Co',
+          name: 'Priority Owner',
+          email: priorityEmail,
+          password,
+        })
+        .expect(201);
+      const priorityAuth = {
+        Authorization: `Bearer ${reg.body.tokens.accessToken}`,
+      };
+
+      // Company-wide gmail connection (employeeId: null), CONNECTED with its
+      // own companyEmail — the row a buggy "always company-wide" resolution
+      // would pick.
+      const companyWide = await request(server)
+        .post('/skills/install')
+        .set(priorityAuth)
+        .send({ skillKey: 'gmail' })
+        .expect(201);
+      await request(server)
+        .patch(`/skills/installed/${companyWide.body.id}/config`)
+        .set(priorityAuth)
+        .send({ config: { companyEmail: 'company-wide@acme.example' } })
+        .expect(200);
+      await request(server)
+        .post(`/skills/installed/${companyWide.body.id}/connect`)
+        .set(priorityAuth)
+        .send({ credentials: { accessToken: 'company-wide-token' } })
+        .expect(201);
+
+      // An employee with its OWN gmail connection for the SAME skillKey,
+      // CONNECTED with a DIFFERENT companyEmail (install() auto-assigns it).
+      const emp = await request(server)
+        .post('/employees')
+        .set(priorityAuth)
+        .send({ name: 'Inbox AI', role: 'SUPPORT', persona: 'Inbox assistant.' })
+        .expect(201);
+      const priorityEmployeeId = emp.body.id;
+
+      const ownConn = await request(server)
+        .post('/skills/install')
+        .set(priorityAuth)
+        .send({ skillKey: 'gmail', employeeId: priorityEmployeeId })
+        .expect(201);
+      await request(server)
+        .patch(`/skills/installed/${ownConn.body.id}/config`)
+        .set(priorityAuth)
+        .send({ config: { companyEmail: 'inbox-ai-own@acme.example' } })
+        .expect(200);
+      await request(server)
+        .post(`/skills/installed/${ownConn.body.id}/connect`)
+        .set(priorityAuth)
+        .send({ credentials: { accessToken: 'employee-owned-token' } })
+        .expect(201);
+
+      // Drive a REAL chat turn (NOT the manual-execute endpoint, which calls
+      // runTool({ companyId }, ...) with no employeeId and so can never
+      // exercise this priority logic) so resolveExecutorContext runs with a
+      // real employeeId and must choose between the two InstalledSkill rows.
+      const conv = await request(server)
+        .post(`/employees/${priorityEmployeeId}/conversations`)
+        .set(priorityAuth)
+        .send({ title: 'Inbox check' })
+        .expect(201);
+
+      const res = await request(server)
+        .post(`/conversations/${conv.body.id}/messages`)
+        .set(priorityAuth)
+        .send({ content: 'Please read my gmail inbox for anything urgent' })
+        .expect(201);
+
+      const result = res.body;
+      expect(Array.isArray(result.toolCalls)).toBe(true);
+      const call = result.toolCalls.find(
+        (c: { skillKey: string; tool: string }) =>
+          c.skillKey === 'gmail' && c.tool === 'read_inbox',
+      );
+      expect(call).toBeTruthy();
+      expect(call.ok).toBe(true);
+
+      // Headline assertion: the EMPLOYEE-OWNED connection was resolved — not
+      // the company-wide one — even though both exist for this skill.
+      expect(call.result.installedSkillId).toBe(ownConn.body.id);
+      expect(call.result.installedSkillId).not.toBe(companyWide.body.id);
+      expect(call.result.companyEmail).toBe('inbox-ai-own@acme.example');
+    });
   });
 
   it('unassigns the skill from the employee', async () => {
