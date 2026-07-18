@@ -7,8 +7,8 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { Queue } from 'bullmq';
-import type { KnowledgeDocument } from '@prisma/client';
-import type { KnowledgeDocumentDto, SearchResultDto } from '@vaep/types';
+import { Prisma, type KnowledgeDocument } from '@prisma/client';
+import type { EmployeeRole, KnowledgeDocumentDto, SearchResultDto } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   EMBEDDING_PROVIDER,
@@ -48,6 +48,7 @@ export class KnowledgeService {
   async upload(
     companyId: string,
     file: UploadedDocFile | undefined,
+    category?: EmployeeRole,
   ): Promise<KnowledgeDocumentDto> {
     if (!file) {
       throw new BadRequestException('file is required');
@@ -63,6 +64,7 @@ export class KnowledgeService {
         sizeBytes: file.size,
         storageKey,
         status: 'PENDING',
+        category: category ?? null,
       },
     });
 
@@ -75,9 +77,11 @@ export class KnowledgeService {
     return toDocumentDto(doc);
   }
 
-  async list(companyId: string): Promise<KnowledgeDocumentDto[]> {
+  async list(companyId: string, category?: EmployeeRole): Promise<KnowledgeDocumentDto[]> {
     const docs = await this.prisma.knowledgeDocument.findMany({
-      where: { companyId },
+      where: category
+        ? { companyId, OR: [{ category }, { category: null }] }
+        : { companyId },
       orderBy: { createdAt: 'desc' },
     });
     return docs.map(toDocumentDto);
@@ -105,6 +109,24 @@ export class KnowledgeService {
     await this.prisma.knowledgeDocument.delete({ where: { id: doc.id } });
   }
 
+  /** Retags a document's category and cascades the change to its existing chunks (Task: role-scoping). */
+  async updateCategory(
+    companyId: string,
+    id: string,
+    category: EmployeeRole | null,
+  ): Promise<KnowledgeDocumentDto> {
+    const doc = await this.findOwned(companyId, id);
+    const updated = await this.prisma.knowledgeDocument.update({
+      where: { id: doc.id },
+      data: { category },
+    });
+    await this.prisma.knowledgeChunk.updateMany({
+      where: { documentId: doc.id },
+      data: { category },
+    });
+    return toDocumentDto(updated);
+  }
+
   /**
    * Cross-module retrieval capability consumed by the employees runtime
    * (RetrievalService). Reuses the exact embed + pgvector cosine search below so
@@ -114,8 +136,9 @@ export class KnowledgeService {
     companyId: string,
     query: string,
     k = 5,
+    category?: EmployeeRole,
   ): Promise<SearchResultDto[]> {
-    return this.search(companyId, { query, k });
+    return this.search(companyId, { query, k, category });
   }
 
   /** Embed the query and return the top-k nearest chunks for this tenant. */
@@ -123,16 +146,20 @@ export class KnowledgeService {
     const k = dto.k ?? 5;
     const [vector] = await this.embeddings.embed([dto.query]);
     const literal = toVectorLiteral(vector);
+    const categoryFilter = dto.category
+      ? Prisma.sql`AND ("category" = ${dto.category}::"EmployeeRole" OR "category" IS NULL)`
+      : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<
       Array<{ id: string; documentId: string; content: string; score: number }>
-    >`
+    >(Prisma.sql`
       SELECT "id", "documentId", "content", 1 - (embedding <=> ${literal}::vector) AS score
       FROM "KnowledgeChunk"
       WHERE "companyId" = ${companyId} AND embedding IS NOT NULL
+      ${categoryFilter}
       ORDER BY embedding <=> ${literal}::vector
       LIMIT ${k}
-    `;
+    `);
 
     return rows.map((r) => ({
       chunkId: r.id,
@@ -167,5 +194,6 @@ function toDocumentDto(doc: KnowledgeDocument): KnowledgeDocumentDto {
     error: doc.error,
     chunkCount: doc.chunkCount,
     createdAt: doc.createdAt.toISOString(),
+    category: doc.category,
   };
 }

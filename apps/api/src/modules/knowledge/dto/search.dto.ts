@@ -1,5 +1,5 @@
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
-import type { SearchQueryDto } from '@vaep/types';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { EMPLOYEE_ROLES, type EmployeeRole, type SearchQueryDto } from '@vaep/types';
 
 /** POST /knowledge/search body. Mirrors the shared @vaep/types contract. */
 export class SearchDto implements SearchQueryDto {
@@ -13,4 +13,8 @@ export class SearchDto implements SearchQueryDto {
   @Min(1)
   @Max(50)
   k?: number;
+
+  @IsOptional()
+  @IsIn(EMPLOYEE_ROLES)
+  category?: EmployeeRole;
 }
