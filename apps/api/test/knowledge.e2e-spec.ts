@@ -144,4 +144,28 @@ describeIfDb('Knowledge e2e (upload -> ingest -> search)', () => {
       .expect(200);
     expect(backToShared.body.category).toBeNull();
   });
+
+  it('rejects an invalid category value on PATCH .../category with a 400', async () => {
+    await request(app.getHttpServer())
+      .patch(`/knowledge/documents/${documentId}/category`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ category: 'NOT_A_REAL_ROLE' })
+      .expect(400);
+  });
+
+  it('a document uploaded with no category (Shared) appears in every category-filtered list', async () => {
+    const salesListed = await request(app.getHttpServer())
+      .get('/knowledge/documents?category=SALES')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    const hrListed = await request(app.getHttpServer())
+      .get('/knowledge/documents?category=HR')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    // documentId was set back to a Shared document (no category) by the PATCH-to-null
+    // step in the previous test — a Shared doc must appear in every category's list.
+    expect(salesListed.body.some((d: { id: string }) => d.id === documentId)).toBe(true);
+    expect(hrListed.body.some((d: { id: string }) => d.id === documentId)).toBe(true);
+  });
 });
