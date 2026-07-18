@@ -29,6 +29,13 @@ export function EmployeeSkillPicker({ employeeId }: { employeeId: string }) {
   const assignedIds = new Set((assigned ?? []).map((a) => a.installedSkillId));
   const busy = assign.isPending || unassign.isPending;
 
+  // Company-wide connections, or this employee's own -- another employee's
+  // private connection (e.g. their own Gmail mailbox) must not appear here
+  // as something assignable to THIS employee.
+  const assignableInstalled = (installed ?? []).filter(
+    (s) => s.employeeId === null || s.employeeId === employeeId,
+  );
+
   // OAuth-capable catalog skills this employee doesn't already have a CONNECTED
   // connection for. A NOT_CONNECTED owned row (e.g. right after clicking
   // "Connect" below) must stay in this list so ConnectSkillControl can render
@@ -52,7 +59,7 @@ export function EmployeeSkillPicker({ employeeId }: { employeeId: string }) {
 
         {isLoading ? (
           <p className="text-sm text-zinc-500">Loading skills…</p>
-        ) : !installed || installed.length === 0 ? (
+        ) : assignableInstalled.length === 0 ? (
           <p className="text-sm text-zinc-500">
             No skills installed.{' '}
             <Link href="/skills" className="font-medium text-violet-secondary hover:text-white">
@@ -62,7 +69,7 @@ export function EmployeeSkillPicker({ employeeId }: { employeeId: string }) {
           </p>
         ) : (
           <ul className="divide-y divide-white/[0.06]">
-            {installed.map((skill) => {
+            {assignableInstalled.map((skill) => {
               const isAssigned = assignedIds.has(skill.id);
               return (
                 <li
