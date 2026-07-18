@@ -210,6 +210,10 @@ model KnowledgeDocument {
   status     DocumentStatus   @default(PENDING)
   error      String?
   chunkCount Int              @default(0)
+  // null = Shared/company-wide (visible to every AI-employee role). Non-null
+  // scopes the document to that one role's retrieval (docs/specs/2026-07-14-
+  // knowledge-role-scoping-design.md).
+  category   EmployeeRole?
   createdAt  DateTime         @default(now())
 
   chunks KnowledgeChunk[]
@@ -225,6 +229,11 @@ model KnowledgeChunk {
   content    String
   chunkIndex Int
   embedding  Unsupported("vector(384)")?
+  // Denormalized copy of the parent document's category, written at ingest
+  // time (ingestion.processor.ts) and kept in sync on retag
+  // (KnowledgeService.updateCategory) — needed because the pgvector search
+  // filters chunks directly via raw SQL, not through a document join.
+  category   EmployeeRole?
   createdAt  DateTime                     @default(now())
 
   @@index([companyId])
