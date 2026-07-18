@@ -208,4 +208,108 @@ describeIfDb('Skills e2e (catalog -> install -> assign -> tool-calling run)', ()
   it('rejects skills routes without a token', async () => {
     await request(app.getHttpServer()).get('/skills/installed').expect(401);
   });
+
+  it('installs a skill owned by a specific employee, auto-assigning it', async () => {
+    // This suite's shared company defaults to STARTER (max 2 AI employees —
+    // see EmployeesService.create/maxEmployeesFor) and already has 1 ('Sky').
+    // The employee-owned-connection tests below hire several more in this
+    // SAME company, so lift the seat cap first (a plan with maxEmployees:
+    // null) rather than restructure every test to spin up its own company.
+    await prisma.subscription.update({
+      where: { companyId },
+      data: { plan: 'BUSINESS' },
+    });
+
+    const emp = await request(app.getHttpServer())
+      .post('/employees')
+      .set(auth())
+      .send({ name: 'HR AI', role: 'HR', persona: 'HR assistant.' })
+      .expect(201);
+    const hrEmployeeId = emp.body.id;
+
+    const res = await request(app.getHttpServer())
+      .post('/skills/install')
+      .set(auth())
+      .send({ skillKey: 'gmail', employeeId: hrEmployeeId })
+      .expect(201);
+    expect(res.body.employeeId).toBe(hrEmployeeId);
+    expect(res.body.displayName).toContain('HR AI');
+
+    const assigned = await request(app.getHttpServer())
+      .get(`/employees/${hrEmployeeId}/skills`)
+      .set(auth())
+      .expect(200);
+    expect(
+      assigned.body.some((a: { installedSkillId: string }) => a.installedSkillId === res.body.id),
+    ).toBe(true);
+  });
+
+  it('allows a second, company-wide gmail connection alongside an employee-owned one', async () => {
+    const emp = await request(app.getHttpServer())
+      .post('/employees')
+      .set(auth())
+      .send({ name: 'Support AI', role: 'SUPPORT', persona: 'Support assistant.' })
+      .expect(201);
+    const supportEmployeeId = emp.body.id;
+
+    await request(app.getHttpServer())
+      .post('/skills/install')
+      .set(auth())
+      .send({ skillKey: 'gmail', employeeId: supportEmployeeId })
+      .expect(201);
+
+    // A second employee-owned gmail connection (different employee) must NOT
+    // collide with the first — the unique constraint is (companyId, skillKey,
+    // employeeId), not (companyId, skillKey).
+    const list = await request(app.getHttpServer())
+      .get('/skills/installed')
+      .set(auth())
+      .expect(200);
+    const gmailRows = list.body.filter((s: { skillKey: string }) => s.skillKey === 'gmail');
+    expect(gmailRows.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('rejects installing the same skill for the same employee twice (409)', async () => {
+    const emp = await request(app.getHttpServer())
+      .post('/employees')
+      .set(auth())
+      .send({ name: 'Sales AI', role: 'SALES', persona: 'Sales assistant.' })
+      .expect(201);
+    const salesEmployeeId = emp.body.id;
+
+    await request(app.getHttpServer())
+      .post('/skills/install')
+      .set(auth())
+      .send({ skillKey: 'gmail', employeeId: salesEmployeeId })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/skills/install')
+      .set(auth())
+      .send({ skillKey: 'gmail', employeeId: salesEmployeeId })
+      .expect(409);
+  });
+
+  it('rejects installing a skill for an employee from a different company (404)', async () => {
+    const otherCompany = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        companyName: 'Other Co',
+        name: 'Other Owner',
+        email: `other_${Date.now()}@example.com`,
+        password: 'password123',
+      })
+      .expect(201);
+    const otherEmployee = await request(app.getHttpServer())
+      .post('/employees')
+      .set({ Authorization: `Bearer ${otherCompany.body.tokens.accessToken}` })
+      .send({ name: 'Other Employee', role: 'SUPPORT', persona: 'x' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/skills/install')
+      .set(auth())
+      .send({ skillKey: 'gmail', employeeId: otherEmployee.body.id })
+      .expect(404);
+  });
 });

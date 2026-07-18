@@ -254,8 +254,13 @@ export class ConnectorHealthService {
     companyId: string,
     skillKey: string,
   ): Promise<InstalledSkill | null> {
-    return this.prisma.installedSkill.findUnique({
-      where: { companyId_skillKey: { companyId, skillKey } },
+    // findFirst (not findUnique + the companyId_skillKey_employeeId compound
+    // key): Prisma's compound-unique-index type requires a non-null
+    // employeeId, even though the column is nullable — see the note on
+    // SkillsService.resolveInstalledForExecution. This company-wide lookup
+    // (employeeId: null) reproduces the exact row the old 2-field key matched.
+    return this.prisma.installedSkill.findFirst({
+      where: { companyId, skillKey, employeeId: null },
     });
   }
 

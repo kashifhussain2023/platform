@@ -17,6 +17,11 @@ export class InstallSkillDto implements IInstallSkillDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
+  employeeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
   @MaxLength(120)
   displayName?: string;
 

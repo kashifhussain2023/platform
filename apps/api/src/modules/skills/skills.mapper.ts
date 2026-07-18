@@ -23,6 +23,7 @@ export function toInstalledSkillDto(s: InstalledSkill): InstalledSkillDto {
     id: s.id,
     companyId: s.companyId,
     skillKey: s.skillKey,
+    employeeId: s.employeeId,
     displayName: s.displayName,
     config: (s.config as Record<string, unknown> | null) ?? null,
     enabled: s.enabled,

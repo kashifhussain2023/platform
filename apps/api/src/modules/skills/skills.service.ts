@@ -78,25 +78,56 @@ export class SkillsService {
     if (!def) {
       throw new NotFoundException(`Unknown skill: ${dto.skillKey}`);
     }
-    const existing = await this.prisma.installedSkill.findUnique({
-      where: { companyId_skillKey: { companyId, skillKey: dto.skillKey } },
+    const employeeId = dto.employeeId ?? null;
+    let employeeName: string | null = null;
+    if (employeeId) {
+      const employee = await this.prisma.aiEmployee.findFirst({
+        where: { id: employeeId, companyId },
+        select: { name: true },
+      });
+      if (!employee) {
+        throw new NotFoundException('Employee not found');
+      }
+      employeeName = employee.name;
+    }
+    // findFirst (not findUnique + the compound key) because `employeeId` here
+    // is `string | null`: Prisma's compound-unique-index type requires a
+    // non-null `employeeId`, even though the column is nullable (see the
+    // note on resolveInstalledForExecution below) — findFirst on the same
+    // 3-field equality matches the identical row in every case that matters.
+    const existing = await this.prisma.installedSkill.findFirst({
+      where: { companyId, skillKey: dto.skillKey, employeeId },
     });
     if (existing) {
       throw new ConflictException('Skill is already installed');
     }
-    const row = await this.prisma.installedSkill.create({
-      data: {
-        companyId,
-        skillKey: dto.skillKey,
-        displayName: dto.displayName?.trim() || def.name,
-        config:
-          dto.config === undefined
-            ? undefined
-            : (dto.config as Prisma.InputJsonObject),
-        // Mirror the catalog connection type; starts NOT_CONNECTED (default).
-        connectionType: def.connection.type,
-        enabled: true,
-      },
+    // Transactional: an employee-owned connection is auto-assigned to that same
+    // employee (there's exactly one sensible owner, so a separate manual
+    // "assign" step would be pure friction) — both writes commit together.
+    const row = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.installedSkill.create({
+        data: {
+          companyId,
+          skillKey: dto.skillKey,
+          employeeId,
+          displayName:
+            dto.displayName?.trim() ||
+            (employeeName ? `${def.name} — ${employeeName}` : def.name),
+          config:
+            dto.config === undefined
+              ? undefined
+              : (dto.config as Prisma.InputJsonObject),
+          // Mirror the catalog connection type; starts NOT_CONNECTED (default).
+          connectionType: def.connection.type,
+          enabled: true,
+        },
+      });
+      if (employeeId) {
+        await tx.employeeSkill.create({
+          data: { companyId, employeeId, installedSkillId: created.id },
+        });
+      }
+      return created;
     });
     return toInstalledSkillDto(row);
   }
@@ -491,9 +522,11 @@ export class SkillsService {
     ctx: ExecutorContext,
     skillKey: string,
   ): Promise<ExecutorContext> {
-    const installed = await this.prisma.installedSkill.findUnique({
-      where: { companyId_skillKey: { companyId: ctx.companyId, skillKey } },
-    });
+    const installed = await this.resolveInstalledForExecution(
+      ctx.companyId,
+      ctx.employeeId,
+      skillKey,
+    );
     if (!installed) {
       return ctx;
     }
@@ -530,6 +563,48 @@ export class SkillsService {
       config: (installed.config as Record<string, unknown> | null) ?? null,
       credentials,
     };
+  }
+
+  /**
+   * Prefer the acting employee's OWN connection for this skill (e.g. its own
+   * Gmail mailbox) when one exists; otherwise fall back to the company-wide
+   * connection (employeeId: null) — today's exact behavior when no
+   * employee-owned connection has ever been created.
+   *
+   * NOTE: the `employeeId: null` (company-wide) lookup below uses `findFirst`
+   * with a flat filter rather than `findUnique` on the
+   * `companyId_skillKey_employeeId` compound key: Prisma's generated compound-
+   * unique-index type requires `employeeId: string` (it excludes `null`) even
+   * though the column is nullable — a deliberate Prisma typing rule, because a
+   * nullable column inside a compound unique index isn't actually enforced as
+   * unique by Postgres for NULL (two NULLs are never "equal", so the DB allows
+   * more than one row where employeeId IS NULL). `findFirst` on the same
+   * 3-field equality still uses the same composite index and returns the exact
+   * same row for every case this codebase relies on (a concrete employeeId IS
+   * uniquely enforced by the DB); only the (intentionally non-unique) NULL case
+   * differs, where "first" is the correct read since there is no DB-level
+   * uniqueness guarantee to defer to. The narrowed non-null lookup above keeps
+   * `findUnique` + the compound key since that combination compiles and is
+   * genuinely unique.
+   */
+  private async resolveInstalledForExecution(
+    companyId: string,
+    employeeId: string | null | undefined,
+    skillKey: string,
+  ): Promise<InstalledSkill | null> {
+    if (employeeId) {
+      const own = await this.prisma.installedSkill.findUnique({
+        where: {
+          companyId_skillKey_employeeId: { companyId, skillKey, employeeId },
+        },
+      });
+      if (own) {
+        return own;
+      }
+    }
+    return this.prisma.installedSkill.findFirst({
+      where: { companyId, skillKey, employeeId: null },
+    });
   }
 
   /**

@@ -180,8 +180,13 @@ export class SchedulingService {
   // --- Real Google Calendar access (own credential lookup — see google-calendar.util.ts doc) --
 
   private async getCalendarAccessToken(companyId: string): Promise<string> {
-    const installed = await this.prisma.installedSkill.findUnique({
-      where: { companyId_skillKey: { companyId, skillKey: 'calendar' } },
+    // findFirst (not findUnique + the companyId_skillKey_employeeId compound
+    // key): Prisma's compound-unique-index type requires a non-null
+    // employeeId, even though the column is nullable — see the note on
+    // SkillsService.resolveInstalledForExecution. This company-wide lookup
+    // (employeeId: null) reproduces the exact row the old 2-field key matched.
+    const installed = await this.prisma.installedSkill.findFirst({
+      where: { companyId, skillKey: 'calendar', employeeId: null },
     });
     if (!installed || installed.connectionStatus !== 'CONNECTED') return '';
     const creds = readCredentials(this.crypto, installed.credentials);
@@ -191,8 +196,8 @@ export class SchedulingService {
   private async getCalendarSettings(
     companyId: string,
   ): Promise<{ calendarId?: string; timezone?: string }> {
-    const installed = await this.prisma.installedSkill.findUnique({
-      where: { companyId_skillKey: { companyId, skillKey: 'calendar' } },
+    const installed = await this.prisma.installedSkill.findFirst({
+      where: { companyId, skillKey: 'calendar', employeeId: null },
     });
     const config = (installed?.config ?? {}) as Record<string, unknown>;
     return {
