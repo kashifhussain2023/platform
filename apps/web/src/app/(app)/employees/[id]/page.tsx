@@ -18,16 +18,19 @@ import {
   useUpdateEmployee,
 } from '@/features/employees/hooks';
 import { STATUS_STYLES, formatRole } from '@/features/employees/labels';
+import { DocumentList } from '@/features/knowledge/components/DocumentList';
+import { UploadPanel } from '@/features/knowledge/components/UploadPanel';
 import { EmployeeSkillPicker } from '@/features/skills/components/EmployeeSkillPicker';
 import { useSessionStore } from '@/stores/session.store';
 
-type TabId = 'overview' | 'chat' | 'memory' | 'tools' | 'settings';
+type TabId = 'overview' | 'chat' | 'memory' | 'tools' | 'knowledge' | 'settings';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'chat', label: 'Chat' },
   { id: 'memory', label: 'Memory' },
   { id: 'tools', label: 'Tools' },
+  { id: 'knowledge', label: 'Knowledge' },
   { id: 'settings', label: 'Settings' },
 ];
 
@@ -49,9 +52,7 @@ export default function EmployeeDetailPage({
   const startConversation = useStartConversation(employeeId);
   const updateEmployee = useUpdateEmployee();
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'memory' | 'tools' | 'settings'>(
-    'overview',
-  );
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
 
   // Client-side route guard.
   useEffect(() => {
@@ -215,6 +216,23 @@ export default function EmployeeDetailPage({
       {activeTab === 'memory' && <LearningPanel employeeId={employeeId} />}
 
       {activeTab === 'tools' && <EmployeeSkillPicker employeeId={employeeId} />}
+
+      {activeTab === 'knowledge' &&
+        (employee ? (
+          <div className="grid gap-6 lg:grid-cols-3">
+            <section className="order-2 lg:order-1 lg:col-span-2">
+              <h2 className="mb-3 text-sm font-medium text-zinc-400">
+                {formatRole(employee.role)} + Shared documents
+              </h2>
+              <DocumentList category={employee.role} />
+            </section>
+            <div className="order-1 lg:order-2">
+              <UploadPanel defaultCategory={employee.role} />
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">Loading…</p>
+        ))}
 
       {activeTab === 'settings' &&
         (employee ? (
