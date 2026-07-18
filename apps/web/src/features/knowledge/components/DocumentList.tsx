@@ -2,7 +2,9 @@
 
 import { ChevronRight, File, FileCode, FileText, type LucideIcon } from 'lucide-react';
 import type { DocumentStatus } from '@vaep/types';
-import { useDeleteDocument, useDocuments, useViewDocument } from '../hooks';
+import { formatRole } from '@/features/employees/labels';
+import { EMPLOYEE_ROLES, type EmployeeRole } from '../schemas';
+import { useDeleteDocument, useDocuments, useUpdateDocumentCategory, useViewDocument } from '../hooks';
 
 const STATUS_STYLES: Record<DocumentStatus, string> = {
   PENDING: 'bg-white/[0.06] text-zinc-400',
@@ -35,10 +37,17 @@ function fileTypeMeta(mimeType: string): { label: string; Icon: LucideIcon; chip
   return { label: mimeType, Icon: File, chip: 'bg-white/[0.06] text-zinc-400' };
 }
 
-export function DocumentList() {
-  const { data: docs, isLoading } = useDocuments();
+/**
+ * Reused by both the global `/knowledge` page (no `category` — shows every
+ * document, with the retag dropdown to assign one) and each AI Employee's
+ * "Knowledge" tab (`category` = that employee's role — shows that role's
+ * documents + Shared, retag dropdown still available).
+ */
+export function DocumentList({ category }: { category?: EmployeeRole } = {}) {
+  const { data: docs, isLoading } = useDocuments(category);
   const del = useDeleteDocument();
   const view = useViewDocument();
+  const retag = useUpdateDocumentCategory();
 
   if (isLoading) {
     return <p className="text-sm text-zinc-500">Loading documents…</p>;
@@ -83,6 +92,24 @@ export function DocumentList() {
               </p>
             </div>
             <StatusBadge status={doc.status} />
+            <select
+              className="field-modern !w-auto shrink-0 !py-1.5 text-xs"
+              value={doc.category ?? ''}
+              disabled={isTemp || retag.isPending}
+              onChange={(e) =>
+                retag.mutate({
+                  id: doc.id,
+                  category: e.target.value === '' ? null : (e.target.value as EmployeeRole),
+                })
+              }
+            >
+              <option value="">Shared (everyone)</option>
+              {EMPLOYEE_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {formatRole(role)}
+                </option>
+              ))}
+            </select>
             <div className="flex shrink-0 items-center gap-3">
               <button
                 type="button"
