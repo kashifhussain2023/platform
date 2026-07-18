@@ -10,6 +10,7 @@ import type {
 } from '@vaep/types';
 import { EVENT_CONDITION_OPS } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
+import { useInstalledSkills } from '@/features/skills/hooks';
 import {
   useActivateWorkflow,
   useDeactivateWorkflow,
@@ -119,7 +120,17 @@ export function TriggerPanel({
   const [conditions, setConditions] = useState<ConditionRow[]>(() =>
     initialConditions(workflow),
   );
+  const [connectorId, setConnectorId] = useState<string>(
+    workflow.triggerConfig?.connectorId ?? '',
+  );
   const [copied, setCopied] = useState(false);
+
+  const { data: installedSkills } = useInstalledSkills();
+  // Only Gmail connections can currently receive inbound events -- this list
+  // grows the same way if/when other providers get an inbound driver.
+  const connectableMailboxes = (installedSkills ?? []).filter(
+    (s) => s.skillKey === 'gmail' && s.connectionStatus === 'CONNECTED',
+  );
 
   const update = useUpdateWorkflow();
   const activate = useActivateWorkflow();
@@ -139,6 +150,7 @@ export function TriggerPanel({
       triggerConfig = {
         eventType: eventType.trim(),
         ...(built.length > 0 ? { conditions: built } : {}),
+        ...(connectorId ? { connectorId } : {}),
       };
     } else {
       triggerConfig = undefined;
@@ -230,6 +242,26 @@ export function TriggerPanel({
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
           />
+
+          {connectableMailboxes.length > 0 && (
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-zinc-400">
+                Only for this connected mailbox
+              </label>
+              <select
+                className="field-modern text-sm"
+                value={connectorId}
+                onChange={(e) => setConnectorId(e.target.value)}
+              >
+                <option value="">Any connected mailbox</option>
+                {connectableMailboxes.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="mt-3">
             <div className="mb-1 flex items-center justify-between">
