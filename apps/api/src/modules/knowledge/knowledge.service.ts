@@ -109,21 +109,28 @@ export class KnowledgeService {
     await this.prisma.knowledgeDocument.delete({ where: { id: doc.id } });
   }
 
-  /** Retags a document's category and cascades the change to its existing chunks (Task: role-scoping). */
+  /**
+   * Retags a document's category and cascades the change to its existing
+   * chunks. Wrapped in a transaction so a crash between the two writes can
+   * never leave a document's category out of sync with its own chunks'
+   * (retrieval filters on the chunk-level column, not the document's).
+   */
   async updateCategory(
     companyId: string,
     id: string,
     category: EmployeeRole | null,
   ): Promise<KnowledgeDocumentDto> {
     const doc = await this.findOwned(companyId, id);
-    const updated = await this.prisma.knowledgeDocument.update({
-      where: { id: doc.id },
-      data: { category },
-    });
-    await this.prisma.knowledgeChunk.updateMany({
-      where: { documentId: doc.id },
-      data: { category },
-    });
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.knowledgeDocument.update({
+        where: { id: doc.id },
+        data: { category },
+      }),
+      this.prisma.knowledgeChunk.updateMany({
+        where: { documentId: doc.id },
+        data: { category },
+      }),
+    ]);
     return toDocumentDto(updated);
   }
 

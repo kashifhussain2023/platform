@@ -14,6 +14,10 @@ function fakePrisma() {
       updateMany: jest.fn(),
     },
     $queryRaw: jest.fn().mockResolvedValue([]),
+    // Mirrors Prisma's real batch `$transaction(array)`: takes already-created
+    // operation promises and resolves them together, returning their results
+    // in order — enough fidelity for updateCategory()'s atomicity to be unit-tested.
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
 }
 

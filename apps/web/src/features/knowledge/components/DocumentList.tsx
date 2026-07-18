@@ -45,7 +45,7 @@ function fileTypeMeta(mimeType: string): { label: string; Icon: LucideIcon; chip
  */
 export function DocumentList({ category }: { category?: EmployeeRole } = {}) {
   const { data: docs, isLoading } = useDocuments(category);
-  const del = useDeleteDocument();
+  const del = useDeleteDocument(category);
   const view = useViewDocument();
   const retag = useUpdateDocumentCategory();
 

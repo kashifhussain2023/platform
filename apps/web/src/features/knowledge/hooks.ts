@@ -19,6 +19,10 @@ import {
 } from './api';
 
 export const knowledgeKeys = {
+  /** Prefix shared by every category-scoped documents query — invalidating this
+   * (not a specific `.documents(category)`) is what refreshes every open view
+   * (global page + every employee's own filtered tab) at once. */
+  all: ['knowledge', 'documents'] as const,
   documents: (category?: EmployeeRole) =>
     ['knowledge', 'documents', category ?? 'all'] as const,
 };
@@ -47,6 +51,7 @@ export function useDocuments(category?: EmployeeRole) {
 
 interface UploadContext {
   previous?: KnowledgeDocumentDto[];
+  category?: EmployeeRole;
 }
 
 /**
@@ -64,9 +69,9 @@ export function useUploadDocument() {
   >({
     mutationFn: ({ file, category }) => uploadDocument(file, category),
     onMutate: async ({ file, category }) => {
-      await qc.cancelQueries({ queryKey: knowledgeKeys.documents() });
+      await qc.cancelQueries({ queryKey: knowledgeKeys.documents(category) });
       const previous = qc.getQueryData<KnowledgeDocumentDto[]>(
-        knowledgeKeys.documents(),
+        knowledgeKeys.documents(category),
       );
       const optimistic: KnowledgeDocumentDto = {
         id: `temp_${Date.now()}`,
@@ -80,45 +85,58 @@ export function useUploadDocument() {
         category: category ?? null,
         createdAt: new Date().toISOString(),
       };
-      qc.setQueryData<KnowledgeDocumentDto[]>(knowledgeKeys.documents(), (old) => [
-        optimistic,
-        ...(old ?? []),
-      ]);
-      return { previous };
+      qc.setQueryData<KnowledgeDocumentDto[]>(
+        knowledgeKeys.documents(category),
+        (old) => [optimistic, ...(old ?? [])],
+      );
+      return { previous, category };
     },
-    onError: (_err, _file, context) => {
+    onError: (_err, _variables, context) => {
       if (context?.previous) {
-        qc.setQueryData(knowledgeKeys.documents(), context.previous);
+        qc.setQueryData(knowledgeKeys.documents(context.category), context.previous);
       }
     },
+    // Invalidate the shared prefix (not just this upload's own category) so
+    // every open view — the global page's unfiltered list AND every AI
+    // employee's own filtered Knowledge tab — refetches, not only whichever
+    // category this particular upload targeted.
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: knowledgeKeys.documents() });
+      void qc.invalidateQueries({ queryKey: knowledgeKeys.all });
     },
   });
 }
 
-/** Delete mutation (optimistic): removes the row immediately, rolls back on error. */
-export function useDeleteDocument() {
+/**
+ * Delete mutation (optimistic): removes the row immediately, rolls back on
+ * error. `category` should match whichever `useDocuments(category)` view the
+ * caller is rendering (the global page passes none; an employee's Knowledge
+ * tab passes its own role), so the optimistic removal is visible on the
+ * correct list instead of only the unfiltered "all" cache entry.
+ */
+export function useDeleteDocument(category?: EmployeeRole) {
   const qc = useQueryClient();
   return useMutation<void, NormalizedApiError, string, UploadContext>({
     mutationFn: deleteDocument,
     onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: knowledgeKeys.documents() });
+      await qc.cancelQueries({ queryKey: knowledgeKeys.documents(category) });
       const previous = qc.getQueryData<KnowledgeDocumentDto[]>(
-        knowledgeKeys.documents(),
+        knowledgeKeys.documents(category),
       );
-      qc.setQueryData<KnowledgeDocumentDto[]>(knowledgeKeys.documents(), (old) =>
-        (old ?? []).filter((d) => d.id !== id),
+      qc.setQueryData<KnowledgeDocumentDto[]>(
+        knowledgeKeys.documents(category),
+        (old) => (old ?? []).filter((d) => d.id !== id),
       );
       return { previous };
     },
     onError: (_err, _id, context) => {
       if (context?.previous) {
-        qc.setQueryData(knowledgeKeys.documents(), context.previous);
+        qc.setQueryData(knowledgeKeys.documents(category), context.previous);
       }
     },
+    // Invalidate the shared prefix so every open view refetches, not just
+    // this component's own category — mirrors useUploadDocument above.
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: knowledgeKeys.documents() });
+      void qc.invalidateQueries({ queryKey: knowledgeKeys.all });
     },
   });
 }
@@ -168,7 +186,7 @@ export function useUpdateDocumentCategory() {
   >({
     mutationFn: ({ id, category }) => updateDocumentCategory(id, category),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['knowledge', 'documents'] });
+      void qc.invalidateQueries({ queryKey: knowledgeKeys.all });
     },
   });
 }
