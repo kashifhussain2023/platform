@@ -90,6 +90,7 @@ export function toWorkflowRunDto(
     workflowId: r.workflowId,
     status: r.status,
     source: r.source,
+    dryRun: r.dryRun,
     trigger: (r.trigger as Record<string, unknown> | null) ?? null,
     context: (r.context as Record<string, unknown> | null) ?? null,
     triggerEventId: r.triggerEventId ?? null,

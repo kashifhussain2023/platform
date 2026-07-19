@@ -61,10 +61,11 @@ export async function deactivateWorkflow(id: string): Promise<WorkflowDto> {
 export async function runWorkflow(vars: {
   id: string;
   trigger?: Record<string, unknown>;
+  dryRun?: boolean;
 }): Promise<WorkflowRunDto> {
   const { data } = await apiClient.post<WorkflowRunDto>(
     `/workflows/${vars.id}/run`,
-    { trigger: vars.trigger },
+    { trigger: vars.trigger, dryRun: vars.dryRun },
   );
   return data;
 }

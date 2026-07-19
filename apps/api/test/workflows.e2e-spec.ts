@@ -271,6 +271,69 @@ describeIfDb('Workflows e2e (create -> run -> poll linear chain)', () => {
     expect(run.error).toBeFalsy();
   }, 20_000);
 
+  it('dryRun: true previews a TOOL_ACTION instead of really calling it (no SkillExecution row)', async () => {
+    const definition = {
+      nodes: [
+        { id: 'n1', type: 'TRIGGER', config: {} },
+        {
+          id: 'n2',
+          type: 'TOOL_ACTION',
+          config: {
+            skillKey: 'slack',
+            tool: 'send_message',
+            args: { channel: '#general', text: 'dry run check' },
+            outputKey: 'result',
+          },
+        },
+      ],
+      edges: [{ from: 'n1', to: 'n2' }],
+    };
+    const wf = await request(app.getHttpServer())
+      .post('/workflows')
+      .set(auth())
+      .send({ name: 'Dry run check', definition })
+      .expect(201);
+
+    const before = await prisma.skillExecution.count({
+      where: { companyId, skillKey: 'slack', tool: 'send_message' },
+    });
+
+    const start = await request(app.getHttpServer())
+      .post(`/workflows/${wf.body.id}/run`)
+      .set(auth())
+      .send({ dryRun: true })
+      .expect(201);
+    expect(start.body.dryRun).toBe(true);
+
+    const deadline = Date.now() + 15_000;
+    let run: any = start.body;
+    while (Date.now() < deadline) {
+      const res = await request(app.getHttpServer())
+        .get(`/workflows/runs/${run.id}`)
+        .set(auth())
+        .expect(200);
+      run = res.body;
+      if (run.status === 'COMPLETED' || run.status === 'FAILED') break;
+      await sleep(300);
+    }
+    expect(run.status).toBe('COMPLETED');
+    expect(run.dryRun).toBe(true);
+
+    const toolStep = run.steps.find(
+      (s: { type: string }) => s.type === 'TOOL_ACTION',
+    );
+    expect(toolStep.output.ok).toBe(true);
+    expect(toolStep.output.dryRun).toBe(true);
+    expect(String(toolStep.output.preview)).toContain('slack');
+    // Never actually called the skill: no id in the mock's real-execution
+    // shape, and no new SkillExecution audit row.
+    expect(toolStep.output.result).toBeUndefined();
+    const after = await prisma.skillExecution.count({
+      where: { companyId, skillKey: 'slack', tool: 'send_message' },
+    });
+    expect(after).toBe(before);
+  }, 20_000);
+
   it('rejects workflow routes without a token', async () => {
     await request(app.getHttpServer()).get('/workflows').expect(401);
   });

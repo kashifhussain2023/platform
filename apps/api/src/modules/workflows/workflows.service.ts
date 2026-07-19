@@ -328,9 +328,10 @@ export class WorkflowsService {
     companyId: string,
     id: string,
     trigger?: Record<string, unknown>,
+    dryRun?: boolean,
   ): Promise<WorkflowRunDto> {
     await this.findOwned(companyId, id);
-    return this.enqueueRun(companyId, id, 'MANUAL', trigger);
+    return this.enqueueRun(companyId, id, 'MANUAL', trigger, { dryRun });
   }
 
   async listRuns(
@@ -426,7 +427,11 @@ export class WorkflowsService {
     workflowId: string,
     source: string,
     trigger?: Record<string, unknown>,
-    opts?: { triggerEventId?: string | null; correlationId?: string },
+    opts?: {
+      triggerEventId?: string | null;
+      correlationId?: string;
+      dryRun?: boolean;
+    },
   ): Promise<WorkflowRunDto> {
     const run = await this.prisma.workflowRun.create({
       data: {
@@ -434,6 +439,7 @@ export class WorkflowsService {
         workflowId,
         status: 'PENDING',
         source,
+        dryRun: opts?.dryRun ?? false,
         trigger:
           trigger === undefined
             ? Prisma.JsonNull

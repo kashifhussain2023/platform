@@ -21,6 +21,7 @@ export function RunPanel({
 }) {
   const [triggerText, setTriggerText] = useState('{\n  "query": "refund policy"\n}');
   const [triggerError, setTriggerError] = useState<string | null>(null);
+  const [dryRun, setDryRun] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
 
   const run = useRunWorkflow(workflowId);
@@ -44,7 +45,10 @@ export function RunPanel({
       }
     }
     setTriggerError(null);
-    run.mutate({ trigger }, { onSuccess: (created) => setRunId(created.id) });
+    run.mutate(
+      { trigger, dryRun },
+      { onSuccess: (created) => setRunId(created.id) },
+    );
   };
 
   const steps = current?.steps ?? [];
@@ -66,6 +70,16 @@ export function RunPanel({
         <p className="mt-1 text-xs text-red-400">{triggerError}</p>
       )}
 
+      <label className="mt-2 flex items-center gap-2 text-sm text-zinc-300">
+        <input
+          type="checkbox"
+          checked={dryRun}
+          onChange={(e) => setDryRun(e.target.checked)}
+          className="h-4 w-4 rounded border-white/[0.2] bg-white/[0.03] accent-violet-secondary"
+        />
+        Dry run (preview only — won&rsquo;t actually send emails, create calendar events, etc.)
+      </label>
+
       {!canRun && (
         <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
           Add at least one step and click <strong>Save</strong> above before running.
@@ -86,6 +100,11 @@ export function RunPanel({
         {current?.source && (
           <span className="inline-block rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-medium text-zinc-400">
             {current.source}
+          </span>
+        )}
+        {current?.dryRun && (
+          <span className="inline-block rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-400">
+            DRY RUN
           </span>
         )}
       </div>

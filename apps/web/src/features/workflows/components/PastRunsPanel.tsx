@@ -43,6 +43,11 @@ function RunRow({
           <span className="inline-block rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-medium text-zinc-400">
             {run.source}
           </span>
+          {run.dryRun && (
+            <span className="inline-block rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-400">
+              DRY RUN
+            </span>
+          )}
           <span
             className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${RUN_STATUS_STYLES[run.status]}`}
           >

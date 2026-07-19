@@ -359,6 +359,7 @@ export class WorkflowEngine {
           current,
           context,
           correlationId,
+          run.dryRun,
         );
         current = this.nextNode(current, definition.edges, nodesById, result);
       }
@@ -493,6 +494,7 @@ export class WorkflowEngine {
     node: WorkflowNode,
     context: Record<string, unknown>,
     correlationId: string,
+    dryRun: boolean,
   ): Promise<NodeResult> {
     const step = await this.prisma.workflowStepRun.create({
       data: {
@@ -511,7 +513,7 @@ export class WorkflowEngine {
     );
 
     try {
-      const result = await this.executeNode(companyId, node, context);
+      const result = await this.executeNode(companyId, node, context, dryRun);
 
       const outputKey =
         typeof node.config?.outputKey === 'string'
@@ -587,6 +589,7 @@ export class WorkflowEngine {
     companyId: string,
     node: WorkflowNode,
     context: Record<string, unknown>,
+    dryRun: boolean,
   ): Promise<NodeResult> | NodeResult {
     switch (node.type) {
       case 'TRIGGER':
@@ -596,7 +599,7 @@ export class WorkflowEngine {
       case 'AI_STEP':
         return this.execAiStep(companyId, node, context);
       case 'TOOL_ACTION':
-        return this.execToolAction(companyId, node, context);
+        return this.execToolAction(companyId, node, context, dryRun);
       case 'WAIT':
         return this.execWait(node);
       case 'CONDITION':
@@ -701,6 +704,7 @@ export class WorkflowEngine {
     companyId: string,
     node: WorkflowNode,
     context: Record<string, unknown>,
+    dryRun: boolean,
   ): Promise<NodeResult> {
     const cfg = node.config ?? {};
     const skillKey = typeof cfg.skillKey === 'string' ? cfg.skillKey : '';
@@ -721,6 +725,22 @@ export class WorkflowEngine {
       typeof cfg.employeeId === 'string' && cfg.employeeId.trim()
         ? cfg.employeeId.trim()
         : undefined;
+
+    // Test mode (founder-market-readiness-audit.md §5/§12): stop before ANY
+    // real interaction with SkillsService -- no connector lookup, no egress,
+    // no SkillExecution audit row. A dry run must be provably side-effect
+    // free, not "run for real but hope nothing bad happens."
+    if (dryRun) {
+      const preview = {
+        ok: true,
+        dryRun: true,
+        skillKey,
+        tool,
+        args,
+        preview: `Would call ${skillKey || '(no skill)'}/${tool || '(no tool)'} with these args — nothing was actually sent.`,
+      };
+      return { output: preview, contextValue: preview };
+    }
 
     // Quarantine (docs §5.5): if this skill's connector is DEGRADED/DISCONNECTED,
     // fail the step with a clear, non-retryable "connector unavailable" error

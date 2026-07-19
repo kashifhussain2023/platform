@@ -145,7 +145,7 @@ export class WorkflowsController {
     @Param('id') id: string,
     @Body() dto: RunWorkflowDto,
   ): Promise<WorkflowRunDto> {
-    return this.workflows.createRun(companyId, id, dto.trigger);
+    return this.workflows.createRun(companyId, id, dto.trigger, dto.dryRun);
   }
 
   @Get(':id/runs')

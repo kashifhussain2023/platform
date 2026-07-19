@@ -501,6 +501,10 @@ model WorkflowRun {
   status     WorkflowRunStatus @default(PENDING)
   // How this run was triggered: MANUAL (default) | SCHEDULE | WEBHOOK | EVENT.
   source     String            @default("MANUAL")
+  // Test mode (founder-market-readiness-audit.md §5/§12): TOOL_ACTION steps
+  // produce a preview instead of really calling the skill (no real email
+  // sent, no real calendar event created, no SkillExecution row written).
+  dryRun     Boolean           @default(false)
   trigger    Json?
   context    Json?
   // Correlation & lineage (docs §9). triggerEventId = the CanonicalEvent id that

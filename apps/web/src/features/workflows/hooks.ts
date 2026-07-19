@@ -224,9 +224,9 @@ export function useRunWorkflow(id: string) {
   return useMutation<
     WorkflowRunDto,
     NormalizedApiError,
-    { trigger?: Record<string, unknown> }
+    { trigger?: Record<string, unknown>; dryRun?: boolean }
   >({
-    mutationFn: ({ trigger }) => runWorkflow({ id, trigger }),
+    mutationFn: ({ trigger, dryRun }) => runWorkflow({ id, trigger, dryRun }),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: workflowKeys.runs(id) });
     },

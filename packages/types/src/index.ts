@@ -1159,6 +1159,9 @@ export const updateWorkflowSchema = z.object({
 /** POST /workflows/:id/run body (optional trigger payload). */
 export const runWorkflowSchema = z.object({
   trigger: z.record(z.unknown()).optional(),
+  /** Test mode: TOOL_ACTION steps produce a preview instead of really
+   * calling the skill (no real email/event/etc, no SkillExecution row). */
+  dryRun: z.boolean().optional(),
 });
 
 /** POST /workflows/events body — fire an internal event to EVENT-triggered flows. */
@@ -1263,6 +1266,8 @@ export interface WorkflowRunDto {
   status: WorkflowRunStatus;
   /** How the run was triggered: MANUAL | SCHEDULE | WEBHOOK | EVENT. */
   source: string;
+  /** Test mode: TOOL_ACTION steps in this run were previewed, not really executed. */
+  dryRun: boolean;
   trigger: Record<string, unknown> | null;
   context: Record<string, unknown> | null;
   /**
