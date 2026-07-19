@@ -44,4 +44,15 @@ export class BillingController {
   usage(@CurrentTenant() companyId: string): Promise<UsageDto> {
     return this.billing.usage(companyId);
   }
+
+  /**
+   * A hosted page to manage payment method/invoices/cancellation. `url` is
+   * null when the active provider has no such concept (mock) or there's no
+   * real external customer yet.
+   */
+  @Post('portal')
+  @Roles('OWNER', 'ADMIN')
+  portal(@CurrentTenant() companyId: string): Promise<{ url: string | null }> {
+    return this.billing.getPortalUrl(companyId);
+  }
 }

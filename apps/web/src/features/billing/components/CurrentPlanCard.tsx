@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { Check } from 'lucide-react';
-import { usePlans, useSubscription } from '../hooks';
+import { usePlans, useSubscription, useOpenBillingPortal } from '../hooks';
 import { STATUS_BADGE, STATUS_LABEL, formatPrice } from '../labels';
 
 /** Header card: the company's current plan, price, features and status. */
 export function CurrentPlanCard() {
   const { data: subscription, isLoading } = useSubscription();
   const { data: plans } = usePlans();
+  const portal = useOpenBillingPortal();
 
   if (isLoading || !subscription) {
     return (
@@ -57,13 +58,28 @@ export function CurrentPlanCard() {
         Billed via {subscription.provider}. Prices are illustrative.
       </p>
 
-      {/* Anchors to the Plans section below — no separate billing-portal action exists yet. */}
       <Link
         href="#plans"
         className="mt-6 block w-full rounded-xl bg-[linear-gradient(135deg,#6a30ec_0%,#5216dd_100%)] px-5 py-2.5 text-center text-sm font-semibold text-white shadow-[0_14px_34px_-12px_rgba(91,33,230,0.85)] transition-all hover:-translate-y-0.5 hover:brightness-110"
       >
-        Manage Plan
+        Change Plan
       </Link>
+
+      {/* Real hosted portal (Stripe) when available; mock mode has no external
+          customer, so the mutation resolves url: null and this becomes a no-op. */}
+      <button
+        type="button"
+        onClick={() => portal.mutate()}
+        disabled={portal.isPending}
+        className="mt-2.5 w-full rounded-xl border border-white/[0.12] bg-white/[0.03] px-5 py-2.5 text-center text-sm font-medium text-zinc-300 transition-colors hover:border-white/25 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {portal.isPending ? 'Opening…' : 'Manage Billing (payment method, invoices, cancel)'}
+      </button>
+      {portal.isSuccess && !portal.data.url && (
+        <p className="mt-2 text-xs text-zinc-600">
+          Billing management isn&rsquo;t available in mock mode.
+        </p>
+      )}
     </div>
   );
 }

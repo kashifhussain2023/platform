@@ -157,6 +157,14 @@ describeIfDb('Billing e2e (default subscription + plans + change + usage)', () =
     expect(res.body.estimatedCostUsd).toBeGreaterThan(0);
   });
 
+  it('POST /billing/portal returns url: null under the mock provider (no real external customer)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/billing/portal')
+      .set(auth())
+      .expect(201);
+    expect(res.body).toEqual({ url: null });
+  });
+
   it('rejects billing routes without a token (401)', async () => {
     await request(app.getHttpServer()).get('/billing/subscription').expect(401);
     await request(app.getHttpServer()).get('/billing/plans').expect(401);

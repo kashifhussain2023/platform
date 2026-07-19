@@ -8,6 +8,7 @@ import type {
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { UsageService } from '../usage/usage.service';
+import { AuditLogService } from '../audit/audit-log.service';
 import {
   BILLING_PROVIDER_TOKEN,
   type BillingProvider,
@@ -31,6 +32,7 @@ export class BillingService {
     @Inject(BILLING_PROVIDER_TOKEN)
     private readonly provider: BillingProvider,
     private readonly usageService: UsageService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   /** The code-defined plan catalog. */
@@ -125,6 +127,33 @@ export class BillingService {
   }
 
   /**
+   * A hosted page to manage payment method, see past invoices, and cancel
+   * (founder-market-readiness-audit.md §8) -- none of which this app builds
+   * its own screen for. null when the active provider has no such concept
+   * (mock) or the company has no external customer yet; the frontend then
+   * explains billing management isn't available in mock mode.
+   */
+  async getPortalUrl(companyId: string): Promise<{ url: string | null }> {
+    if (!this.provider.createPortalSession) {
+      return { url: null };
+    }
+    await this.ensureDefaultSubscription(companyId);
+    const subscription = await this.prisma.subscription.findUniqueOrThrow({
+      where: { companyId },
+    });
+    if (
+      !subscription.externalCustomerId ||
+      subscription.externalCustomerId.startsWith('cus_mock_')
+    ) {
+      return { url: null };
+    }
+    const session = await this.provider.createPortalSession(
+      subscription.externalCustomerId,
+    );
+    return { url: session?.url ?? null };
+  }
+
+  /**
    * Verify + apply a provider webhook (Stripe). The provider verifies the raw
    * body/signature (throwing → 400 on an unverifiable request) and normalizes the
    * event; we then reconcile the local Subscription. A provider without webhook
@@ -181,13 +210,29 @@ export class BillingService {
           event.currentPeriodEnd ?? subscription.currentPeriodEnd,
       },
     });
+
+    // A genuine transition INTO past-due (not an already-past-due company
+    // re-notifying) is durably recorded here since there's no email/
+    // notification system in this codebase yet (founder-market-readiness-
+    // audit.md §8) -- this is what "payment failed" actually produces today;
+    // real email delivery needs an email-provider decision this repo can't
+    // make on its own.
+    if (event.status === 'PAST_DUE' && subscription.status !== 'PAST_DUE') {
+      await this.auditLog.record({
+        companyId: subscription.companyId,
+        action: 'billing.payment_failed',
+        entityType: 'Subscription',
+        entityId: subscription.id,
+        metadata: { plan: subscription.plan, eventType: event.type },
+      });
+    }
   }
 
   /**
    * On-the-fly usage snapshot. `tasks` reuses the analytics definition
    * (SkillExecution SUCCESS + assistant Messages + WorkflowRun COMPLETED).
-   * `tokens`/`voiceMinutes` are placeholders (real metering = TODO).
-   * `overEmployeeLimit` is a SOFT, informational flag.
+   * `tokens`/`estimatedCostUsd` are real (UsageService); `voiceMinutes` is a
+   * placeholder (no voice feature exists). `overEmployeeLimit` is SOFT/informational.
    */
   async usage(companyId: string): Promise<UsageDto> {
     const subscription = await this.ensureDefaultSubscription(companyId);

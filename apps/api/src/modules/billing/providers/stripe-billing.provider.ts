@@ -139,9 +139,33 @@ export class StripeBillingProvider implements BillingProvider {
           externalSubscriptionId: this.idOf(object.id),
           status: 'CANCELED',
         };
+      // Explicit alongside customer.subscription.updated (which Stripe also
+      // sends on a failed payment) so a failure is never missed if Stripe's
+      // event ordering/timing ever varies -- BillingService logs the
+      // transition into PAST_DUE either way.
+      case 'invoice.payment_failed':
+        return {
+          type: event.type,
+          companyId: object.subscription_details?.metadata?.companyId ?? null,
+          externalCustomerId: this.idOf(object.customer),
+          externalSubscriptionId: this.idOf(object.subscription),
+          status: 'PAST_DUE',
+        };
       default:
         return null; // event we don't act on
     }
+  }
+
+  /** Hosted Stripe Customer Portal session (manage payment method, invoices, cancel). */
+  async createPortalSession(
+    externalCustomerId: string,
+  ): Promise<{ url: string } | null> {
+    const stripe = await this.getClient();
+    const session = await stripe.billingPortal.sessions.create({
+      customer: externalCustomerId,
+      return_url: `${this.webOrigin()}/billing`,
+    });
+    return { url: session.url as string };
   }
 
   // --- helpers --------------------------------------------------------------

@@ -14,7 +14,13 @@ import type {
 } from '@vaep/types';
 import type { NormalizedApiError } from '@/lib/apiClient';
 import { useSessionStore } from '@/stores/session.store';
-import { changePlan, getPlans, getSubscription, getUsage } from './api';
+import {
+  changePlan,
+  getBillingPortalUrl,
+  getPlans,
+  getSubscription,
+  getUsage,
+} from './api';
 
 export const billingKeys = {
   all: ['billing'] as const,
@@ -109,4 +115,16 @@ function rollback(qc: QueryClient, context?: ChangePlanContext) {
   if (context?.previous) {
     qc.setQueryData(billingKeys.subscription, context.previous);
   }
+}
+
+/** Open the hosted billing portal (payment method, invoices, cancel) in a new tab. */
+export function useOpenBillingPortal() {
+  return useMutation<{ url: string | null }, NormalizedApiError, void>({
+    mutationFn: getBillingPortalUrl,
+    onSuccess: (data) => {
+      if (data.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+      }
+    },
+  });
 }

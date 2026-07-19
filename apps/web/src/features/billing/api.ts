@@ -32,3 +32,9 @@ export async function changePlan(body: ChangePlanDto): Promise<SubscriptionDto> 
   );
   return data;
 }
+
+/** Hosted billing-portal URL (null when unavailable, e.g. mock provider). */
+export async function getBillingPortalUrl(): Promise<{ url: string | null }> {
+  const { data } = await apiClient.post<{ url: string | null }>('/billing/portal');
+  return data;
+}

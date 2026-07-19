@@ -39,6 +39,17 @@ export interface BillingProvider {
     rawBody: Buffer | undefined,
     signature: string | undefined,
   ): Promise<BillingWebhookEvent | null>;
+
+  /**
+   * A hosted page where the company can manage payment methods, see past
+   * invoices, and cancel — none of which this app builds its own UI for
+   * (founder-market-readiness-audit.md §8). OPTIONAL — a provider with no
+   * such concept (mock) omits it; BillingService then returns url: null and
+   * the frontend explains billing management isn't available in mock mode.
+   */
+  createPortalSession?(
+    externalCustomerId: string,
+  ): Promise<{ url: string } | null>;
 }
 
 /** Minimal company shape a provider needs to create/lookup a customer. */
