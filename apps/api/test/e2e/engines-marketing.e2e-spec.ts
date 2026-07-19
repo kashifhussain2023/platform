@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { SkillCatalog } from '../../src/modules/skills/catalog';
 
 describe('Marketing engine — schema', () => {
   const prisma = new PrismaClient();
@@ -18,5 +19,13 @@ describe('Marketing engine — schema', () => {
     });
     expect(account.companyId).toBe(company.id);
     expect(account.status).toBe('CONNECTED');
+  });
+});
+
+describe('Marketing engine — catalog', () => {
+  it('registers the postiz skill with a schedule_post tool', () => {
+    expect(SkillCatalog.has('postiz')).toBe(true);
+    const tool = SkillCatalog.getTool('postiz', 'schedule_post');
+    expect(tool?.highRisk).toBe(true);
   });
 });

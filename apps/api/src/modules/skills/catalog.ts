@@ -523,6 +523,71 @@ const CATALOG: readonly SkillDefinition[] = [
       },
     ],
   },
+  {
+    key: 'postiz',
+    name: 'AI Marketing Manager (Postiz)',
+    description:
+      'Connect social accounts and schedule/publish posts via the self-hosted Postiz publishing engine.',
+    category: 'marketing',
+    connection: { type: 'none' }, // company-level OAuth-connect happens per-platform via start_connect_account, not a single skill-level connection
+    configSchema: [],
+    tools: [
+      {
+        name: 'list_connected_accounts',
+        description: "List the company's connected social accounts.",
+        parameters: { type: 'object', properties: {}, required: [] },
+      },
+      {
+        name: 'start_connect_account',
+        description: 'Get an OAuth URL to connect a new social account (e.g. instagram, linkedin).',
+        parameters: {
+          type: 'object',
+          properties: {
+            platform: { type: 'string', description: 'Postiz platform identifier, e.g. "instagram".' },
+          },
+          required: ['platform'],
+        },
+      },
+      {
+        name: 'schedule_post',
+        description: 'Schedule a post to a connected social account for a future date/time.',
+        highRisk: true,
+        parameters: {
+          type: 'object',
+          properties: {
+            socialAccountId: { type: 'string', description: 'Orlixa SocialAccount id.' },
+            content: { type: 'string', description: 'Post text content.' },
+            publishAt: { type: 'string', description: 'ISO datetime to publish at.' },
+          },
+          required: ['socialAccountId', 'content', 'publishAt'],
+        },
+      },
+      {
+        name: 'publish_now',
+        description: 'Publish a post immediately to a connected social account.',
+        highRisk: true,
+        parameters: {
+          type: 'object',
+          properties: {
+            socialAccountId: { type: 'string', description: 'Orlixa SocialAccount id.' },
+            content: { type: 'string', description: 'Post text content.' },
+          },
+          required: ['socialAccountId', 'content'],
+        },
+      },
+      {
+        name: 'get_post_status',
+        description: 'Get the current status of a previously scheduled post.',
+        parameters: {
+          type: 'object',
+          properties: {
+            scheduledPostId: { type: 'string', description: 'Orlixa ScheduledPost id.' },
+          },
+          required: ['scheduledPostId'],
+        },
+      },
+    ],
+  },
 ];
 
 /** Static registry over the built-in catalog. */
