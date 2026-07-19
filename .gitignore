@@ -20,6 +20,12 @@ apps/api/src/generated/
 apps/api/.storage/
 .storage/
 
+# automated DB backups (scripts/backup-db.sh) -- generated locally/in CI,
+# not meant to accumulate in git history. The one pre-existing manual dump
+# already committed before this rule is left alone.
+backups/*.dump
+backups/*.log
+
 # env
 .env
 .env.local
