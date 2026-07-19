@@ -1,3 +1,12 @@
+// The "full tool-calling loop" describe block below needs a live Postgres +
+// Redis AND a deterministic LLM. This repo's own .env may set LLM_PROVIDER=openai
+// for live-testing other features (see employees.e2e-spec.ts's same note) — that
+// makes tool-selection a real, non-deterministic model call instead of the mock
+// scorer, which will intermittently fail this test for reasons that have nothing
+// to do with this feature. Always run with:
+//   LLM_PROVIDER=mock EMBEDDINGS_PROVIDER=hash STORAGE_PROVIDER=local \
+//   DATABASE_URL=postgresql://vaep:vaep@localhost:5433/vaep?schema=public \
+//   REDIS_URL=redis://127.0.0.1:6380 JWT_ACCESS_SECRET=... JWT_REFRESH_SECRET=...
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
