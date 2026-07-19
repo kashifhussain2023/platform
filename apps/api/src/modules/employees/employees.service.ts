@@ -8,6 +8,7 @@ import type {
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { clampLimit } from '../../common/pagination';
+import { UsageService, startOfCurrentMonthUtc } from '../usage/usage.service';
 import { BillingService } from '../billing/billing.service';
 import { maxEmployeesFor } from '../billing/billing.plans';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -35,6 +36,7 @@ export class EmployeesService {
     private readonly prisma: PrismaService,
     private readonly runtime: AgentRuntimeService,
     private readonly billing: BillingService,
+    private readonly usage: UsageService,
   ) {}
 
   // --- Employees -----------------------------------------------------------
@@ -103,7 +105,16 @@ export class EmployeesService {
   }
 
   async get(companyId: string, id: string): Promise<AiEmployeeDto> {
-    return toEmployeeDto(await this.findOwnedEmployee(companyId, id));
+    const employee = await this.findOwnedEmployee(companyId, id);
+    const monthToDateCostUsd =
+      employee.budgetLimit != null
+        ? await this.usage.totalCostForEmployee(
+            companyId,
+            id,
+            startOfCurrentMonthUtc(),
+          )
+        : null;
+    return toEmployeeDto(employee, monthToDateCostUsd);
   }
 
   async update(

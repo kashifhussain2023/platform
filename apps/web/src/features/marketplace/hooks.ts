@@ -73,6 +73,7 @@ export function useInstallEmployeeTemplate() {
         language: null,
         knowledgeAccess: 'ALL',
         budgetLimit: null,
+        monthToDateCostUsd: null,
         permissions: null,
         approvalRules: null,
         goals: null,

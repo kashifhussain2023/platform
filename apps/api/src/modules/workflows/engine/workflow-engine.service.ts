@@ -9,7 +9,7 @@ import type {
 } from '@vaep/types';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { BillingService } from '../../billing/billing.service';
-import { UsageService } from '../../usage/usage.service';
+import { UsageService, startOfCurrentMonthUtc } from '../../usage/usage.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { SkillsService } from '../../skills/skills.service';
 import {
@@ -651,6 +651,19 @@ export class WorkflowEngine {
       if (employee) {
         persona = employee.persona ?? '';
         name = employee.name;
+        // Same monthly budget enforcement as chat (agent-runtime.service.ts).
+        if (employee.budgetLimit != null) {
+          const spent = await this.usage.totalCostForEmployee(
+            companyId,
+            employeeId,
+            startOfCurrentMonthUtc(),
+          );
+          if (spent >= employee.budgetLimit) {
+            throw new Error(
+              `${employee.name} has reached its monthly budget limit ($${employee.budgetLimit})`,
+            );
+          }
+        }
       }
     }
 

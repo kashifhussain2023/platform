@@ -22,7 +22,9 @@ export function EmployeeAbout({ employee }: { employee: AiEmployeeDto }) {
   const knowledgeAccess =
     employee.knowledgeAccess === 'ALL' ? 'All company knowledge' : 'No knowledge access';
   const budget =
-    employee.budgetLimit != null ? `$${employee.budgetLimit.toLocaleString()}` : '—';
+    employee.budgetLimit != null
+      ? `$${(employee.monthToDateCostUsd ?? 0).toFixed(2)} spent of $${employee.budgetLimit.toLocaleString()} this month`
+      : '—';
   const created = new Date(employee.createdAt).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',

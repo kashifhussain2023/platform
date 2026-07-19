@@ -359,6 +359,10 @@ export interface AiEmployeeDto {
   language: string | null;
   knowledgeAccess: KnowledgeAccess;
   budgetLimit: number | null;
+  /** Real AI-usage spend so far this calendar month (estimatedCostUsd across
+   * this employee's UsageEvent rows) -- enforced against budgetLimit for
+   * chat and workflow AI_STEP; null when budgetLimit itself is unset. */
+  monthToDateCostUsd: number | null;
   permissions: Record<string, boolean> | null;
   approvalRules: Record<string, unknown> | null;
   /** Free-form list of objectives for this employee (P1 #6); null when unset. */

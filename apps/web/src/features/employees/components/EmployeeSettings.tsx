@@ -218,7 +218,7 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
           </div>
           <div>
             <label htmlFor="s-budget" className="mb-1.5 block text-sm font-medium text-zinc-300">
-              Budget limit <span className="text-zinc-500">(optional)</span>
+              Monthly budget limit (USD) <span className="text-zinc-500">(optional)</span>
             </label>
             <input
               id="s-budget"
@@ -230,6 +230,13 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
                   v === '' || v === null || v === undefined ? null : Number(v),
               })}
             />
+            {employee.budgetLimit != null && (
+              <p className="mt-1 text-xs text-zinc-500">
+                ${(employee.monthToDateCostUsd ?? 0).toFixed(2)} spent so far this month.
+                Reaching the limit blocks new chat messages and workflow AI steps for this
+                employee until next month (or a higher limit is set).
+              </p>
+            )}
             {errors.budgetLimit && (
               <p className="mt-1 text-sm text-red-400">
                 {errors.budgetLimit.message}

@@ -100,6 +100,7 @@ export function useCreateEmployee() {
         language: null,
         knowledgeAccess: 'ALL',
         budgetLimit: null,
+        monthToDateCostUsd: null,
         permissions: null,
         approvalRules: null,
         goals: null,

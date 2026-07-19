@@ -18,7 +18,16 @@ import type {
 
 /** Prisma row → public DTO mappers (shared by the service + runtime). */
 
-export function toEmployeeDto(e: AiEmployee): AiEmployeeDto {
+/**
+ * `monthToDateCostUsd` requires an async aggregate query, so it's an OPTIONAL
+ * second arg the caller computes itself -- passed on the single-employee
+ * `get()` path only, left null on list()/create()/update() to avoid an N+1
+ * aggregate per employee on a list view.
+ */
+export function toEmployeeDto(
+  e: AiEmployee,
+  monthToDateCostUsd: number | null = null,
+): AiEmployeeDto {
   return {
     id: e.id,
     companyId: e.companyId,
@@ -35,6 +44,7 @@ export function toEmployeeDto(e: AiEmployee): AiEmployeeDto {
     language: e.language,
     knowledgeAccess: e.knowledgeAccess,
     budgetLimit: e.budgetLimit,
+    monthToDateCostUsd,
     permissions: (e.permissions as Record<string, boolean> | null) ?? null,
     approvalRules: (e.approvalRules as Record<string, unknown> | null) ?? null,
     goals: (e.goals as string[] | null) ?? null,

@@ -18,7 +18,7 @@ import {
 import type { ExecutorContext } from '../../skills/executors/skill-executor';
 import type { LlmMessage, LlmUsage } from '../llm/llm.provider';
 import { toMessageDto } from '../employees.mapper';
-import { UsageService } from '../../usage/usage.service';
+import { UsageService, startOfCurrentMonthUtc } from '../../usage/usage.service';
 import { LlmRouterService } from './llm-router.service';
 import { MemoryService, type LoadedMemory } from './memory.service';
 import { PlannerService } from './planner.service';
@@ -74,6 +74,25 @@ export class AgentRuntimeService {
     }
 
     const { companyId } = employee;
+
+    // Budget enforcement (founder-market-readiness-audit.md §4/§8):
+    // budgetLimit resets monthly (the field itself documents no period, so
+    // this is the one place that decision is made -- see
+    // startOfCurrentMonthUtc). Only real AI-usage cost counts against it,
+    // not e.g. a tool call's own (unmetered) cost.
+    if (employee.budgetLimit != null) {
+      const spent = await this.usage.totalCostForEmployee(
+        companyId,
+        employee.id,
+        startOfCurrentMonthUtc(),
+      );
+      if (spent >= employee.budgetLimit) {
+        throw new ConflictException(
+          `${employee.name} has reached its monthly budget limit ($${employee.budgetLimit}) — ` +
+            'raise the limit or wait for next month to send more messages.',
+        );
+      }
+    }
 
     // Persist the user turn first so it is part of the loaded memory/history.
     await this.prisma.message.create({
