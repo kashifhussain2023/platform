@@ -11,6 +11,7 @@ import type {
   TeamDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AuditLogService } from '../audit/audit-log.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
@@ -31,7 +32,10 @@ import {
  */
 @Injectable()
 export class OrganizationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   // --- Departments ---------------------------------------------------------
 
@@ -144,6 +148,7 @@ export class OrganizationService {
   async updateSecurityPolicy(
     companyId: string,
     dto: UpdateSecurityPolicyDto,
+    actorUserId?: string,
   ): Promise<SecurityPolicyDto> {
     await this.ensureSecurityPolicy(companyId);
     const policy = await this.prisma.securityPolicy.update({
@@ -155,6 +160,14 @@ export class OrganizationService {
         allowedEmailDomains: dto.allowedEmailDomains,
         dataRetentionDays: dto.dataRetentionDays,
       },
+    });
+    await this.auditLog.record({
+      companyId,
+      actorUserId,
+      action: 'security_policy.update',
+      entityType: 'SecurityPolicy',
+      entityId: policy.id,
+      metadata: { changedFields: Object.keys(dto) },
     });
     return toSecurityPolicyDto(policy);
   }

@@ -18,6 +18,8 @@ import type {
   WorkflowRunDto,
 } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.provider';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -48,9 +50,10 @@ export class WorkflowsController {
   @Roles('OWNER', 'ADMIN')
   create(
     @CurrentTenant() companyId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateWorkflowDto,
   ): Promise<WorkflowDto> {
-    return this.workflows.create(companyId, dto);
+    return this.workflows.create(companyId, dto, user.userId);
   }
 
   @Get()
@@ -117,10 +120,11 @@ export class WorkflowsController {
   @Roles('OWNER', 'ADMIN')
   update(
     @CurrentTenant() companyId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateWorkflowDto,
   ): Promise<WorkflowDto> {
-    return this.workflows.update(companyId, id, dto);
+    return this.workflows.update(companyId, id, dto, user.userId);
   }
 
   @Delete(':id')
@@ -128,9 +132,10 @@ export class WorkflowsController {
   @HttpCode(204)
   remove(
     @CurrentTenant() companyId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ): Promise<void> {
-    return this.workflows.remove(companyId, id);
+    return this.workflows.remove(companyId, id, user.userId);
   }
 
   /** Create a run (PENDING) + enqueue async execution; returns the run. */

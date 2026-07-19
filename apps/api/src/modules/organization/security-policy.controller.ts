@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import type { SecurityPolicyDto } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.provider';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -26,8 +28,9 @@ export class SecurityPolicyController {
   @Roles('OWNER', 'ADMIN')
   update(
     @CurrentTenant() companyId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateSecurityPolicyDto,
   ): Promise<SecurityPolicyDto> {
-    return this.org.updateSecurityPolicy(companyId, dto);
+    return this.org.updateSecurityPolicy(companyId, dto, user.userId);
   }
 }

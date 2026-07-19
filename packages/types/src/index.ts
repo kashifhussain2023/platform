@@ -1936,3 +1936,23 @@ export interface RescheduleResultDto {
   oldSlotId: string;
   newSlot: ClaimAndScheduleResultDto;
 }
+
+// --- Audit log ---------------------------------------------------------
+
+/**
+ * A single who-did-what entry (founder-market-readiness-audit.md §6/§4).
+ * actorUserId/actorName are both null for the (rare) system-initiated entry.
+ */
+export interface AuditLogDto {
+  id: string;
+  companyId: string;
+  actorUserId: string | null;
+  /** Resolved at read time from the current Users table; null if the actor
+   * no longer exists (deleted) or the entry has no actor. */
+  actorName: string | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}

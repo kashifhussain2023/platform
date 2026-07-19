@@ -19,6 +19,7 @@ import type {
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { clampLimit } from '../../common/pagination';
+import { AuditLogService } from '../audit/audit-log.service';
 import { evaluateConditions } from './engine/conditions';
 import { validateDefinitionStructure } from './engine/definition-validator';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
@@ -58,6 +59,7 @@ export class WorkflowsService {
     private readonly prisma: PrismaService,
     @InjectQueue(WORKFLOW_RUN_QUEUE)
     private readonly queue: Queue<WorkflowRunJobData>,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   // --- CRUD ----------------------------------------------------------------
@@ -65,6 +67,7 @@ export class WorkflowsService {
   async create(
     companyId: string,
     dto: CreateWorkflowDto,
+    actorUserId?: string,
   ): Promise<WorkflowDto> {
     this.validateDefinition(dto.definition);
     const workflow = await this.prisma.workflow.create({
@@ -75,6 +78,14 @@ export class WorkflowsService {
         definition: (dto.definition ??
           STARTER_DEFINITION) as unknown as Prisma.InputJsonObject,
       },
+    });
+    await this.auditLog.record({
+      companyId,
+      actorUserId,
+      action: 'workflow.create',
+      entityType: 'Workflow',
+      entityId: workflow.id,
+      metadata: { name: workflow.name },
     });
     return toWorkflowDto(workflow);
   }
@@ -96,6 +107,7 @@ export class WorkflowsService {
     companyId: string,
     id: string,
     dto: UpdateWorkflowDto,
+    actorUserId?: string,
   ): Promise<WorkflowDto> {
     const existing = await this.findOwned(companyId, id);
 
@@ -138,10 +150,22 @@ export class WorkflowsService {
             : (dto.definition as unknown as Prisma.InputJsonObject),
       },
     });
+    await this.auditLog.record({
+      companyId,
+      actorUserId,
+      action: 'workflow.update',
+      entityType: 'Workflow',
+      entityId: workflow.id,
+      metadata: { changedFields: Object.keys(dto) },
+    });
     return toWorkflowDto(workflow);
   }
 
-  async remove(companyId: string, id: string): Promise<void> {
+  async remove(
+    companyId: string,
+    id: string,
+    actorUserId?: string,
+  ): Promise<void> {
     const existing = await this.findOwned(companyId, id);
     // Best-effort: drop any repeatable schedule so it doesn't fire post-delete.
     if (existing.triggerType === 'SCHEDULE') {
@@ -149,6 +173,14 @@ export class WorkflowsService {
     }
     // Cascades to runs and their step runs (onDelete: Cascade).
     await this.prisma.workflow.delete({ where: { id } });
+    await this.auditLog.record({
+      companyId,
+      actorUserId,
+      action: 'workflow.delete',
+      entityType: 'Workflow',
+      entityId: id,
+      metadata: { name: existing.name },
+    });
   }
 
   // --- Activation (Steps 8/9) ---------------------------------------------

@@ -177,6 +177,29 @@ model Company {
   teams              Team[]
   securityPolicy     SecurityPolicy?
   interviewSlots     InterviewSlot[]
+  auditLogs          AuditLog[]
+}
+
+// Minimal who-did-what trail (founder-market-readiness-audit.md §6/§4: full
+// compliance-grade audit logs are SOLD on the Enterprise plan but nothing
+// existed at all). Deliberately NOT an FK to User -- this must stay
+// insertable/readable even after the acting user is deleted, since it's a
+// durable record of what happened, not a live reference.
+model AuditLog {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actorUserId String?
+  // e.g. "workflow.create", "user.role_changed", "skill.install".
+  action      String
+  // e.g. "Workflow", "User", "InstalledSkill".
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, entityType, entityId])
 }
 
 model User {

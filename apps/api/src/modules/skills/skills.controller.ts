@@ -16,6 +16,8 @@ import type {
   ToolCallDto,
 } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.provider';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -46,9 +48,10 @@ export class SkillsController {
   @Roles('OWNER', 'ADMIN')
   install(
     @CurrentTenant() companyId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: InstallSkillDto,
   ): Promise<InstalledSkillDto> {
-    return this.skills.install(companyId, dto);
+    return this.skills.install(companyId, dto, user.userId);
   }
 
   @Get('installed')

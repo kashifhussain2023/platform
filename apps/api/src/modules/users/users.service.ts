@@ -9,6 +9,7 @@ import {
 import { Prisma, type User } from '@prisma/client';
 import type { UserDto } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AuditLogService } from '../audit/audit-log.service';
 import {
   AUTH_PROVIDER,
   type AuthenticatedUser,
@@ -31,6 +32,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(AUTH_PROVIDER) private readonly auth: AuthProvider,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   /** All users in the caller's company (oldest first, so the owner leads). */
@@ -122,6 +124,16 @@ export class UsersService {
       where: { id: target.id },
       data: { name: dto.name, role: dto.role, status: dto.status },
     });
+    if (dto.role !== undefined && dto.role !== target.role) {
+      await this.auditLog.record({
+        companyId,
+        actorUserId: caller.userId,
+        action: 'user.role_changed',
+        entityType: 'User',
+        entityId: user.id,
+        metadata: { from: target.role, to: dto.role },
+      });
+    }
     return toUserDto(user);
   }
 

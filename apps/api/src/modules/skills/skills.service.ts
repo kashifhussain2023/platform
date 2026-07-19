@@ -17,6 +17,7 @@ import type {
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { clampLimit } from '../../common/pagination';
+import { AuditLogService } from '../audit/audit-log.service';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { CircuitBreakerRegistry } from '../../common/resilience/circuit-breaker.registry';
 import { CircuitOpenError } from '../../common/resilience/circuit-breaker';
@@ -60,6 +61,7 @@ export class SkillsService {
     private readonly breakers: CircuitBreakerRegistry,
     private readonly rateLimiter: RateLimiter,
     @Inject(SKILL_EXECUTOR_TOKEN) private readonly executor: SkillExecutor,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   // --- Catalog -------------------------------------------------------------
@@ -74,6 +76,7 @@ export class SkillsService {
   async install(
     companyId: string,
     dto: InstallSkillDto,
+    actorUserId?: string,
   ): Promise<InstalledSkillDto> {
     const def = SkillCatalog.get(dto.skillKey);
     if (!def) {
@@ -129,6 +132,14 @@ export class SkillsService {
         });
       }
       return created;
+    });
+    await this.auditLog.record({
+      companyId,
+      actorUserId,
+      action: 'skill.install',
+      entityType: 'InstalledSkill',
+      entityId: row.id,
+      metadata: { skillKey: dto.skillKey, employeeId },
     });
     return toInstalledSkillDto(row);
   }
