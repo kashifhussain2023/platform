@@ -188,7 +188,11 @@ for free — using their ready-made page is both less work and more reliable.
 
 ## Phase 3 — Quick Wins (cheap, do alongside Phase 2, not after)
 
+**Status: done (2026-07-19).**
+
 ### 10. The automation engine can already do "if this, then that" branching — but nobody can reach it
+
+**Status: done.**
 
 **Best fix:** Two small, separate fixes:
 - In the click-to-build editor, add one small option on the decision-check step: "add a Yes path and a No
@@ -203,6 +207,8 @@ for free — using their ready-made page is both less work and more reliable.
 
 ### 11. Past workflow runs aren't shown anywhere
 
+**Status: done.**
+
 **Best fix:** The system already keeps this history and already has a working way to fetch it — it just
 isn't shown on any screen. Add a simple "past runs" list to the workflow page using what already exists.
 
@@ -210,6 +216,8 @@ isn't shown on any screen. Add a simple "past runs" list to the workflow page us
 are already built. It's purely a missing screen.
 
 ### 12. No safe way to test a workflow before turning it on
+
+**Status: done.**
 
 **Best fix:** Add a "test mode" switch to running a workflow. In test mode, instead of actually sending the
 email or creating the calendar event, it shows "this would have sent an email saying X" — a preview, not
