@@ -48,6 +48,8 @@ export class PostizClientService {
       headers: this.headers(),
     });
     if (!res.ok) {
+      const text = await res.text();
+      this.logger.warn(`Postiz getConnectUrl(${platform}) failed (${res.status}): ${text}`);
       throw new Error(`Postiz getConnectUrl(${platform}) failed: ${res.status}`);
     }
     return (await res.json()) as { url: string };
@@ -59,6 +61,8 @@ export class PostizClientService {
       headers: this.headers(),
     });
     if (!res.ok) {
+      const text = await res.text();
+      this.logger.warn(`Postiz listIntegrations failed (${res.status}): ${text}`);
       throw new Error(`Postiz listIntegrations failed: ${res.status}`);
     }
     return (await res.json()) as PostizIntegrationDto[];
