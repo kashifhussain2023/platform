@@ -1,0 +1,89 @@
+name: CI
+
+# Master plan Phase 1, item 2: there was no CI at all before this — every
+# change went live with no automated check. Runs typecheck (fast, no infra)
+# and the real unit + e2e + web test suites (needs Postgres/Redis) on every
+# push and pull request against main branches.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '8.15.0'
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # pgvector, not plain postgres: the knowledge module's chunk search
+        # uses the vector extension and column type.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: vaep
+          POSTGRES_PASSWORD: vaep
+          POSTGRES_DB: vaep
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U vaep -d vaep"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6380:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://vaep:vaep@localhost:5433/vaep?schema=public
+      REDIS_URL: redis://127.0.0.1:6380
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+      LLM_PROVIDER: mock
+      EMBEDDINGS_PROVIDER: hash
+      STORAGE_PROVIDER: local
+      SKILL_EXECUTOR: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prisma generate + migrate
+        working-directory: apps/api
+        run: |
+          pnpm exec prisma generate
+          pnpm exec prisma migrate deploy
+      - name: API unit tests
+        working-directory: apps/api
+        run: pnpm run test:unit
+      - name: API e2e tests
+        working-directory: apps/api
+        run: pnpm run test
+      - name: Web unit tests
+        working-directory: apps/web
+        run: pnpm run test
