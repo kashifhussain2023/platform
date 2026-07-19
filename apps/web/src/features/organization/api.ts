@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/apiClient';
 import type {
+  AuditLogDto,
   CreateDepartmentDto,
   CreateTeamDto,
   DepartmentDto,
@@ -77,5 +78,12 @@ export async function updateSecurityPolicy(
     '/security-policy',
     payload,
   );
+  return data;
+}
+
+// --- Audit log ---------------------------------------------------------------
+
+export async function listAuditLog(): Promise<AuditLogDto[]> {
+  const { data } = await apiClient.get<AuditLogDto[]>('/audit-log');
   return data;
 }

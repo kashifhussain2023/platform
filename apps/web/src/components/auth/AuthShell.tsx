@@ -21,6 +21,8 @@ function Starfield() {
 /**
  * Shared shell for every auth screen — near-black bg with violet glow +
  * star-dots, a centered dark card with the Orlixa lockup, heading, subtitle.
+ * `bgVideo` is optional (only the login screen uses it): a muted looping clip
+ * behind the glow/star-dots, dimmed so the card stays readable.
  */
 export function AuthShell({
   heading,
@@ -28,15 +30,31 @@ export function AuthShell({
   children,
   topSlot,
   width = 'max-w-[440px]',
+  bgVideo,
 }: {
   heading?: ReactNode;
   subtitle?: ReactNode;
   children: ReactNode;
   topSlot?: ReactNode;
   width?: string;
+  bgVideo?: string;
 }) {
   return (
     <main className="font-marketing relative flex min-h-screen items-center justify-center overflow-hidden bg-[#02030a] px-4 py-10">
+      {bgVideo && (
+        <>
+          <video
+            aria-hidden
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+            src={bgVideo}
+          />
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[#02030a]/70" />
+        </>
+      )}
       <div aria-hidden className="pointer-events-none absolute -left-40 top-0 h-[440px] w-[440px] rounded-full bg-violet/15 blur-[130px]" />
       <div aria-hidden className="pointer-events-none absolute -right-40 bottom-0 h-[440px] w-[440px] rounded-full bg-violet-accent/10 blur-[130px]" />
       <Starfield />

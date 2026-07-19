@@ -24,7 +24,9 @@ export async function meRequest(): Promise<MeDto> {
 }
 
 export async function logoutRequest(): Promise<void> {
-  // This slice has no server-side session revocation endpoint yet; clearing the
-  // client store (in the hook) is sufficient. Placeholder for POST /auth/logout.
-  return Promise.resolve();
+  // Clears the httpOnly refresh cookie server-side -- without this call, the
+  // still-valid cookie let AuthBootstrap silently re-authenticate the user on
+  // the very next full page load, making "logout" appear to redirect back
+  // into the app instead of actually logging out.
+  await apiClient.post('/auth/logout');
 }

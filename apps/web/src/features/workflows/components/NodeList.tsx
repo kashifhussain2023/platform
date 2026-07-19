@@ -164,6 +164,27 @@ export function NodeList({ workflow }: { workflow: WorkflowDto }) {
     setNodes((cur) => cur.map((n) => (n.id === id ? next : n)));
 
   const removeNode = (id: string) => {
+    // A CONDITION step has TWO outgoing paths (Yes/No), but the bridging
+    // below (built for a plain linear chain) only carries ONE edge per
+    // predecessor forward — deleting a 2-branch CONDITION would silently
+    // orphan whichever branch doesn't get bridged, with no error anywhere
+    // (edge-case recheck, 2026-07-19). Warn instead of silently losing half
+    // the workflow's logic.
+    const outgoing = edges.filter((e) => e.from === id);
+    const branchCount = new Set(
+      outgoing.filter((e) => e.branch).map((e) => e.branch),
+    ).size;
+    if (
+      branchCount > 1 &&
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        'This step has both a Yes and a No path. Deleting it will only keep ' +
+          "one of the two paths connected — the other path's steps will no " +
+          'longer run in this workflow. Delete anyway?',
+      )
+    ) {
+      return;
+    }
     setNodes((cur) => cur.filter((n) => n.id !== id));
     setEdges((cur) => {
       const incoming = cur.filter((e) => e.to === id);

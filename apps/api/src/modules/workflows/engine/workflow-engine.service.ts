@@ -12,6 +12,7 @@ import { BillingService } from '../../billing/billing.service';
 import { UsageService, startOfCurrentMonthUtc } from '../../usage/usage.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { SkillsService } from '../../skills/skills.service';
+import { SkillCatalog } from '../../skills/catalog';
 import {
   LLM_PROVIDER_TOKEN,
   type LlmProvider,
@@ -193,7 +194,9 @@ export class WorkflowEngine {
       this.logger.warn(`Workflow run ${runId} not found`);
       return;
     }
-    // Idempotency: only a PENDING run is eligible to start.
+    // Cheap early exit -- NOT the real idempotency guard (see the atomic
+    // claim below). This just skips the billing lookup for the common case
+    // of a run that plainly isn't eligible.
     if (run.status !== 'PENDING') {
       this.logger.warn(`Run ${runId} is ${run.status}, skipping`);
       return;
@@ -201,14 +204,38 @@ export class WorkflowEngine {
 
     const blocked = await this.blockedBySubscription(run.companyId);
     if (blocked) {
-      await this.failBlockedRun(runId, blocked);
+      // Atomic: only fail it if it's STILL PENDING. A plain update() here
+      // (the previous shape) could stomp a run a concurrent worker had
+      // already legitimately claimed and moved past PENDING in the gap
+      // since the read above.
+      const failed = await this.prisma.workflowRun.updateMany({
+        where: { id: runId, status: 'PENDING' },
+        data: { status: 'FAILED', finishedAt: new Date(), error: blocked },
+      });
+      if (failed.count === 0) {
+        this.logger.warn(`Run ${runId} no longer PENDING, skipping block`);
+      } else {
+        this.logger.warn(`Workflow run ${runId} blocked: ${blocked}`);
+      }
       return;
     }
 
-    await this.prisma.workflowRun.update({
-      where: { id: runId },
+    // Atomic claim: the WHERE clause guarantees only ONE concurrent caller's
+    // update can match+affect this row when two workers race the same
+    // PENDING run (e.g. a duplicate-delivered queue job) -- the earlier
+    // findUnique-then-update shape was a check-then-act with a real gap
+    // between the read and the write, letting both callers pass the PENDING
+    // check and both go on to run() the workflow (real side effects twice:
+    // two emails, two calendar invites, etc). updateMany reports how many
+    // rows it actually changed; 0 means we lost the race and must not run.
+    const claimed = await this.prisma.workflowRun.updateMany({
+      where: { id: runId, status: 'PENDING' },
       data: { status: 'RUNNING', startedAt: new Date(), error: null },
     });
+    if (claimed.count === 0) {
+      this.logger.warn(`Run ${runId} already claimed by another worker, skipping`);
+      return;
+    }
 
     await this.run(run, {});
   }
@@ -663,7 +690,7 @@ export class WorkflowEngine {
           );
           if (spent >= employee.budgetLimit) {
             throw new Error(
-              `${employee.name} has reached its monthly budget limit ($${employee.budgetLimit})`,
+              `${employee.name} has reached its monthly budget limit`,
             );
           }
         }
@@ -726,20 +753,13 @@ export class WorkflowEngine {
         ? cfg.employeeId.trim()
         : undefined;
 
-    // Test mode (founder-market-readiness-audit.md §5/§12): stop before ANY
-    // real interaction with SkillsService -- no connector lookup, no egress,
-    // no SkillExecution audit row. A dry run must be provably side-effect
-    // free, not "run for real but hope nothing bad happens."
-    if (dryRun) {
-      const preview = {
-        ok: true,
-        dryRun: true,
-        skillKey,
-        tool,
-        args,
-        preview: `Would call ${skillKey || '(no skill)'}/${tool || '(no tool)'} with these args — nothing was actually sent.`,
-      };
-      return { output: preview, contextValue: preview };
+    // Validate BEFORE the dry-run short-circuit below: a dry run previewing
+    // "ok:true" for a skill/tool reference that would fail for real (unknown,
+    // or a quarantined connector) defeats the whole point of a safe preview —
+    // it must catch every failure a real run would hit, just without the
+    // real side effect. Same existence check runTool() uses.
+    if (!SkillCatalog.getTool(skillKey, tool)) {
+      throw new Error(`Unknown skill/tool: ${skillKey}/${tool}`);
     }
 
     // Quarantine (docs §5.5): if this skill's connector is DEGRADED/DISCONNECTED,
@@ -776,6 +796,23 @@ export class WorkflowEngine {
           `Connector for "${skillKey}" is ${connector.connectionStatus} — step quarantined (connector unavailable)`,
         );
       }
+    }
+
+    // Test mode (founder-market-readiness-audit.md §5/§12): stop before ANY
+    // real interaction with SkillsService -- no connector lookup beyond the
+    // validation above, no egress, no SkillExecution audit row. A dry run
+    // must be provably side-effect free, not "run for real but hope nothing
+    // bad happens" — but it must still fail loudly on a misconfigured step.
+    if (dryRun) {
+      const preview = {
+        ok: true,
+        dryRun: true,
+        skillKey,
+        tool,
+        args,
+        preview: `Would call ${skillKey}/${tool} with these args — nothing was actually sent.`,
+      };
+      return { output: preview, contextValue: preview };
     }
 
     // Runs through SkillsService (swappable executor) + writes a SkillExecution.

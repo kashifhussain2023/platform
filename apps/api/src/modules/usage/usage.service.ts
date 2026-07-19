@@ -17,6 +17,14 @@ export interface UsageTotals {
   estimatedCostUsd: number;
 }
 
+/** Start of the current UTC calendar month (00:00:00 on the 1st). Budget
+ * limits reset monthly -- the field itself has no unit/period documented
+ * anywhere else, so this is the one place that decision is made. */
+export function startOfCurrentMonthUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
 /**
  * Real LLM usage/cost tracking (founder-market-readiness-audit.md §7): before
  * this, the billing usage page's "tasks" number was an activity count, not

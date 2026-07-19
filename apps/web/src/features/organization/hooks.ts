@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AuditLogDto,
   CreateDepartmentDto,
   CreateTeamDto,
   DepartmentDto,
@@ -20,6 +21,7 @@ import {
   deleteDepartment,
   deleteTeam,
   getSecurityPolicy,
+  listAuditLog,
   listDepartments,
   listTeams,
   updateDepartment,
@@ -32,6 +34,7 @@ export const orgKeys = {
   departments: ['organization', 'departments'] as const,
   teams: ['organization', 'teams'] as const,
   securityPolicy: ['organization', 'security-policy'] as const,
+  auditLog: ['organization', 'audit-log'] as const,
 };
 
 /** Whether the current user may manage the org (OWNER/ADMIN). Mirrors RolesGuard. */
@@ -296,5 +299,19 @@ export function useUpdateSecurityPolicy() {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: orgKeys.securityPolicy });
     },
+  });
+}
+
+// --- Audit log ---------------------------------------------------------------
+
+/** Who-did-what feed. Backend restricts GET /audit-log to OWNER/ADMIN
+ * (RolesGuard) -- only fetch when the current user can actually see it. */
+export function useAuditLog() {
+  const accessToken = useSessionStore((s) => s.accessToken);
+  const canManage = useCanManageOrg();
+  return useQuery<AuditLogDto[], NormalizedApiError>({
+    queryKey: orgKeys.auditLog,
+    queryFn: listAuditLog,
+    enabled: Boolean(accessToken && canManage),
   });
 }

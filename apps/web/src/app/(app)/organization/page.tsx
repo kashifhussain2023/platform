@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/app-shell/AppShell';
 import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
+import { AuditLogSection } from '@/features/organization/components/AuditLogSection';
 import { DepartmentSection } from '@/features/organization/components/DepartmentSection';
 import { OrgOverview } from '@/features/organization/components/OrgOverview';
 import { SecurityPolicyForm } from '@/features/organization/components/SecurityPolicyForm';
@@ -11,13 +12,14 @@ import { TeamSection } from '@/features/organization/components/TeamSection';
 import { useCanManageOrg } from '@/features/organization/hooks';
 import { useSessionStore } from '@/stores/session.store';
 
-type OrgTab = 'overview' | 'departments' | 'teams' | 'security';
+type OrgTab = 'overview' | 'departments' | 'teams' | 'security' | 'audit-log';
 
 const TABS: { key: OrgTab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'departments', label: 'Departments' },
   { key: 'teams', label: 'Teams' },
   { key: 'security', label: 'Security' },
+  { key: 'audit-log', label: 'Audit Log' },
 ];
 
 export default function OrganizationPage() {
@@ -49,7 +51,7 @@ export default function OrganizationPage() {
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.key !== 'audit-log' || canManage).map((t) => (
           <button
             key={t.key}
             type="button"
@@ -69,6 +71,7 @@ export default function OrganizationPage() {
       {tab === 'departments' && <DepartmentSection />}
       {tab === 'teams' && <TeamSection />}
       {tab === 'security' && <SecurityPolicyForm />}
+      {tab === 'audit-log' && canManage && <AuditLogSection />}
     </AppShell>
   );
 }

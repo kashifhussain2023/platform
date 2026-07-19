@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/config.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { ResilienceModule } from './common/resilience/resilience.module';
+import { TenantAwareThrottlerGuard } from './common/resilience/tenant-throttler.guard';
 import { AuditModule } from './modules/audit/audit.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -54,6 +55,6 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
     OrganizationModule,
     AdminModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: TenantAwareThrottlerGuard }],
 })
 export class AppModule {}

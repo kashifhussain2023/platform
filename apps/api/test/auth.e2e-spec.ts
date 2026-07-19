@@ -66,4 +66,28 @@ describeIfDb('Auth e2e (register -> login -> me)', () => {
   it('rejects /auth/me without a token', async () => {
     await request(app.getHttpServer()).get('/auth/me').expect(401);
   });
+
+  it('logout clears the refresh cookie so a later /auth/refresh fails (regression: logout used to be a client-only no-op, letting the still-valid cookie silently re-authenticate the browser)', async () => {
+    const agent = request.agent(app.getHttpServer());
+    const loginEmail = `e2e_logout_${Date.now()}@example.com`;
+
+    await agent
+      .post('/auth/register')
+      .send({
+        companyName: 'Logout E2E Co',
+        name: 'Logout Owner',
+        email: loginEmail,
+        password,
+      })
+      .expect(201);
+
+    // The registration response set the refresh cookie on this agent; confirm
+    // it's actually usable before logging out.
+    await agent.post('/auth/refresh').expect(201);
+
+    await agent.post('/auth/logout').expect(201);
+
+    // Same agent, same (now-cleared) cookie jar -- refresh must fail.
+    await agent.post('/auth/refresh').expect(401);
+  });
 });

@@ -61,6 +61,22 @@ export class AuthController {
     return response;
   }
 
+  /**
+   * Clears the httpOnly refresh cookie so a "logged out" browser can't
+   * silently re-authenticate on its next full page load. Previously the
+   * frontend's logout was entirely client-side (in-memory state only) --
+   * the still-valid cookie meant AuthBootstrap would exchange it for a new
+   * access token on the very next reload/navigation, bouncing the user
+   * straight back into the app (reported bug: logout appears to redirect
+   * to /dashboard instead of logging out). No guard: clearing a cookie is
+   * harmless and idempotent whether or not the caller is authenticated.
+   */
+  @Post('logout')
+  logout(@Res({ passthrough: true }) res: Response): { ok: true } {
+    res.clearCookie(REFRESH_COOKIE, this.refreshCookieOptions());
+    return { ok: true };
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@CurrentUser() user: AuthenticatedUser): Promise<MeDto> {
@@ -69,11 +85,19 @@ export class AuthController {
 
   private setRefreshCookie(res: Response, token: string): void {
     res.cookie(REFRESH_COOKIE, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/auth',
+      ...this.refreshCookieOptions(),
       maxAge: REFRESH_MAX_AGE_MS,
     });
+  }
+
+  /** Attributes shared by set + clear -- must match exactly or the browser
+   * treats them as different cookies and won't actually clear it. */
+  private refreshCookieOptions() {
+    return {
+      httpOnly: true,
+      sameSite: 'lax' as const,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/auth',
+    };
   }
 }

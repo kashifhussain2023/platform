@@ -75,24 +75,18 @@ export class AgentRuntimeService {
 
     const { companyId } = employee;
 
-    // Budget enforcement (founder-market-readiness-audit.md §4/§8):
-    // budgetLimit resets monthly (the field itself documents no period, so
-    // this is the one place that decision is made -- see
-    // startOfCurrentMonthUtc). Only real AI-usage cost counts against it,
-    // not e.g. a tool call's own (unmetered) cost.
-    if (employee.budgetLimit != null) {
-      const spent = await this.usage.totalCostForEmployee(
-        companyId,
-        employee.id,
-        startOfCurrentMonthUtc(),
-      );
-      if (spent >= employee.budgetLimit) {
-        throw new ConflictException(
-          `${employee.name} has reached its monthly budget limit ($${employee.budgetLimit}) — ` +
-            'raise the limit or wait for next month to send more messages.',
-        );
-      }
-    }
+    // Budget enforcement (founder-market-readiness-audit.md §4/§8, tightened
+    // in the §edge-case recheck): checked again before EACH completion below,
+    // not just once here. A single check at the top of run() went stale for
+    // the whole bounded ACT loop (up to MAX_ACT_ITERATIONS real LLM calls) --
+    // a concurrent request against the same employee could push it over
+    // budget mid-loop and this request would never notice. Re-checking per
+    // iteration can't close the very first instant two requests both start
+    // at once (the DB has no cost to see from either yet — genuinely
+    // unknowable before an LLM call returns), but it stops a request from
+    // compounding MORE cost once a competitor's spend has landed, which is
+    // where the real exposure was.
+    await this.assertUnderBudget(employee);
 
     // Persist the user turn first so it is part of the loaded memory/history.
     await this.prisma.message.create({
@@ -151,6 +145,12 @@ export class AgentRuntimeService {
     let awaitingApproval = false;
 
     for (let i = 0; i < MAX_ACT_ITERATIONS; i += 1) {
+      if (i > 0) {
+        // Re-check before every iteration after the first (the first was
+        // already checked above): a concurrent request against the same
+        // employee may have pushed it over budget since this loop started.
+        await this.assertUnderBudget(employee);
+      }
       const draft = await this.router
         .forTask('act')
         .complete({ system, messages: working, temperature: 0.2 }, tools);
@@ -195,6 +195,7 @@ export class AgentRuntimeService {
     // Safety net: loop exhausted while still requesting tools — force a final
     // answer with NO tools so a turn always produces a response.
     if (!answer) {
+      await this.assertUnderBudget(employee);
       const draft = await this.router
         .forTask('act')
         .complete({ system, messages: working, temperature: 0.2 });
@@ -325,6 +326,24 @@ export class AgentRuntimeService {
         content: m.content,
       }));
     return mapped.length > 0 ? mapped : [{ role: 'user', content: userText }];
+  }
+
+  /** Throw if this employee has a budget limit and has already reached it. */
+  private async assertUnderBudget(employee: AiEmployee): Promise<void> {
+    if (employee.budgetLimit == null) {
+      return;
+    }
+    const spent = await this.usage.totalCostForEmployee(
+      employee.companyId,
+      employee.id,
+      startOfCurrentMonthUtc(),
+    );
+    if (spent >= employee.budgetLimit) {
+      throw new ConflictException(
+        `${employee.name} has reached its monthly budget limit — ` +
+          'raise the limit or wait for next month to send more messages.',
+      );
+    }
   }
 
   /** Best-effort (UsageService.record never throws); awaited so the write

@@ -334,9 +334,108 @@ describeIfDb('Workflows e2e (create -> run -> poll linear chain)', () => {
     expect(after).toBe(before);
   }, 20_000);
 
+  it('dryRun: true still fails a TOOL_ACTION pointing at an unknown skill/tool (no false "ok:true")', async () => {
+    const definition = {
+      nodes: [
+        { id: 'n1', type: 'TRIGGER', config: {} },
+        {
+          id: 'n2',
+          type: 'TOOL_ACTION',
+          config: {
+            skillKey: 'not-a-real-skill',
+            tool: 'not-a-real-tool',
+            args: {},
+            outputKey: 'result',
+          },
+        },
+      ],
+      edges: [{ from: 'n1', to: 'n2' }],
+    };
+    const wf = await request(app.getHttpServer())
+      .post('/workflows')
+      .set(auth())
+      .send({ name: 'Dry run invalid skill check', definition })
+      .expect(201);
+
+    const start = await request(app.getHttpServer())
+      .post(`/workflows/${wf.body.id}/run`)
+      .set(auth())
+      .send({ dryRun: true })
+      .expect(201);
+
+    const deadline = Date.now() + 15_000;
+    let run: any = start.body;
+    while (Date.now() < deadline) {
+      const res = await request(app.getHttpServer())
+        .get(`/workflows/runs/${run.id}`)
+        .set(auth())
+        .expect(200);
+      run = res.body;
+      if (run.status === 'COMPLETED' || run.status === 'FAILED') break;
+      await sleep(300);
+    }
+    expect(run.status).toBe('FAILED');
+    const toolStep = run.steps.find(
+      (s: { type: string }) => s.type === 'TOOL_ACTION',
+    );
+    expect(toolStep.status).toBe('FAILED');
+    expect(String(toolStep.error)).toContain(
+      'Unknown skill/tool: not-a-real-skill/not-a-real-tool',
+    );
+  }, 20_000);
+
   it('rejects workflow routes without a token', async () => {
     await request(app.getHttpServer()).get('/workflows').expect(401);
   });
+
+  it('two concurrent execute() calls on the same PENDING run only run the workflow once', async () => {
+    // Regression test for the edge-case recheck (2026-07-19): execute() used
+    // to check `status !== 'PENDING'` and only THEN write RUNNING as a
+    // separate step -- two callers racing the same run (e.g. a
+    // duplicate-delivered BullMQ job) could both pass the check before
+    // either write landed, and both would go on to actually run the
+    // workflow (real side effects twice). Bypass the queue and call
+    // WorkflowEngine.execute() directly, twice, concurrently, on a run row
+    // created directly via Prisma -- same bypass reasoning as the
+    // "per-employee connection priority" suite below.
+    const definition = {
+      nodes: [
+        { id: 'n1', type: 'TRIGGER', config: {} },
+        { id: 'n2', type: 'NOTIFY', config: { message: 'concurrency check' } },
+      ],
+      edges: [{ from: 'n1', to: 'n2' }],
+    };
+    const wf = await request(app.getHttpServer())
+      .post('/workflows')
+      .set(auth())
+      .send({ name: 'Concurrent execute check', definition })
+      .expect(201);
+
+    const run = await prisma.workflowRun.create({
+      data: {
+        companyId,
+        workflowId: wf.body.id,
+        status: 'PENDING',
+      },
+    });
+
+    const engine = app.get(WorkflowEngine);
+    await Promise.all([engine.execute(run.id), engine.execute(run.id)]);
+
+    const finished = await request(app.getHttpServer())
+      .get(`/workflows/runs/${run.id}`)
+      .set(auth())
+      .expect(200);
+    expect(finished.body.status).toBe('COMPLETED');
+
+    // The real proof: exactly one WorkflowStepRun per node -- if both racers
+    // had gotten past the guard, the workflow would have run twice and this
+    // would be 4, not 2.
+    const stepCount = await prisma.workflowStepRun.count({
+      where: { runId: run.id },
+    });
+    expect(stepCount).toBe(definition.nodes.length);
+  }, 20_000);
 
   describe('per-employee connection priority (TOOL_ACTION)', () => {
     // Same reasoning as skills.e2e-spec.ts's "per-employee skill connection

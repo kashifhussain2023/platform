@@ -84,13 +84,13 @@ export function DarkHero() {
               >
                 Hire AI Employee
               </Link>
-              <button
-                type="button"
+              <Link
+                href="/demo"
                 className="flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.04] px-6 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-white/[0.08]"
               >
                 <Play className="h-4 w-4" strokeWidth={2} fill="currentColor" />
                 Watch Demo
-              </button>
+              </Link>
             </motion.div>
           </div>
 

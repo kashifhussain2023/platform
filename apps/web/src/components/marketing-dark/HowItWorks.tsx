@@ -57,12 +57,18 @@ export function HowItWorks() {
           ))}
         </div>
 
-        <div className="mt-14 flex justify-center">
+        <div className="mt-14 flex flex-wrap justify-center gap-4">
           <Link
             href="/register"
             className="rounded-full bg-violet px-6 py-3 text-[15px] font-semibold text-white transition-transform hover:scale-[1.03] hover:bg-violet-hover"
           >
             Explore All AI Employees
+          </Link>
+          <Link
+            href="/demo"
+            className="rounded-full border border-white/[0.12] bg-white/[0.04] px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-white/[0.08]"
+          >
+            Watch the Full Demo
           </Link>
         </div>
       </div>

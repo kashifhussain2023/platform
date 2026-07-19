@@ -1,5 +1,6 @@
 import { DarkNav } from '@/components/marketing-dark/DarkNav';
 import { DarkHero } from '@/components/marketing-dark/DarkHero';
+import { MarketGapSection } from '@/components/marketing-dark/MarketGapSection';
 import { WhatIsVaep } from '@/components/marketing-dark/WhatIsVaep';
 import { WorkflowBuilderSection } from '@/components/marketing-dark/WorkflowBuilderSection';
 import { HowItWorks } from '@/components/marketing-dark/HowItWorks';
@@ -16,6 +17,7 @@ export default function HomePage() {
     <div className="font-marketing min-h-screen overflow-x-hidden bg-dark-hero">
       <DarkNav />
       <DarkHero />
+      <MarketGapSection />
       <WhatIsVaep />
       <WorkflowBuilderSection />
       <HowItWorks />

@@ -232,7 +232,8 @@ export function EmployeeSettings({ employee }: { employee: AiEmployeeDto }) {
             />
             {employee.budgetLimit != null && (
               <p className="mt-1 text-xs text-zinc-500">
-                ${(employee.monthToDateCostUsd ?? 0).toFixed(2)} spent so far this month.
+                ${(employee.monthToDateCostUsd ?? 0).toFixed(2)} spent so far this month
+                (estimated — a flat per-token rate, not this employee's real provider bill).
                 Reaching the limit blocks new chat messages and workflow AI steps for this
                 employee until next month (or a higher limit is set).
               </p>

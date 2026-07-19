@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { requireRealProviderInProduction } from '../../../common/config/require-real-provider';
 import { AnthropicLlmProvider } from './anthropic-llm.provider';
 import { LLM_PROVIDER_TOKEN, type LlmProvider } from './llm.provider';
 import { MockLlmProvider } from './mock-llm.provider';
@@ -15,6 +16,7 @@ function llmFactory(config: ConfigService): LlmProvider {
       return new OpenAiLlmProvider(config);
     case 'mock':
     default:
+      requireRealProviderInProduction('LLM_PROVIDER', 'mock');
       return new MockLlmProvider();
   }
 }

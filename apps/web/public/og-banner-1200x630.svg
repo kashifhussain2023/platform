@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#0E1020"></rect>
+  <g transform="translate(430,140) scale(3.2)">
+  <circle cx="26" cy="27" r="21" stroke="#4A4B54" stroke-width="3" fill="none"></circle>
+  <circle cx="26" cy="27" r="14.5" stroke="#8B6EF2" stroke-width="4" fill="none"></circle>
+  <circle cx="26" cy="27" r="8" fill="#FFFFFF"></circle>
+  <circle cx="26" cy="5" r="3.5" fill="#FF9A62"></circle></g>
+  <text x="600" y="430" text-anchor="middle" font-family="Sora, ui-sans-serif, sans-serif" font-size="88" font-weight="700" letter-spacing="-2" fill="#FFFFFF">orlixa</text>
+  <text x="600" y="500" text-anchor="middle" font-family="Sora, ui-sans-serif, sans-serif" font-size="28" font-weight="400" fill="#8B6EF2">Hire AI employees that think, act and deliver.</text>
+</svg>
