@@ -24,6 +24,57 @@ function newId(): string {
 /** Step choices exclude TRIGGER (the fixed, always-first entry node). */
 const STEP_TYPES: NodeType[] = NODE_TYPES.filter((t) => t !== 'TRIGGER');
 
+/**
+ * The engine already runs a CONDITION node's two branch-tagged edges
+ * correctly (a real marketplace template proves it) — this is the one bit of
+ * UI needed to actually author one. Shows the Yes/No path if it already
+ * exists (which step it leads to), or a button to add it if it doesn't.
+ */
+function BranchPaths({
+  conditionId,
+  edges,
+  nodes,
+  onAddBranch,
+}: {
+  conditionId: string;
+  edges: WorkflowEdge[];
+  nodes: WorkflowNode[];
+  onAddBranch: (branch: 'true' | 'false') => void;
+}) {
+  const branches: Array<{ label: string; value: 'true' | 'false' }> = [
+    { label: 'Yes', value: 'true' },
+    { label: 'No', value: 'false' },
+  ];
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-3">
+      <span className="text-xs font-medium text-zinc-500">Branches:</span>
+      {branches.map(({ label, value }) => {
+        const edge = edges.find(
+          (e) => e.from === conditionId && e.branch === value,
+        );
+        const target = edge ? nodes.find((n) => n.id === edge.to) : undefined;
+        return edge && target ? (
+          <span
+            key={value}
+            className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-300"
+          >
+            {label} → {NODE_LABELS[target.type]}
+          </span>
+        ) : (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onAddBranch(value)}
+            className="rounded-lg border border-dashed border-white/[0.15] px-2.5 py-1 text-xs font-medium text-zinc-400 transition-colors hover:border-white/30 hover:text-white"
+          >
+            + Add {label} path
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Seed the editor from the persisted definition, guaranteeing a TRIGGER leads. */
 function seedNodes(workflow: WorkflowDto): WorkflowNode[] {
   const existing = workflow.definition?.nodes ?? [];
@@ -89,6 +140,24 @@ export function NodeList({ workflow }: { workflow: WorkflowDto }) {
         ? cur
         : [...cur, { from: prev.id, to: node.id }],
     );
+  };
+
+  /**
+   * The engine has always supported real branching (a CONDITION node's two
+   * outgoing edges tagged branch:'true'/'false') — this UI just never had a
+   * button for it. Adds a new NOTIFY placeholder step (the simplest node to
+   * configure) as that branch's target; the user can change its type/config
+   * like any other step afterward.
+   */
+  const addBranch = (conditionId: string, branch: 'true' | 'false') => {
+    const node: WorkflowNode = {
+      id: newId(),
+      type: 'NOTIFY',
+      name: '',
+      config: defaultConfig('NOTIFY'),
+    };
+    setNodes((cur) => [...cur, node]);
+    setEdges((cur) => [...cur, { from: conditionId, to: node.id, branch }]);
   };
 
   const updateNode = (id: string, next: WorkflowNode) =>
@@ -243,6 +312,14 @@ export function NodeList({ workflow }: { workflow: WorkflowDto }) {
                   node={node}
                   onChange={(next) => updateNode(node.id, next)}
                 />
+                {node.type === 'CONDITION' && (
+                  <BranchPaths
+                    conditionId={node.id}
+                    edges={edges}
+                    nodes={nodes}
+                    onAddBranch={(branch) => addBranch(node.id, branch)}
+                  />
+                )}
               </div>
             </li>
           );
