@@ -12,6 +12,8 @@ import { MockSkillExecutor } from '../src/modules/skills/executors/mock-skill-ex
 import { RealSkillExecutor } from '../src/modules/skills/executors/real-skill-executor';
 import { AutoSkillExecutor } from '../src/modules/skills/executors/auto-skill-executor';
 import { SchedulingService } from '../src/modules/scheduling/scheduling.service';
+import { PostizClientService } from '../src/modules/engines/marketing/postiz-client.service';
+import { PrismaService } from '../src/common/prisma/prisma.service';
 import {
   assertUrlAllowed,
   isBlockedAddress,
@@ -130,14 +132,19 @@ describeIfDb('Integrations e2e (auto executor · OAuth · Stripe webhook)', () =
     })
       .overrideProvider(SKILL_EXECUTOR_TOKEN)
       .useFactory({
-        factory: (config: ConfigService, scheduling: SchedulingService) => {
+        factory: (
+          config: ConfigService,
+          scheduling: SchedulingService,
+          postizClient: PostizClientService,
+          prisma: PrismaService,
+        ) => {
           const mock = new MockSkillExecutor();
           return new AutoSkillExecutor(
-            new RealSkillExecutor(config, mock, scheduling),
+            new RealSkillExecutor(config, mock, scheduling, postizClient, prisma),
             mock,
           );
         },
-        inject: [ConfigService, SchedulingService],
+        inject: [ConfigService, SchedulingService, PostizClientService, PrismaService],
       })
       .compile();
 

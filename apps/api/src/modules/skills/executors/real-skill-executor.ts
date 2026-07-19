@@ -7,6 +7,8 @@ import type {
 } from './skill-executor';
 import { assertUrlAllowed } from './ssrf';
 import type { SchedulingService } from '../../scheduling/scheduling.service';
+import type { PostizClientService } from '../../engines/marketing/postiz-client.service';
+import type { PrismaService } from '../../../common/prisma/prisma.service';
 
 /** Coerce a possibly-unknown credential/arg value to a trimmed string (or ''). */
 function str(value: unknown): string {
@@ -65,6 +67,10 @@ export class RealSkillExecutor implements SkillExecutor {
     private readonly fallback: SkillExecutor,
     /** Interview-slot claim primitive for the 'scheduling' skill (no OAuth/API key). */
     private readonly scheduling: SchedulingService,
+    /** Postiz REST wrapper for the 'postiz' marketing skill (shared API key, no per-tenant creds). */
+    private readonly postizClient: PostizClientService,
+    /** Direct Prisma access for SocialAccount/ScheduledPost rows (postiz.* tools). */
+    private readonly prisma: PrismaService,
   ) {}
 
   async execute(
@@ -97,6 +103,16 @@ export class RealSkillExecutor implements SkillExecutor {
           return await this.schedulingClaimSlot(args, ctx);
         case 'scheduling.reschedule_slot':
           return await this.schedulingRescheduleSlot(args, ctx);
+        case 'postiz.list_connected_accounts':
+          return await this.postizListConnectedAccounts(ctx);
+        case 'postiz.start_connect_account':
+          return await this.postizStartConnectAccount(args);
+        case 'postiz.schedule_post':
+          return await this.postizSchedulePost(args, ctx);
+        case 'postiz.publish_now':
+          return await this.postizPublishNow(args, ctx);
+        case 'postiz.get_post_status':
+          return await this.postizGetPostStatus(args, ctx);
         default:
           // No real implementation for this tool → mock (never 500).
           return this.fallback.execute(skillKey, tool, args, ctx);
@@ -652,5 +668,103 @@ export class RealSkillExecutor implements SkillExecutor {
     const title = str(args.title) || 'Interview (rescheduled)';
     const result = await this.scheduling.reschedule(ctx.companyId, slotId, title);
     return { ok: true, result };
+  }
+
+  // --- postiz.* (Postiz REST wrapper; shared API key, no per-tenant OAuth) ---
+
+  private async postizListConnectedAccounts(ctx: ExecutorContext): Promise<SkillExecutionResult> {
+    const accounts = await this.prisma.socialAccount.findMany({
+      where: { companyId: ctx.companyId, status: 'CONNECTED' },
+    });
+    return { ok: true, result: { accounts } };
+  }
+
+  private async postizStartConnectAccount(
+    args: Record<string, unknown>,
+  ): Promise<SkillExecutionResult> {
+    const platform = str(args.platform);
+    if (!platform) return { ok: false, error: 'start_connect_account requires a platform' };
+    try {
+      const { url } = await this.postizClient.getConnectUrl(platform);
+      return { ok: true, result: { url } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'connect failed' };
+    }
+  }
+
+  private async postizSchedulePost(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const socialAccountId = str(args.socialAccountId);
+    const content = str(args.content);
+    const publishAt = str(args.publishAt);
+    if (!socialAccountId || !content || !publishAt) {
+      return { ok: false, error: 'schedule_post requires socialAccountId, content, publishAt' };
+    }
+    const account = await this.prisma.socialAccount.findFirst({
+      where: { id: socialAccountId, companyId: ctx.companyId },
+    });
+    if (!account) return { ok: false, error: 'SocialAccount not found for this company' };
+
+    try {
+      const { postizPostId } = await this.postizClient.schedulePost({
+        postizIntegrationId: account.postizIntegrationId,
+        content,
+        type: 'schedule',
+        date: publishAt,
+      });
+      const post = await this.prisma.scheduledPost.create({
+        data: {
+          companyId: ctx.companyId,
+          socialAccountId,
+          content,
+          publishAt: new Date(publishAt),
+          status: 'SCHEDULED',
+          postizPostId,
+        },
+      });
+      return { ok: true, result: { scheduledPostId: post.id, postizPostId } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'schedule_post failed' };
+    }
+  }
+
+  private async postizPublishNow(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const socialAccountId = str(args.socialAccountId);
+    const content = str(args.content);
+    if (!socialAccountId || !content) {
+      return { ok: false, error: 'publish_now requires socialAccountId and content' };
+    }
+    const account = await this.prisma.socialAccount.findFirst({
+      where: { id: socialAccountId, companyId: ctx.companyId },
+    });
+    if (!account) return { ok: false, error: 'SocialAccount not found for this company' };
+    try {
+      const { postizPostId } = await this.postizClient.schedulePost({
+        postizIntegrationId: account.postizIntegrationId,
+        content,
+        type: 'now',
+      });
+      return { ok: true, result: { postizPostId } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'publish_now failed' };
+    }
+  }
+
+  private async postizGetPostStatus(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const scheduledPostId = str(args.scheduledPostId);
+    if (!scheduledPostId) return { ok: false, error: 'get_post_status requires scheduledPostId' };
+    const post = await this.prisma.scheduledPost.findFirst({
+      where: { id: scheduledPostId, companyId: ctx.companyId },
+    });
+    if (!post) return { ok: false, error: 'ScheduledPost not found for this company' };
+    return { ok: true, result: { status: post.status, postizPostId: post.postizPostId } };
   }
 }

@@ -24,6 +24,8 @@ import { SkillsController } from './skills.controller';
 import { SkillsService } from './skills.service';
 import { SchedulingModule } from '../scheduling/scheduling.module';
 import { SchedulingService } from '../scheduling/scheduling.service';
+import { PostizClientService } from '../engines/marketing/postiz-client.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
 
 /**
  * Pick the skill-execution backend from SKILL_EXECUTOR (mirrors the embeddings /
@@ -39,14 +41,19 @@ import { SchedulingService } from '../scheduling/scheduling.service';
 function skillExecutorFactory(
   config: ConfigService,
   scheduling: SchedulingService,
+  postizClient: PostizClientService,
+  prisma: PrismaService,
 ): SkillExecutor {
   const kind = (config.get<string>('SKILL_EXECUTOR') ?? 'mock').toLowerCase();
   const mock = new MockSkillExecutor();
   switch (kind) {
     case 'real':
-      return new RealSkillExecutor(config, mock, scheduling);
+      return new RealSkillExecutor(config, mock, scheduling, postizClient, prisma);
     case 'auto':
-      return new AutoSkillExecutor(new RealSkillExecutor(config, mock, scheduling), mock);
+      return new AutoSkillExecutor(
+        new RealSkillExecutor(config, mock, scheduling, postizClient, prisma),
+        mock,
+      );
     case 'mock':
     default:
       return mock;
@@ -80,9 +87,10 @@ function skillExecutorFactory(
     ConnectorHealthService,
     ConnectorTokenService,
     ConnectorHealthProcessor,
+    PostizClientService,
     {
       provide: SKILL_EXECUTOR_TOKEN,
-      inject: [ConfigService, SchedulingService],
+      inject: [ConfigService, SchedulingService, PostizClientService, PrismaService],
       useFactory: skillExecutorFactory,
     },
     // Injectable fetch for the token-refresh endpoint call (stubbed in unit tests).
