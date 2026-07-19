@@ -179,6 +179,13 @@ model Company {
   interviewSlots     InterviewSlot[]
   auditLogs          AuditLog[]
   usageEvents        UsageEvent[]
+  socialAccounts              SocialAccount[]
+  campaigns                   Campaign[]
+  scheduledPosts              ScheduledPost[]
+  publishedPosts              PublishedPost[]
+  mediaAssets                 MediaAsset[]
+  brandAssets                 BrandAsset[]
+  marketingAnalyticsSnapshots MarketingAnalyticsSnapshot[]
 }
 
 // Minimal who-did-what trail (founder-market-readiness-audit.md §6/§4: full
@@ -745,4 +752,134 @@ model InterviewSlot {
   createdAt  DateTime   @default(now())
 
   @@index([companyId, status, start])
+}
+
+// --- Marketing engine (Postiz-backed) ---
+// SocialAccount/Campaign/ScheduledPost/PublishedPost/MediaAsset/BrandAsset/
+// MarketingAnalyticsSnapshot back the "AI Marketing Employee" feature, which
+// calls out to a self-hosted Postiz instance via REST (client added in a
+// later task). Tenancy follows the existing InstalledSkill convention: a
+// plain companyId String + @relation to Company + @@index([companyId]) --
+// no new tenancy mechanism, no row-level security.
+
+enum SocialAccountStatus {
+  CONNECTED
+  DISCONNECTED
+  DEGRADED
+}
+
+model SocialAccount {
+  id                  String              @id @default(cuid())
+  companyId           String
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId          String?
+  provider            String              // matches a Postiz providerIdentifier, e.g. "instagram"
+  postizIntegrationId String              // Postiz's own Integration.id
+  postizCustomerId    String?             // Postiz's Customer id this account is tagged to
+  displayName         String?
+  externalAccountId   String?
+  status              SocialAccountStatus @default(CONNECTED)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  scheduledPosts      ScheduledPost[]
+  publishedPosts      PublishedPost[]
+
+  @@index([companyId])
+  @@index([companyId, provider])
+}
+
+enum ScheduledPostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  SCHEDULED
+  FAILED
+}
+
+model Campaign {
+  id           String          @id @default(cuid())
+  companyId    String
+  company      Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  aiEmployeeId String?
+  name         String
+  goal         String?
+  status       String          @default("ACTIVE")
+  createdAt    DateTime        @default(now())
+  posts        ScheduledPost[]
+
+  @@index([companyId])
+}
+
+model ScheduledPost {
+  id                String              @id @default(cuid())
+  companyId         String
+  company           Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  socialAccountId   String
+  socialAccount     SocialAccount       @relation(fields: [socialAccountId], references: [id])
+  campaignId        String?
+  campaign          Campaign?           @relation(fields: [campaignId], references: [id])
+  content           String
+  mediaRefs         Json                @default("[]")
+  publishAt         DateTime
+  status            ScheduledPostStatus @default(DRAFT)
+  postizPostId      String?
+  approvalRequestId String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  publishedPost     PublishedPost?
+
+  @@index([companyId])
+  @@index([companyId, status])
+}
+
+model PublishedPost {
+  id                String        @id @default(cuid())
+  companyId         String
+  company           Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  socialAccountId   String
+  socialAccount     SocialAccount @relation(fields: [socialAccountId], references: [id])
+  scheduledPostId   String        @unique
+  scheduledPost     ScheduledPost @relation(fields: [scheduledPostId], references: [id])
+  platformPostId    String?
+  permalink         String?
+  publishedAt       DateTime      @default(now())
+  lastMetricsSyncAt DateTime?
+
+  @@index([companyId])
+}
+
+model MediaAsset {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  storageKey String
+  mimeType   String
+  kind       String   // IMAGE | VIDEO | BRAND_LOGO | BRAND_FONT
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model BrandAsset {
+  id                  String   @id @default(cuid())
+  companyId           String
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  kind                String   // LOGO | COLOR_PALETTE | FONT | VOICE_DOC
+  mediaAssetId        String?
+  structuredValue     Json?
+  knowledgeDocumentId String?
+  createdAt           DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model MarketingAnalyticsSnapshot {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  socialAccountId String
+  capturedAt      DateTime @default(now())
+  metrics         Json
+
+  @@index([companyId, socialAccountId])
 }
