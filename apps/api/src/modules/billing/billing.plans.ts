@@ -51,11 +51,14 @@ export const PLAN_CATALOG: Readonly<Record<Plan, PlanDto>> = {
     maxEmployees: null,
     features: [
       'Unlimited AI employees',
-      'SSO',
       'Private deployment',
       'Custom AI employees',
       'SLA',
       'Audit logs',
+      // SSO removed (founder-market-readiness-audit.md §3/§4): it was sold
+      // here with zero implementation anywhere in the codebase. Re-add once
+      // it's actually built, or once a specific Enterprise deal is asking
+      // for it and paying to fund building it.
     ],
   },
 };

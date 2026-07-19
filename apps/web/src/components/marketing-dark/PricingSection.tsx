@@ -42,7 +42,9 @@ const PLANS: Plan[] = [
     name: 'Enterprise',
     monthly: null,
     blurb: 'For large organizations',
-    features: ['Everything in Business', 'SSO & SAML', 'On-premise option', 'Dedicated Support'],
+    // SSO & SAML removed (founder-market-readiness-audit.md §3/§4): not
+    // built anywhere in the codebase. Re-add once it exists.
+    features: ['Everything in Business', 'Audit logs', 'On-premise option', 'Dedicated Support'],
     cta: 'Contact Sales',
   },
 ];
