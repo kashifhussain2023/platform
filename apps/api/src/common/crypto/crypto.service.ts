@@ -113,7 +113,15 @@ export class CryptoService {
   /** Resolve a 32-byte key from env, or derive an insecure dev key (warn once). */
   private resolveKey(raw: string | undefined): Buffer {
     const trimmed = raw?.trim();
+    const isProd = process.env.NODE_ENV === 'production';
     if (!trimmed) {
+      if (isProd) {
+        throw new Error(
+          'ENCRYPTION_KEY is not set. Refusing to start in production with an ' +
+            'insecure derived key — set a real 32-byte ENCRYPTION_KEY (64 hex ' +
+            'chars or base64).',
+        );
+      }
       this.logger.warn(
         'ENCRYPTION_KEY is not set — deriving an INSECURE development key. ' +
           'Set a 32-byte ENCRYPTION_KEY (64 hex chars or base64) in production.',
@@ -121,16 +129,51 @@ export class CryptoService {
       return createHash('sha256').update(DEV_KEY_SEED).digest();
     }
     // 64 hex chars → 32 bytes.
+    let buf: Buffer;
     if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
-      return Buffer.from(trimmed, 'hex');
+      buf = Buffer.from(trimmed, 'hex');
+    } else {
+      // Otherwise interpret as base64 of exactly 32 bytes.
+      buf = Buffer.from(trimmed, 'base64');
+      if (buf.length !== KEY_BYTES) {
+        throw new Error(
+          'ENCRYPTION_KEY must be 64 hex chars or base64 encoding 32 bytes (AES-256).',
+        );
+      }
     }
-    // Otherwise interpret as base64 of exactly 32 bytes.
-    const buf = Buffer.from(trimmed, 'base64');
-    if (buf.length === KEY_BYTES) {
-      return buf;
+    if (isProd && this.isWeakKey(buf)) {
+      throw new Error(
+        'ENCRYPTION_KEY looks like a placeholder, not a real random key ' +
+          '(too few unique bytes or a repeating pattern). Generate a real ' +
+          'one, e.g.: openssl rand -hex 32',
+      );
     }
-    throw new Error(
-      'ENCRYPTION_KEY must be 64 hex chars or base64 encoding 32 bytes (AES-256).',
-    );
+    return buf;
+  }
+
+  /**
+   * Reject an obviously-fake key: a short repeating pattern (e.g. the literal
+   * placeholder "0123456789abcdef" repeated 4 times) or too few unique bytes
+   * to plausibly be random 32-byte material. A genuine random key has an
+   * astronomically low chance of tripping either check.
+   */
+  private isWeakKey(buf: Buffer): boolean {
+    for (let period = 1; period <= buf.length / 2; period++) {
+      if (buf.length % period !== 0) {
+        continue;
+      }
+      let repeats = true;
+      for (let i = period; i < buf.length; i++) {
+        if (buf[i] !== buf[i % period]) {
+          repeats = false;
+          break;
+        }
+      }
+      if (repeats) {
+        return true;
+      }
+    }
+    const uniqueBytes = new Set(buf).size;
+    return uniqueBytes < buf.length / 2;
   }
 }
