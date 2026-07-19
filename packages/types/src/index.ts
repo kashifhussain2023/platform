@@ -1033,6 +1033,8 @@ export interface ToolActionNodeConfig {
   tool: string;
   args: Record<string, string>;
   outputKey: string;
+  /** Run as this employee's own connection (falls back to the company-wide one). */
+  employeeId?: string;
 }
 
 /** WAIT: bounded delay (capped by the engine). */

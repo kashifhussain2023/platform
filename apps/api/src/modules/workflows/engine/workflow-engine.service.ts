@@ -686,6 +686,17 @@ export class WorkflowEngine {
         ? (cfg.args as Record<string, unknown>)
         : undefined;
     const args = resolveArgs(argsRaw, context);
+    // Same convention as execAiStep's cfg.employeeId: run as this employee's
+    // own connection when set, so a company that only connected this skill
+    // per-employee (no company-wide row) can still be reached from a
+    // workflow — without this, resolveInstalledForExecution below would
+    // never find the employee-owned row and the step would silently run
+    // against whatever mock/sandbox fallback the executor has for
+    // "not connected", even though a real connection exists.
+    const employeeId =
+      typeof cfg.employeeId === 'string' && cfg.employeeId.trim()
+        ? cfg.employeeId.trim()
+        : undefined;
 
     // Quarantine (docs §5.5): if this skill's connector is DEGRADED/DISCONNECTED,
     // fail the step with a clear, non-retryable "connector unavailable" error
@@ -694,16 +705,24 @@ export class WorkflowEngine {
     // NOT_CONNECTED skill runs exactly as before (default mock connectors stay
     // CONNECTED, so existing workflow tests are unaffected).
     if (skillKey) {
+      // Same priority as resolveInstalledForExecution: the employee-owned
+      // row first (if this step runs as one), else the company-wide row.
       // findFirst (not findUnique + the companyId_skillKey_employeeId
       // compound key): Prisma's compound-unique-index type requires a
       // non-null employeeId, even though the column is nullable — see the
-      // note on SkillsService.resolveInstalledForExecution. This
-      // company-wide lookup (employeeId: null) reproduces the exact row the
-      // old 2-field key matched.
-      const connector = await this.prisma.installedSkill.findFirst({
-        where: { companyId, skillKey, employeeId: null },
-        select: { connectionStatus: true },
-      });
+      // note on SkillsService.resolveInstalledForExecution.
+      const ownConnector = employeeId
+        ? await this.prisma.installedSkill.findFirst({
+            where: { companyId, skillKey, employeeId },
+            select: { connectionStatus: true },
+          })
+        : null;
+      const connector =
+        ownConnector ??
+        (await this.prisma.installedSkill.findFirst({
+          where: { companyId, skillKey, employeeId: null },
+          select: { connectionStatus: true },
+        }));
       if (
         connector &&
         (connector.connectionStatus === 'DEGRADED' ||
@@ -716,7 +735,12 @@ export class WorkflowEngine {
     }
 
     // Runs through SkillsService (swappable executor) + writes a SkillExecution.
-    const call = await this.skills.runTool({ companyId }, skillKey, tool, args);
+    const call = await this.skills.runTool(
+      { companyId, employeeId },
+      skillKey,
+      tool,
+      args,
+    );
     if (!call.ok) {
       throw new Error(`Tool ${skillKey}/${tool} did not succeed`);
     }

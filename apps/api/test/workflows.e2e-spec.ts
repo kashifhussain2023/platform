@@ -4,6 +4,13 @@ import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import { WorkflowEngine } from '../src/modules/workflows/engine/workflow-engine.service';
+import {
+  SKILL_EXECUTOR_TOKEN,
+  type ExecutorContext,
+  type SkillExecutionResult,
+  type SkillExecutor,
+} from '../src/modules/skills/executors/skill-executor';
 
 // Workflow builder e2e: needs a live Postgres + Redis (BullMQ). Skipped when
 // DATABASE_URL is unset so it never blocks the build. Run it with:
@@ -266,5 +273,194 @@ describeIfDb('Workflows e2e (create -> run -> poll linear chain)', () => {
 
   it('rejects workflow routes without a token', async () => {
     await request(app.getHttpServer()).get('/workflows').expect(401);
+  });
+
+  describe('per-employee connection priority (TOOL_ACTION)', () => {
+    // Same reasoning as skills.e2e-spec.ts's "per-employee skill connection
+    // priority (real chat path)" test: resolveInstalledForExecution only runs
+    // for executors with usesInstalledCredentials=true, which this suite's
+    // ambient SKILL_EXECUTOR=mock never sets. Give this one test its own app
+    // with SKILL_EXECUTOR_TOKEN overridden to a tiny probe executor that
+    // echoes back exactly which InstalledSkill row got resolved, so the
+    // assertion is direct rather than inferred.
+    //
+    // Unlike the chat test, a workflow run is normally executed by a BullMQ
+    // worker (WorkflowProcessor) — and the OUTER describe block's `app` is
+    // still open here, so it has its own WorkflowProcessor registered on the
+    // SAME queue/Redis, racing this app's worker for any enqueued job (and
+    // using the ambient mock executor if it wins). Sidestep the queue
+    // entirely: create the WorkflowRun row directly and call
+    // WorkflowEngine.execute() in-process against THIS app's own container,
+    // so the run is guaranteed to go through the overridden probe executor.
+    let priorityApp: INestApplication;
+    let priorityPrisma: PrismaService;
+    let priorityEngine: WorkflowEngine;
+
+    class ProbeSkillExecutor implements SkillExecutor {
+      readonly name = 'probe';
+      readonly usesInstalledCredentials = true;
+      async execute(
+        _skillKey: string,
+        _tool: string,
+        _args: Record<string, unknown>,
+        ctx: ExecutorContext,
+      ): Promise<SkillExecutionResult> {
+        return {
+          ok: true,
+          result: {
+            installedSkillId: ctx.installedSkillId ?? null,
+            companyEmail:
+              (ctx.config as { companyEmail?: string } | null)?.companyEmail ??
+              null,
+          },
+        };
+      }
+    }
+
+    beforeAll(async () => {
+      const moduleRef: TestingModule = await Test.createTestingModule({
+        imports: [AppModule],
+      })
+        .overrideProvider(SKILL_EXECUTOR_TOKEN)
+        .useValue(new ProbeSkillExecutor())
+        .compile();
+      priorityApp = moduleRef.createNestApplication();
+      priorityApp.use(cookieParser());
+      priorityApp.useGlobalPipes(
+        new ValidationPipe({ whitelist: true, transform: true }),
+      );
+      await priorityApp.init();
+      priorityPrisma = priorityApp.get(PrismaService);
+      priorityEngine = priorityApp.get(WorkflowEngine);
+    });
+
+    afterAll(async () => {
+      await priorityApp?.close();
+    });
+
+    it("a TOOL_ACTION step configured with an employeeId uses that employee's OWN gmail connection, not the company-wide one", async () => {
+      const server = priorityApp.getHttpServer();
+      const priorityEmail = `wf_priority_e2e_${Date.now()}@example.com`;
+
+      const reg = await request(server)
+        .post('/auth/register')
+        .send({
+          companyName: 'Workflow Priority Co',
+          name: 'Priority Owner',
+          email: priorityEmail,
+          password: 'password123',
+        })
+        .expect(201);
+      const priorityAuth = {
+        Authorization: `Bearer ${reg.body.tokens.accessToken}`,
+      };
+
+      // Company-wide gmail connection — the row a buggy "TOOL_ACTION never
+      // knows the acting employee" resolution would fall back to.
+      const companyWide = await request(server)
+        .post('/skills/install')
+        .set(priorityAuth)
+        .send({ skillKey: 'gmail' })
+        .expect(201);
+      await request(server)
+        .patch(`/skills/installed/${companyWide.body.id}/config`)
+        .set(priorityAuth)
+        .send({ config: { companyEmail: 'company-wide@acme.example' } })
+        .expect(200);
+      await request(server)
+        .post(`/skills/installed/${companyWide.body.id}/connect`)
+        .set(priorityAuth)
+        .send({ credentials: { accessToken: 'company-wide-token' } })
+        .expect(201);
+
+      // An employee with its OWN gmail connection for the same skillKey.
+      const emp = await request(server)
+        .post('/employees')
+        .set(priorityAuth)
+        .send({ name: 'Inbox AI', role: 'SUPPORT', persona: 'Inbox assistant.' })
+        .expect(201);
+      const priorityEmployeeId = emp.body.id;
+
+      const ownConn = await request(server)
+        .post('/skills/install')
+        .set(priorityAuth)
+        .send({ skillKey: 'gmail', employeeId: priorityEmployeeId })
+        .expect(201);
+      await request(server)
+        .patch(`/skills/installed/${ownConn.body.id}/config`)
+        .set(priorityAuth)
+        .send({ config: { companyEmail: 'inbox-ai-own@acme.example' } })
+        .expect(200);
+      await request(server)
+        .post(`/skills/installed/${ownConn.body.id}/connect`)
+        .set(priorityAuth)
+        .send({ credentials: { accessToken: 'employee-owned-token' } })
+        .expect(201);
+
+      const definition = {
+        nodes: [
+          { id: 'n1', type: 'TRIGGER', config: {} },
+          {
+            id: 'n2',
+            type: 'TOOL_ACTION',
+            config: {
+              skillKey: 'gmail',
+              tool: 'read_inbox',
+              args: {},
+              employeeId: priorityEmployeeId,
+              outputKey: 'inboxResult',
+            },
+          },
+        ],
+        edges: [{ from: 'n1', to: 'n2' }],
+      };
+      const wf = await request(server)
+        .post('/workflows')
+        .set(priorityAuth)
+        .send({ name: 'Per-employee inbox check', definition })
+        .expect(201);
+
+      // Create the PENDING run directly (bypassing WorkflowsService.createRun,
+      // which would enqueue it to the racy shared BullMQ queue — see the
+      // comment on this describe block) and execute it in-process against
+      // THIS app's own WorkflowEngine, so it's guaranteed to use the
+      // overridden probe executor.
+      const workflowRow = await priorityPrisma.workflow.findFirstOrThrow({
+        where: { id: wf.body.id },
+      });
+      const createdRun = await priorityPrisma.workflowRun.create({
+        data: {
+          companyId: workflowRow.companyId,
+          workflowId: workflowRow.id,
+          status: 'PENDING',
+          source: 'MANUAL',
+        },
+      });
+      const runId = createdRun.id;
+      await priorityEngine.execute(runId);
+
+      const res = await request(server)
+        .get(`/workflows/runs/${runId}`)
+        .set(priorityAuth)
+        .expect(200);
+      const run = res.body;
+      expect(run.status).toBe('COMPLETED');
+
+      const toolStep = run.steps.find(
+        (s: { type: string }) => s.type === 'TOOL_ACTION',
+      );
+      expect(toolStep.output.ok).toBe(true);
+
+      // Headline assertion: the EMPLOYEE-OWNED connection was resolved for
+      // this TOOL_ACTION step — not the company-wide one — even though both
+      // exist for this skill.
+      expect(toolStep.output.result.installedSkillId).toBe(ownConn.body.id);
+      expect(toolStep.output.result.installedSkillId).not.toBe(
+        companyWide.body.id,
+      );
+      expect(toolStep.output.result.companyEmail).toBe(
+        'inbox-ai-own@acme.example',
+      );
+    }, 25_000);
   });
 });

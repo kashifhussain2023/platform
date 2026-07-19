@@ -176,6 +176,16 @@ export function NodeEditor({
               onChange={(next) => setConfig({ args: next })}
             />
           </Field>
+          <Field
+            label="Employee id (optional)"
+            hint="Uses that employee's own connection if it has one, otherwise the company-wide one."
+          >
+            <input
+              className={inputCls}
+              value={str(cfg.employeeId)}
+              onChange={(e) => setConfig({ employeeId: e.target.value })}
+            />
+          </Field>
           <Field label="Output key">
             <input
               className={inputCls}
