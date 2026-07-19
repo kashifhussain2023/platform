@@ -7,6 +7,11 @@ question is: "Would a customer trust this? Will it hold up once real people use 
 **Date:** 2026-07-19. Checked against the actual code today. Also re-checked an older technical review from
 2026-07-12, instead of just assuming it was still correct.
 
+**Fix status:** Phase 0 and Phase 1 (Sections 2 and 3) and Phase 2 (Sections 4, 7, 8) are done — see
+`docs/plans/2026-07-19-founder-audit-master-plan.md` for exactly what changed and the small number of
+items that still need a decision from the user (a hosting/secrets choice, an error-tracking signup, an
+email-provider signup) rather than more engineering work.
+
 ---
 
 ## 1. Bottom Line

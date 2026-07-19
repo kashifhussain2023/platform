@@ -118,7 +118,13 @@ down for everyone else) — and the tool needed for this is a standard, drop-in 
 
 ## Phase 2 — Trust & Money (before scaling past a handful of customers)
 
+**Status: done (2026-07-19).** One real gap remains that needs the user, not more of my work: actual EMAIL
+delivery on a payment failure — see item 9.
+
 ### 6. Selling "Single Sign-On" and "Audit Logs" that don't exist
+
+**Status: done.** Audit Logs built (a real, if minimal, who-did-what trail). SSO removed from both the
+backend plan catalog and the marketing homepage's pricing section, rather than built speculatively.
 
 **Best fix:** Split this into two different decisions, since they're not equally urgent:
 - **Audit Logs — build a light version now.** Add one simple table that records "who did what, when" for
@@ -136,6 +142,8 @@ its own regardless of who's selling.
 
 ### 7. Nobody knows how much AI usage actually costs
 
+**Status: done.**
+
 **Best fix:** Every AI call in the whole system already goes through one shared piece of code. Record how
 much each call costs, right at that one spot, tagged with which company and which employee made the call.
 Store it, and show a running total on the billing page instead of just the loose "activity count" that's
@@ -145,6 +153,9 @@ there now.
 a hunt through the whole codebase. And it's the one piece everything else in this section depends on.
 
 ### 8. "Budget limit" on an employee does nothing
+
+**Status: done** (real block, not a two-stage warn-then-block -- there's no notification channel yet to
+deliver a "warning" through, so a clear error at the point of use is the honest equivalent today).
 
 **Best fix:** Once real cost tracking exists (item 7), check an employee's running cost against their
 budget limit right before letting them do anything that costs money. Don't cut them off instantly the
@@ -157,6 +168,12 @@ real cost would just be guessing. The "warn first, then block" approach avoids s
 a sudden hard stop.
 
 ### 9. Billing is missing self-serve cancel, invoices, and payment-failure emails
+
+**Status: half done.** Stripe's hosted billing portal (cancel/invoices/payment method) is wired up. **Still
+needs you:** actual EMAIL delivery on a payment failure needs an email-provider account (SendGrid, Postmark,
+SES, etc.) this repo doesn't have — the failure itself is now durably recorded (an audit-log entry) the
+moment it happens, so nothing is silently lost; it just isn't emailed to anyone yet. Once you pick a
+provider, wiring the send is a quick follow-up.
 
 **Best fix:** The payment provider already being used (Stripe) has a ready-made page for exactly this —
 letting a customer see invoices, update their card, and cancel, without building any of those screens
