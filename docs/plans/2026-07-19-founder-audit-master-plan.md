@@ -37,10 +37,21 @@ new one, is both faster and safer.
 
 ## Phase 1 — Foundation (before taking on a second paying customer)
 
+**Status: mostly done (2026-07-19).** Everything that was pure code is done and verified. Two pieces
+specifically need YOU to make a decision or create an account — I can't do those on my own — flagged below
+under item 1 and item 2.
+
 These are the "make sure the building doesn't fall down" items. They get more expensive to fix the more
 customers are depending on the system, so do them now while there's still just one.
 
 ### 1. Real passwords/keys sitting in a plain settings file
+
+**Status: half done.** Code fix is in: the app now refuses to start in production with no encryption key,
+or with an obviously fake one (a repeating pattern or too few unique bytes — the exact placeholder found
+in `.env` would now be rejected). **Still needs you:** actually rotating (replacing) the real API keys and
+picking where secrets live in production. I don't know which hosting provider this will run on, so I can't
+set up its secrets manager for you — once you pick one (or if you're not sure which, tell me and I can
+recommend one for your setup), moving the real values there and rotating them is a quick follow-up.
 
 **Best fix:** Move real secrets out of the settings file and into your hosting provider's own secrets
 storage (most hosting platforms have one built in — this avoids buying/learning a separate tool). Add one
@@ -52,6 +63,10 @@ briefly, should be treated as if it might already be compromised.
 report. No reason to wait.
 
 ### 2. No automatic testing, no automatic backups, no error alerts
+
+**Status: 2 of 3 done.** GitHub Actions (automatic testing) and the automated backup script are both done
+and verified working. **Still needs you:** the error-alert tool. Adding one (e.g. Sentry or similar) needs
+an account and a project key that only you can create — once you have one, wiring it in is quick.
 
 **Best fix:** Three small, separate things, not one big project:
 - Turn on GitHub's free built-in automation (Actions) to run the existing tests automatically every time
@@ -66,6 +81,8 @@ just turning on safety nets that are standard for any real product.
 
 ### 3. Background tasks can only do one thing at a time
 
+**Status: done.**
+
 **Best fix:** Let each task type (checking email, running workflows, processing documents) handle several
 things at once instead of just one — a small settings change, not a redesign. Start with a modest number
 (handling maybe 5-10 at a time instead of 1) and watch how it behaves before raising it further.
@@ -76,6 +93,9 @@ raise this gradually.
 
 ### 4. No limit on long lists
 
+**Status: done** (a cap with a sensible default, not a full "click for next page" screen yet — that's a
+smaller follow-up if you want it; the part that actually protects against a slowdown/crash is done).
+
 **Best fix:** Add "give me items 1-50, then the next 50" to every long list (employees, workflows,
 documents, connections) instead of loading everything at once. One part of the system already does this
 correctly — copy that exact same pattern everywhere else instead of inventing a new one.
@@ -84,6 +104,8 @@ correctly — copy that exact same pattern everywhere else instead of inventing 
 getting it wrong the second time.
 
 ### 5. No limit on how often expensive features can be called
+
+**Status: done.**
 
 **Best fix:** Add a call limit to the AI-related features first (the ones that cost real money per use),
 using a well-known, ready-made tool for this rather than building limit-tracking from scratch. Add it to
