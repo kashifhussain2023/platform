@@ -9,6 +9,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type {
   FireEventResultDto,
   GenerateWorkflowResultDto,
@@ -85,10 +86,14 @@ export class WorkflowsController {
   /**
    * AI-assisted draft generation (BUSINESS/ENTERPRISE only). Never persists —
    * hand the returned `definition` to POST / (create) once the user accepts it.
+   * Tighter than the app-wide default (docs status audit §3): each call runs
+   * up to GENERATION_MAX_ATTEMPTS real LLM completions, so this is one of the
+   * endpoints that actually costs real money per request.
    */
   @Post('generate')
   @UseGuards(PlanGuard)
   @RequirePlan('BUSINESS', 'ENTERPRISE')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   generateDraft(
     @CurrentTenant() companyId: string,
     @Body() dto: GenerateWorkflowDto,

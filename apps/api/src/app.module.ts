@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/config.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { CryptoModule } from './common/crypto/crypto.module';
@@ -23,6 +25,11 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
 @Module({
   imports: [
     AppConfigModule,
+    // Global safety-net rate limit (docs status audit §3: no rate limiting
+    // existed anywhere). Generous default so normal use/tests are unaffected;
+    // specific cost-sensitive endpoints (auth login/register, AI workflow
+    // generation) carry their own tighter @Throttle() override.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
     PrismaModule,
     CryptoModule,
     ResilienceModule,
@@ -43,5 +50,6 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
     OrganizationModule,
     AdminModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
