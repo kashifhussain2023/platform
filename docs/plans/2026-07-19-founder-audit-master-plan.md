@@ -15,6 +15,8 @@ exist yet.
 
 ## Phase 0 — Fix Today
 
+**Status: done (2026-07-19).**
+
 ### The workflow bug (Section 2 of the audit)
 
 **Problem:** A workflow can't use an AI employee's own connected app (like Gmail) — it silently fakes

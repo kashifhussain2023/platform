@@ -33,6 +33,8 @@ one first.
 
 ## 2. Fix This One First
 
+**Fixed 2026-07-19** — see `docs/plans/2026-07-19-founder-audit-master-plan.md` Phase 0.
+
 **When a company connects an app (like Gmail) to only ONE specific AI employee — not shared by the whole
 company — an automated workflow using that app quietly fakes success instead of doing anything real.**
 
