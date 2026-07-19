@@ -1,25 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import type { WorkflowStepRunDto } from '@vaep/types';
 import { Button } from '@/components/ui/Button';
 import { useRunWorkflow, useWorkflowRun } from '../hooks';
-import {
-  NODE_ICONS,
-  NODE_LABELS,
-  NODE_TONES,
-  RUN_STATUS_STYLES,
-  STEP_STATUS_STYLES,
-} from '../labels';
-
-/** Pretty-print a step's output for the run log (bounded). */
-function preview(value: unknown): string {
-  if (value == null) {
-    return '';
-  }
-  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-  return text.length > 800 ? `${text.slice(0, 800)}…` : text;
-}
+import { RUN_STATUS_STYLES } from '../labels';
+import { RunSteps } from './RunSteps';
 
 /**
  * Trigger a run (optional JSON trigger payload) and poll GET /workflows/runs/:id
@@ -62,7 +47,7 @@ export function RunPanel({
     run.mutate({ trigger }, { onSuccess: (created) => setRunId(created.id) });
   };
 
-  const steps: WorkflowStepRunDto[] = current?.steps ?? [];
+  const steps = current?.steps ?? [];
 
   return (
     <section className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
@@ -124,50 +109,7 @@ export function RunPanel({
       {runId && (
         <div className="mt-4">
           <h3 className="mb-2 text-xs font-medium text-zinc-400">Run log</h3>
-          {steps.length === 0 ? (
-            <p className="text-sm text-zinc-500">Waiting for steps…</p>
-          ) : (
-            <ol className="space-y-2">
-              {steps.map((step) => {
-                const Icon = NODE_ICONS[step.type as keyof typeof NODE_ICONS];
-                const tone = NODE_TONES[step.type as keyof typeof NODE_TONES];
-                return (
-                  <li
-                    key={step.id}
-                    className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-2 text-sm font-medium text-white">
-                        {Icon && (
-                          <span
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${tone ?? 'bg-white/[0.06] text-zinc-400'}`}
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                          </span>
-                        )}
-                        {NODE_LABELS[step.type as keyof typeof NODE_LABELS] ??
-                          step.type}
-                      </span>
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STEP_STATUS_STYLES[step.status]}`}
-                      >
-                        {step.status}
-                      </span>
-                    </div>
-                    {step.error ? (
-                      <p className="mt-1 text-xs text-red-400">{step.error}</p>
-                    ) : (
-                      step.output != null && (
-                        <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs text-zinc-400">
-                          {preview(step.output)}
-                        </pre>
-                      )
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          )}
+          <RunSteps steps={steps} />
         </div>
       )}
     </section>

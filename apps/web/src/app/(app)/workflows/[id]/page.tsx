@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/app-shell/AppShell';
 import { useAppShellProps } from '@/components/app-shell/useAppShellProps';
 import { NodeList } from '@/features/workflows/components/NodeList';
+import { PastRunsPanel } from '@/features/workflows/components/PastRunsPanel';
 import { RunPanel } from '@/features/workflows/components/RunPanel';
 import { TriggerPanel } from '@/features/workflows/components/TriggerPanel';
 import { useWorkflow } from '@/features/workflows/hooks';
@@ -89,6 +90,7 @@ export default function WorkflowEditorPage({
               (n) => n.type !== 'TRIGGER',
             )}
           />
+          <PastRunsPanel workflowId={workflow.id} />
         </div>
       )}
     </AppShell>
