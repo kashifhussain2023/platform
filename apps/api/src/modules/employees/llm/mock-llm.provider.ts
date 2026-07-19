@@ -215,11 +215,36 @@ function deriveArgs(
  *    tool RESULT is present in the messages, return a final answer that
  *    references BOTH the tool result and the retrieved knowledge.
  */
+/** Rough, deterministic offline stand-in for a real token count (~4 chars/token). */
+function estimateTokens(text: string): number {
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
 @Injectable()
 export class MockLlmProvider implements LlmProvider {
   readonly name = 'mock';
 
   async complete(
+    input: LlmCompletionInput,
+    tools?: ToolDefinitionDto[],
+  ): Promise<LlmCompletionResult> {
+    const result = await this.completeInner(input, tools);
+    // Deterministic, offline usage estimate so metering can be exercised in
+    // tests without a real provider — not meant to be an accurate count.
+    const promptText =
+      input.system + input.messages.map((m) => m.content).join(' ');
+    const completionText =
+      result.content ?? JSON.stringify(result.toolCall ?? {});
+    return {
+      ...result,
+      usage: {
+        promptTokens: estimateTokens(promptText),
+        completionTokens: estimateTokens(completionText),
+      },
+    };
+  }
+
+  private async completeInner(
     input: LlmCompletionInput,
     tools?: ToolDefinitionDto[],
   ): Promise<LlmCompletionResult> {

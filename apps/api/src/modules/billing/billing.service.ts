@@ -7,6 +7,7 @@ import type {
   UsageDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { UsageService } from '../usage/usage.service';
 import {
   BILLING_PROVIDER_TOKEN,
   type BillingProvider,
@@ -29,6 +30,7 @@ export class BillingService {
     private readonly prisma: PrismaService,
     @Inject(BILLING_PROVIDER_TOKEN)
     private readonly provider: BillingProvider,
+    private readonly usageService: UsageService,
   ) {}
 
   /** The code-defined plan catalog. */
@@ -197,6 +199,7 @@ export class BillingService {
       toolSuccess,
       assistantMessages,
       workflowCompleted,
+      llmUsage,
     ] = await Promise.all([
       this.prisma.aiEmployee.count({ where: { companyId } }),
       this.prisma.installedSkill.count({ where: { companyId } }),
@@ -207,6 +210,7 @@ export class BillingService {
       this.prisma.workflowRun.count({
         where: { companyId, status: 'COMPLETED' },
       }),
+      this.usageService.totalsForCompany(companyId),
     ]);
 
     const maxEmployees = maxEmployeesFor(plan);
@@ -216,7 +220,8 @@ export class BillingService {
       employees,
       installedSkills,
       tasks: toolSuccess + assistantMessages + workflowCompleted,
-      tokens: 0,
+      tokens: llmUsage.promptTokens + llmUsage.completionTokens,
+      estimatedCostUsd: llmUsage.estimatedCostUsd,
       voiceMinutes: 0,
       overEmployeeLimit: maxEmployees !== null && employees > maxEmployees,
     };

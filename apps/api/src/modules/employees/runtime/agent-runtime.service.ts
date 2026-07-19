@@ -16,8 +16,9 @@ import {
   TOOL_RESULT_MARKER,
 } from '../employees.constants';
 import type { ExecutorContext } from '../../skills/executors/skill-executor';
-import type { LlmMessage } from '../llm/llm.provider';
+import type { LlmMessage, LlmUsage } from '../llm/llm.provider';
 import { toMessageDto } from '../employees.mapper';
+import { UsageService } from '../../usage/usage.service';
 import { LlmRouterService } from './llm-router.service';
 import { MemoryService, type LoadedMemory } from './memory.service';
 import { PlannerService } from './planner.service';
@@ -57,6 +58,7 @@ export class AgentRuntimeService {
     private readonly memory: MemoryService,
     private readonly toolExecutor: ToolExecutorService,
     private readonly validation: ValidationService,
+    private readonly usage: UsageService,
   ) {}
 
   async run(
@@ -133,6 +135,7 @@ export class AgentRuntimeService {
       const draft = await this.router
         .forTask('act')
         .complete({ system, messages: working, temperature: 0.2 }, tools);
+      await this.recordUsage(companyId, employee.id, draft.usage);
 
       if (draft.toolCall && tools.length > 0) {
         const call = await this.toolExecutor.call(
@@ -176,6 +179,7 @@ export class AgentRuntimeService {
       const draft = await this.router
         .forTask('act')
         .complete({ system, messages: working, temperature: 0.2 });
+      await this.recordUsage(companyId, employee.id, draft.usage);
       answer = (draft.content ?? '').trim();
     }
 
@@ -302,5 +306,24 @@ export class AgentRuntimeService {
         content: m.content,
       }));
     return mapped.length > 0 ? mapped : [{ role: 'user', content: userText }];
+  }
+
+  /** Best-effort (UsageService.record never throws); awaited so the write
+   * lands before the turn finishes, not a detached fire-and-forget. */
+  private async recordUsage(
+    companyId: string,
+    employeeId: string,
+    usage: LlmUsage | undefined,
+  ): Promise<void> {
+    if (!usage) {
+      return;
+    }
+    await this.usage.record({
+      companyId,
+      employeeId,
+      source: 'chat',
+      promptTokens: usage.promptTokens,
+      completionTokens: usage.completionTokens,
+    });
   }
 }

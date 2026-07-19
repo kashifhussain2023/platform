@@ -178,6 +178,7 @@ model Company {
   securityPolicy     SecurityPolicy?
   interviewSlots     InterviewSlot[]
   auditLogs          AuditLog[]
+  usageEvents        UsageEvent[]
 }
 
 // Minimal who-did-what trail (founder-market-readiness-audit.md §6/§4: full
@@ -200,6 +201,27 @@ model AuditLog {
 
   @@index([companyId, createdAt])
   @@index([companyId, entityType, entityId])
+}
+
+// One row per completed LLM call (founder-market-readiness-audit.md §7: no
+// usage/cost tracking existed at all -- the billing usage page's "tasks" was
+// an activity count, not spend). estimatedCostUsd uses a flat illustrative
+// rate table (see usage/usage-rates.ts), not each provider's real invoiced
+// price -- directionally useful, not an exact bill.
+model UsageEvent {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId       String?
+  // e.g. "chat", "workflow_ai_step", "workflow_generator".
+  source           String
+  promptTokens     Int
+  completionTokens Int
+  estimatedCostUsd Float
+  createdAt        DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, employeeId, createdAt])
 }
 
 model User {

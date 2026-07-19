@@ -28,13 +28,22 @@ export interface LlmToolCall {
   args: Record<string, unknown>;
 }
 
+/** Token counts for one completion, when the backend reports them. */
+export interface LlmUsage {
+  promptTokens: number;
+  completionTokens: number;
+}
+
 /**
  * Output of a completion: EITHER a final text `content` OR a `toolCall` the
- * runtime should execute before continuing the loop.
+ * runtime should execute before continuing the loop. `usage` is optional
+ * because a provider that can't report it (or a hand-rolled test double)
+ * simply omits it -- callers must treat it as best-effort, not guaranteed.
  */
 export interface LlmCompletionResult {
   content?: string;
   toolCall?: LlmToolCall;
+  usage?: LlmUsage;
 }
 
 export interface LlmProvider {

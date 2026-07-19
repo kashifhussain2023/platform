@@ -9,6 +9,7 @@ import type {
 } from '@vaep/types';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { BillingService } from '../../billing/billing.service';
+import { UsageService } from '../../usage/usage.service';
 import { KnowledgeService } from '../../knowledge/knowledge.service';
 import { SkillsService } from '../../skills/skills.service';
 import {
@@ -125,6 +126,7 @@ export class WorkflowEngine {
     private readonly skills: SkillsService,
     private readonly billing: BillingService,
     @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
+    private readonly usage: UsageService,
   ) {}
 
   /**
@@ -668,6 +670,15 @@ export class WorkflowEngine {
       messages: [{ role: 'user', content: prompt || 'Proceed.' }],
       temperature: 0.2,
     });
+    if (result.usage) {
+      await this.usage.record({
+        companyId,
+        employeeId: employeeId || null,
+        source: 'workflow_ai_step',
+        promptTokens: result.usage.promptTokens,
+        completionTokens: result.usage.completionTokens,
+      });
+    }
     const text = (result.content ?? '').trim();
     return { output: { prompt, text }, contextValue: text };
   }

@@ -43,6 +43,7 @@ export class OpenAiLlmProvider implements LlmProvider {
               }>;
             };
           }>;
+          usage?: { prompt_tokens: number; completion_tokens: number };
         }>;
       };
     };
@@ -77,6 +78,13 @@ export class OpenAiLlmProvider implements LlmProvider {
       ],
     });
 
+    const usage = res.usage
+      ? {
+          promptTokens: res.usage.prompt_tokens,
+          completionTokens: res.usage.completion_tokens,
+        }
+      : undefined;
+
     const message = res.choices[0]?.message;
     const toolCall = message?.tool_calls?.[0];
     if (toolCall?.function?.name) {
@@ -95,10 +103,11 @@ export class OpenAiLlmProvider implements LlmProvider {
           tool: toolCall.function.name,
           args,
         },
+        usage,
       };
     }
 
-    return { content: message?.content ?? '' };
+    return { content: message?.content ?? '', usage };
   }
 
   private async getClient() {

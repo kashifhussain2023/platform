@@ -132,6 +132,31 @@ describeIfDb('Billing e2e (default subscription + plans + change + usage)', () =
     expect(u.overEmployeeLimit).toBe(false);
   });
 
+  it('a chat turn records real token usage/cost on GET /billing/usage', async () => {
+    const emp = await request(app.getHttpServer())
+      .post('/employees')
+      .set(auth())
+      .send({ name: 'Usage Bot', role: 'SUPPORT' })
+      .expect(201);
+    const conv = await request(app.getHttpServer())
+      .post(`/employees/${emp.body.id}/conversations`)
+      .set(auth())
+      .send({ title: 'Usage check' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/conversations/${conv.body.id}/messages`)
+      .set(auth())
+      .send({ content: 'Hello, what can you help me with?' })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .get('/billing/usage')
+      .set(auth())
+      .expect(200);
+    expect(res.body.tokens).toBeGreaterThan(0);
+    expect(res.body.estimatedCostUsd).toBeGreaterThan(0);
+  });
+
   it('rejects billing routes without a token (401)', async () => {
     await request(app.getHttpServer()).get('/billing/subscription').expect(401);
     await request(app.getHttpServer()).get('/billing/plans').expect(401);

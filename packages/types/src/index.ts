@@ -1535,7 +1535,11 @@ export interface UsageDto {
   installedSkills: number;
   /** SkillExecution SUCCESS + assistant Messages + WorkflowRun COMPLETED. */
   tasks: number;
+  /** Real total prompt+completion tokens across all LLM calls (all-time). */
   tokens: number;
+  /** Illustrative estimate (usage/usage-rates.ts flat rate table), not an exact bill. */
+  estimatedCostUsd: number;
+  /** Not implemented -- no voice feature exists yet. */
   voiceMinutes: number;
   overEmployeeLimit: boolean;
 }

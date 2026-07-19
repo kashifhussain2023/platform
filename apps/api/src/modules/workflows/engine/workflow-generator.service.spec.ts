@@ -11,6 +11,11 @@ function fakePrisma(employees: { id: string; name: string; role: string }[]) {
   return { aiEmployee: { findMany: jest.fn().mockResolvedValue(employees) } };
 }
 
+/** A fake UsageService exposing only the one method this service calls. */
+function fakeUsage() {
+  return { record: jest.fn().mockResolvedValue(undefined) };
+}
+
 /** A scripted fake LlmProvider returning one canned response per call, in order. */
 function scriptedLlm(responses: LlmCompletionResult[]): LlmProvider {
   let i = 0;
@@ -53,6 +58,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([{ skillKey: 'slack' }]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [{ role: 'user', content: 'notify slack' }]);
@@ -70,6 +76,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([{ skillKey: 'slack' }]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [{ role: 'user', content: 'notify slack' }]);
@@ -88,6 +95,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([{ skillKey: 'slack' }]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [{ role: 'user', content: 'notify slack' }]);
@@ -111,6 +119,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [{ role: 'user', content: 'automate hiring' }]);
@@ -125,6 +134,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([{ skillKey: 'slack' }]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [{ role: 'user', content: 'notify slack' }]);
@@ -156,6 +166,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([{ skillKey: 'slack' }]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [{ role: 'user', content: 'notify slack' }]);
@@ -175,6 +186,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [
@@ -213,6 +225,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [
@@ -231,6 +244,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([{ skillKey: 'slack' }]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [
@@ -280,6 +294,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([]) as never,
       fakeSkills([{ skillKey: 'slack' }]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [
@@ -326,6 +341,7 @@ describe('WorkflowGeneratorService', () => {
       fakePrisma([{ id: 'emp_real', name: 'Real Employee', role: 'recruiter' }]) as never,
       fakeSkills([]) as never,
       llm,
+      fakeUsage() as never,
     );
 
     const result = await service.generate('co_1', [{ role: 'user', content: 'have an employee draft a reply' }]);

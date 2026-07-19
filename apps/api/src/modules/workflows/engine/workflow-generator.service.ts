@@ -14,6 +14,7 @@ import {
 } from '../../employees/llm/llm.provider';
 import { SkillCatalog } from '../../skills/catalog';
 import { SkillsService } from '../../skills/skills.service';
+import { UsageService } from '../../usage/usage.service';
 import { WorkflowDefinitionDto } from '../dto/workflow-definition.dto';
 import {
   EMPLOYEES_CLOSE,
@@ -63,6 +64,7 @@ export class WorkflowGeneratorService {
     private readonly prisma: PrismaService,
     private readonly skills: SkillsService,
     @Inject(LLM_PROVIDER_TOKEN) private readonly llm: LlmProvider,
+    private readonly usage: UsageService,
   ) {}
 
   async generate(
@@ -90,6 +92,14 @@ export class WorkflowGeneratorService {
     for (let attempt = 1; attempt <= GENERATION_MAX_ATTEMPTS; attempt++) {
       const system = this.buildSystemPrompt(groundingSkills, employees, correction, mustDraftNow);
       const result = await this.llm.complete({ system, messages });
+      if (result.usage) {
+        await this.usage.record({
+          companyId,
+          source: 'workflow_generator',
+          promptTokens: result.usage.promptTokens,
+          completionTokens: result.usage.completionTokens,
+        });
+      }
       const parsed = this.parseResponse(result.content);
       const isLastAttempt = attempt === GENERATION_MAX_ATTEMPTS;
 

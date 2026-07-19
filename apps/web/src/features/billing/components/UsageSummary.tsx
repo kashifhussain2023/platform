@@ -59,6 +59,11 @@ export function UsageSummary() {
         <UsageBar label="AI Employees" used={usage.employees} max={usage.maxEmployees} />
         <UsageCount label="Installed Skills" value={usage.installedSkills} />
         <UsageCount label="Tasks" value={usage.tasks} helper="tools + messages + workflows" />
+        <UsageCount
+          label="AI Tokens Used"
+          value={usage.tokens}
+          helper={`~$${usage.estimatedCostUsd.toFixed(2)} estimated — illustrative, not an exact bill`}
+        />
       </div>
 
       {usage.overEmployeeLimit && (
@@ -80,7 +85,7 @@ export function UsageSummary() {
       )}
 
       <p className="mt-5 text-xs text-zinc-600">
-        Token &amp; voice-minute metering is coming soon.
+        Voice-minute metering is coming soon.
       </p>
     </div>
   );

@@ -44,6 +44,7 @@ export class AnthropicLlmProvider implements LlmProvider {
           name?: string;
           input?: Record<string, unknown>;
         }>;
+        usage?: { input_tokens: number; output_tokens: number };
       }>;
     };
   } | null = null;
@@ -76,6 +77,13 @@ export class AnthropicLlmProvider implements LlmProvider {
       })),
     });
 
+    const usage = res.usage
+      ? {
+          promptTokens: res.usage.input_tokens,
+          completionTokens: res.usage.output_tokens,
+        }
+      : undefined;
+
     // Prefer a tool call when the model requested one.
     const toolUse = res.content.find((b) => b.type === 'tool_use');
     if (toolUse?.name) {
@@ -85,13 +93,14 @@ export class AnthropicLlmProvider implements LlmProvider {
           tool: toolUse.name,
           args: toolUse.input ?? {},
         },
+        usage,
       };
     }
 
     const content = res.content
       .map((b) => (b.type === 'text' ? (b.text ?? '') : ''))
       .join('');
-    return { content };
+    return { content, usage };
   }
 
   private async getClient() {
