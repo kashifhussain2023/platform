@@ -25,6 +25,7 @@ import { SkillsService } from './skills.service';
 import { SchedulingModule } from '../scheduling/scheduling.module';
 import { SchedulingService } from '../scheduling/scheduling.service';
 import { PostizClientService } from '../engines/marketing/postiz-client.service';
+import { MarketingModule } from '../engines/marketing/marketing.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 /**
@@ -74,6 +75,7 @@ function skillExecutorFactory(
   imports: [
     BullModule.registerQueue({ name: CONNECTOR_HEALTH_QUEUE }),
     SchedulingModule,
+    MarketingModule,
   ],
   controllers: [
     SkillsController,
@@ -87,7 +89,6 @@ function skillExecutorFactory(
     ConnectorHealthService,
     ConnectorTokenService,
     ConnectorHealthProcessor,
-    PostizClientService,
     {
       provide: SKILL_EXECUTOR_TOKEN,
       inject: [ConfigService, SchedulingService, PostizClientService, PrismaService],
