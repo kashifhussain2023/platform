@@ -16,6 +16,7 @@ import type {
   ToolDefinitionDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { clampLimit } from '../../common/pagination';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { CircuitBreakerRegistry } from '../../common/resilience/circuit-breaker.registry';
 import { CircuitOpenError } from '../../common/resilience/circuit-breaker';
@@ -132,10 +133,14 @@ export class SkillsService {
     return toInstalledSkillDto(row);
   }
 
-  async listInstalled(companyId: string): Promise<InstalledSkillDto[]> {
+  async listInstalled(
+    companyId: string,
+    limitRaw?: unknown,
+  ): Promise<InstalledSkillDto[]> {
     const rows = await this.prisma.installedSkill.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
+      take: clampLimit(limitRaw),
     });
     return rows.map(toInstalledSkillDto);
   }
@@ -308,11 +313,13 @@ export class SkillsService {
   async listEmployeeSkills(
     companyId: string,
     employeeId: string,
+    limitRaw?: unknown,
   ): Promise<EmployeeSkillDto[]> {
     await this.assertEmployee(companyId, employeeId);
     const rows = await this.prisma.employeeSkill.findMany({
       where: { companyId, employeeId },
       orderBy: { createdAt: 'asc' },
+      take: clampLimit(limitRaw),
     });
     return rows.map(toEmployeeSkillDto);
   }

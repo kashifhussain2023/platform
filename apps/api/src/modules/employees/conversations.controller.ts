@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { MessageDto, RunResultDto } from '@vaep/types';
 import { CurrentTenant } from '../auth/decorators/current-tenant.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -15,8 +23,9 @@ export class ConversationsController {
   listMessages(
     @CurrentTenant() companyId: string,
     @Param('id') id: string,
+    @Query('limit') limit?: string,
   ): Promise<MessageDto[]> {
-    return this.employees.listMessages(companyId, id);
+    return this.employees.listMessages(companyId, id, limit);
   }
 
   /**

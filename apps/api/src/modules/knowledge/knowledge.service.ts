@@ -10,6 +10,7 @@ import type { Queue } from 'bullmq';
 import { Prisma, type KnowledgeDocument } from '@prisma/client';
 import type { EmployeeRole, KnowledgeDocumentDto, SearchResultDto } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { clampLimit } from '../../common/pagination';
 import {
   EMBEDDING_PROVIDER,
   type EmbeddingProvider,
@@ -77,12 +78,17 @@ export class KnowledgeService {
     return toDocumentDto(doc);
   }
 
-  async list(companyId: string, category?: EmployeeRole): Promise<KnowledgeDocumentDto[]> {
+  async list(
+    companyId: string,
+    category?: EmployeeRole,
+    limitRaw?: unknown,
+  ): Promise<KnowledgeDocumentDto[]> {
     const docs = await this.prisma.knowledgeDocument.findMany({
       where: category
         ? { companyId, OR: [{ category }, { category: null }] }
         : { companyId },
       orderBy: { createdAt: 'desc' },
+      take: clampLimit(limitRaw),
     });
     return docs.map(toDocumentDto);
   }

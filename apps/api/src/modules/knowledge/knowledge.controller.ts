@@ -47,7 +47,7 @@ export class KnowledgeController {
     @CurrentTenant() companyId: string,
     @Query() query: ListDocumentsQueryDto,
   ): Promise<KnowledgeDocumentDto[]> {
-    return this.knowledge.list(companyId, query.category);
+    return this.knowledge.list(companyId, query.category, query.limit);
   }
 
   @Get('documents/:id')

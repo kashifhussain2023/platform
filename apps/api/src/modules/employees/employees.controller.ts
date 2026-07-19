@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type {
@@ -41,8 +42,11 @@ export class EmployeesController {
   }
 
   @Get()
-  list(@CurrentTenant() companyId: string): Promise<AiEmployeeDto[]> {
-    return this.employees.list(companyId);
+  list(
+    @CurrentTenant() companyId: string,
+    @Query('limit') limit?: string,
+  ): Promise<AiEmployeeDto[]> {
+    return this.employees.list(companyId, limit);
   }
 
   @Get(':id')
@@ -86,7 +90,8 @@ export class EmployeesController {
   listConversations(
     @CurrentTenant() companyId: string,
     @Param('id') employeeId: string,
+    @Query('limit') limit?: string,
   ): Promise<ConversationDto[]> {
-    return this.employees.listConversations(companyId, employeeId);
+    return this.employees.listConversations(companyId, employeeId, limit);
   }
 }

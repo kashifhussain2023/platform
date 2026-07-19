@@ -7,6 +7,7 @@ import type {
   RunResultDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { clampLimit } from '../../common/pagination';
 import { BillingService } from '../billing/billing.service';
 import { maxEmployeesFor } from '../billing/billing.plans';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -92,10 +93,11 @@ export class EmployeesService {
     return toEmployeeDto(employee);
   }
 
-  async list(companyId: string): Promise<AiEmployeeDto[]> {
+  async list(companyId: string, limitRaw?: unknown): Promise<AiEmployeeDto[]> {
     const employees = await this.prisma.aiEmployee.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
+      take: clampLimit(limitRaw),
     });
     return employees.map(toEmployeeDto);
   }
@@ -175,11 +177,13 @@ export class EmployeesService {
   async listConversations(
     companyId: string,
     employeeId: string,
+    limitRaw?: unknown,
   ): Promise<ConversationDto[]> {
     await this.findOwnedEmployee(companyId, employeeId);
     const conversations = await this.prisma.conversation.findMany({
       where: { companyId, employeeId },
       orderBy: { createdAt: 'desc' },
+      take: clampLimit(limitRaw),
     });
     return conversations.map(toConversationDto);
   }
@@ -189,13 +193,21 @@ export class EmployeesService {
   async listMessages(
     companyId: string,
     conversationId: string,
+    limitRaw?: unknown,
   ): Promise<MessageDto[]> {
     await this.findOwnedConversation(companyId, conversationId);
+    // Chat history reads chronologically (oldest first), so capping this
+    // directly with `take` on an ascending order would return the OLDEST
+    // messages, not the most recent ones a user actually wants when a
+    // conversation exceeds the cap. Fetch the most recent N by ordering
+    // DESC + take, then reverse back to chronological order -- identical
+    // output to before for any conversation under the cap.
     const messages = await this.prisma.message.findMany({
       where: { companyId, conversationId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
+      take: clampLimit(limitRaw),
     });
-    return messages.map(toMessageDto);
+    return messages.reverse().map(toMessageDto);
   }
 
   /** Run one agent turn: persists the user + assistant messages, returns the result. */

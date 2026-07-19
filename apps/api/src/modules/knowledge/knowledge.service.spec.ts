@@ -48,6 +48,7 @@ describe('KnowledgeService category scoping', () => {
     expect(prisma.knowledgeDocument.findMany).toHaveBeenCalledWith({
       where: { companyId: 'co_1' },
       orderBy: { createdAt: 'desc' },
+      take: 50,
     });
   });
 
@@ -65,6 +66,7 @@ describe('KnowledgeService category scoping', () => {
     expect(prisma.knowledgeDocument.findMany).toHaveBeenCalledWith({
       where: { companyId: 'co_1', OR: [{ category: 'SALES' }, { category: null }] },
       orderBy: { createdAt: 'desc' },
+      take: 50,
     });
   });
 

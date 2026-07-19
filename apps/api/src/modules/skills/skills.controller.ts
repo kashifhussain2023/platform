@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type {
@@ -53,8 +54,9 @@ export class SkillsController {
   @Get('installed')
   listInstalled(
     @CurrentTenant() companyId: string,
+    @Query('limit') limit?: string,
   ): Promise<InstalledSkillDto[]> {
-    return this.skills.listInstalled(companyId);
+    return this.skills.listInstalled(companyId, limit);
   }
 
   @Patch('installed/:id')

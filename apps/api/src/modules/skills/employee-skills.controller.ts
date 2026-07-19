@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { EmployeeSkillDto } from '@vaep/types';
@@ -31,8 +32,9 @@ export class EmployeeSkillsController {
   list(
     @CurrentTenant() companyId: string,
     @Param('id') employeeId: string,
+    @Query('limit') limit?: string,
   ): Promise<EmployeeSkillDto[]> {
-    return this.skills.listEmployeeSkills(companyId, employeeId);
+    return this.skills.listEmployeeSkills(companyId, employeeId, limit);
   }
 
   @Post()

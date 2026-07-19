@@ -18,6 +18,7 @@ import type {
   WorkflowRunDto,
 } from '@vaep/types';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { clampLimit } from '../../common/pagination';
 import { evaluateConditions } from './engine/conditions';
 import { validateDefinitionStructure } from './engine/definition-validator';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
@@ -78,10 +79,11 @@ export class WorkflowsService {
     return toWorkflowDto(workflow);
   }
 
-  async list(companyId: string): Promise<WorkflowDto[]> {
+  async list(companyId: string, limitRaw?: unknown): Promise<WorkflowDto[]> {
     const workflows = await this.prisma.workflow.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
+      take: clampLimit(limitRaw),
     });
     return workflows.map(toWorkflowDto);
   }
@@ -299,11 +301,16 @@ export class WorkflowsService {
     return this.enqueueRun(companyId, id, 'MANUAL', trigger);
   }
 
-  async listRuns(companyId: string, id: string): Promise<WorkflowRunDto[]> {
+  async listRuns(
+    companyId: string,
+    id: string,
+    limitRaw?: unknown,
+  ): Promise<WorkflowRunDto[]> {
     await this.findOwned(companyId, id);
     const runs = await this.prisma.workflowRun.findMany({
       where: { companyId, workflowId: id },
       orderBy: { createdAt: 'desc' },
+      take: clampLimit(limitRaw),
     });
     return runs.map((r) => toWorkflowRunDto(r));
   }

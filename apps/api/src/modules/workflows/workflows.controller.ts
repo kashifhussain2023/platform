@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -53,8 +54,11 @@ export class WorkflowsController {
   }
 
   @Get()
-  list(@CurrentTenant() companyId: string): Promise<WorkflowDto[]> {
-    return this.workflows.list(companyId);
+  list(
+    @CurrentTenant() companyId: string,
+    @Query('limit') limit?: string,
+  ): Promise<WorkflowDto[]> {
+    return this.workflows.list(companyId, limit);
   }
 
   /**
@@ -143,8 +147,9 @@ export class WorkflowsController {
   listRuns(
     @CurrentTenant() companyId: string,
     @Param('id') id: string,
+    @Query('limit') limit?: string,
   ): Promise<WorkflowRunDto[]> {
-    return this.workflows.listRuns(companyId, id);
+    return this.workflows.listRuns(companyId, id, limit);
   }
 
   /** Activate a workflow (requires runnable steps); arms its trigger. */
