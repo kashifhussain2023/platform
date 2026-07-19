@@ -8,6 +8,7 @@ import {
   WORKFLOW_RUN_WATCHDOG_SCHEDULER,
   type WorkflowRunJobData,
 } from '../workflows.constants';
+import { DEFAULT_QUEUE_CONCURRENCY } from '../../../common/resilience/queue-concurrency.constants';
 import { WorkflowEngine } from './workflow-engine.service';
 
 /**
@@ -26,7 +27,7 @@ import { WorkflowEngine } from './workflow-engine.service';
  * stays thin — a node failure is recorded as a FAILED run (a terminal domain
  * outcome the poller reads), not a thrown job error.
  */
-@Processor(WORKFLOW_RUN_QUEUE)
+@Processor(WORKFLOW_RUN_QUEUE, { concurrency: DEFAULT_QUEUE_CONCURRENCY })
 export class WorkflowProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(WorkflowProcessor.name);
 

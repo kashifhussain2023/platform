@@ -7,6 +7,7 @@ import {
   CONNECTOR_RECONCILE_QUEUE,
   CONNECTOR_RECONCILE_SCHEDULER,
 } from '../events.constants';
+import { DEFAULT_QUEUE_CONCURRENCY } from '../../../common/resilience/queue-concurrency.constants';
 import { ConnectorReconcileService } from './connector-reconcile.service';
 
 /**
@@ -16,7 +17,7 @@ import { ConnectorReconcileService } from './connector-reconcile.service';
  * (idempotent `upsertJobScheduler`), then each firing reconciles all live
  * connectors. Safe offline: the sweep is a no-op when SKILL_EXECUTOR=mock.
  */
-@Processor(CONNECTOR_RECONCILE_QUEUE)
+@Processor(CONNECTOR_RECONCILE_QUEUE, { concurrency: DEFAULT_QUEUE_CONCURRENCY })
 export class ConnectorReconcileProcessor
   extends WorkerHost
   implements OnModuleInit

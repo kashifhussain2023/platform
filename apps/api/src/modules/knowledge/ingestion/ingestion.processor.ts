@@ -18,6 +18,7 @@ import {
 } from '../knowledge.constants';
 import { chunkText, extractText, toVectorLiteral } from '../knowledge.util';
 import { toQueueError } from '../../../common/resilience/queue-retry';
+import { DEFAULT_QUEUE_CONCURRENCY } from '../../../common/resilience/queue-concurrency.constants';
 
 const EMBED_BATCH = 16;
 
@@ -27,7 +28,7 @@ const EMBED_BATCH = 16;
  * insert chunks (raw SQL, ::vector cast) → READY. Any failure flips the doc to
  * FAILED with the error message and rethrows so BullMQ records the failure.
  */
-@Processor(KNOWLEDGE_INGEST_QUEUE)
+@Processor(KNOWLEDGE_INGEST_QUEUE, { concurrency: DEFAULT_QUEUE_CONCURRENCY })
 export class IngestionProcessor extends WorkerHost {
   private readonly logger = new Logger(IngestionProcessor.name);
 

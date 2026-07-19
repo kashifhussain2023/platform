@@ -8,6 +8,7 @@ import {
   CONNECTOR_HEALTH_QUEUE,
   CONNECTOR_HEALTH_SCHEDULER,
 } from './connector.constants';
+import { DEFAULT_QUEUE_CONCURRENCY } from '../../../common/resilience/queue-concurrency.constants';
 
 /**
  * In-process BullMQ worker for the scheduled active health sweep (docs §1.8),
@@ -18,7 +19,7 @@ import {
  * Safe offline: ConnectorHealthService.sweep() is a no-op when SKILL_EXECUTOR=mock
  * (the test/default mode), so this never hits the network during the suite.
  */
-@Processor(CONNECTOR_HEALTH_QUEUE)
+@Processor(CONNECTOR_HEALTH_QUEUE, { concurrency: DEFAULT_QUEUE_CONCURRENCY })
 export class ConnectorHealthProcessor
   extends WorkerHost
   implements OnModuleInit

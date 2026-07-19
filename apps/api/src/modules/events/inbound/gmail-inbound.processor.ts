@@ -7,6 +7,7 @@ import {
   GMAIL_INBOUND_QUEUE,
   GMAIL_INBOUND_SCHEDULER,
 } from '../events.constants';
+import { DEFAULT_QUEUE_CONCURRENCY } from '../../../common/resilience/queue-concurrency.constants';
 import { GmailInboundService } from './gmail-inbound.service';
 
 /**
@@ -17,7 +18,7 @@ import { GmailInboundService } from './gmail-inbound.service';
  * up but no gmail connector is connected (offline tests) — the sweep finds none
  * and does nothing; per-connector errors are already swallowed by `poll`.
  */
-@Processor(GMAIL_INBOUND_QUEUE)
+@Processor(GMAIL_INBOUND_QUEUE, { concurrency: DEFAULT_QUEUE_CONCURRENCY })
 export class GmailInboundProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(GmailInboundProcessor.name);
 
