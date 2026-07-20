@@ -166,19 +166,19 @@ model Company {
   onboardedAt DateTime?
   createdAt   DateTime  @default(now())
 
-  users              User[]
-  knowledgeDocuments KnowledgeDocument[]
-  aiEmployees        AiEmployee[]
-  installedSkills    InstalledSkill[]
-  workflows          Workflow[]
-  approvalRequests   ApprovalRequest[]
-  subscription       Subscription?
-  departments        Department[]
-  teams              Team[]
-  securityPolicy     SecurityPolicy?
-  interviewSlots     InterviewSlot[]
-  auditLogs          AuditLog[]
-  usageEvents        UsageEvent[]
+  users                       User[]
+  knowledgeDocuments          KnowledgeDocument[]
+  aiEmployees                 AiEmployee[]
+  installedSkills             InstalledSkill[]
+  workflows                   Workflow[]
+  approvalRequests            ApprovalRequest[]
+  subscription                Subscription?
+  departments                 Department[]
+  teams                       Team[]
+  securityPolicy              SecurityPolicy?
+  interviewSlots              InterviewSlot[]
+  auditLogs                   AuditLog[]
+  usageEvents                 UsageEvent[]
   socialAccounts              SocialAccount[]
   campaigns                   Campaign[]
   scheduledPosts              ScheduledPost[]
@@ -186,6 +186,9 @@ model Company {
   mediaAssets                 MediaAsset[]
   brandAssets                 BrandAsset[]
   marketingAnalyticsSnapshots MarketingAnalyticsSnapshot[]
+  chatwootAccount             ChatwootAccount?
+  supportConversations        SupportConversation[]
+  supportMessages             SupportMessage[]
 }
 
 // Minimal who-did-what trail (founder-market-readiness-audit.md §6/§4: full
@@ -218,7 +221,7 @@ model AuditLog {
 model UsageEvent {
   id               String   @id @default(cuid())
   companyId        String
-  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employeeId       String?
   // e.g. "chat", "workflow_ai_step", "workflow_generator".
   source           String
@@ -232,16 +235,16 @@ model UsageEvent {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   companyId    String
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   email        String
   passwordHash String
   name         String
   phone        String?
-  role         Role     @default(MEMBER)
+  role         Role       @default(MEMBER)
   status       UserStatus @default(ACTIVE)
-  createdAt    DateTime @default(now())
+  createdAt    DateTime   @default(now())
 
   @@unique([companyId, email])
 }
@@ -252,21 +255,21 @@ model User {
 // $queryRaw with a `::vector` cast. The hnsw index is added in the migration SQL.
 
 model KnowledgeDocument {
-  id         String           @id @default(cuid())
+  id         String         @id @default(cuid())
   companyId  String
-  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   filename   String
   mimeType   String
   sizeBytes  Int
   storageKey String
-  status     DocumentStatus   @default(PENDING)
+  status     DocumentStatus @default(PENDING)
   error      String?
-  chunkCount Int              @default(0)
+  chunkCount Int            @default(0)
   // null = Shared/company-wide (visible to every AI-employee role). Non-null
   // scopes the document to that one role's retrieval (docs/specs/2026-07-14-
   // knowledge-role-scoping-design.md).
   category   EmployeeRole?
-  createdAt  DateTime         @default(now())
+  createdAt  DateTime       @default(now())
 
   chunks KnowledgeChunk[]
 
@@ -274,9 +277,9 @@ model KnowledgeDocument {
 }
 
 model KnowledgeChunk {
-  id         String                       @id @default(cuid())
+  id         String                      @id @default(cuid())
   documentId String
-  document   KnowledgeDocument            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document   KnowledgeDocument           @relation(fields: [documentId], references: [id], onDelete: Cascade)
   companyId  String
   content    String
   chunkIndex Int
@@ -286,7 +289,7 @@ model KnowledgeChunk {
   // (KnowledgeService.updateCategory) — needed because the pgvector search
   // filters chunks directly via raw SQL, not through a document join.
   category   EmployeeRole?
-  createdAt  DateTime                     @default(now())
+  createdAt  DateTime                    @default(now())
 
   @@index([companyId])
 }
@@ -296,14 +299,14 @@ model KnowledgeChunk {
 // Message). Retrieval reuses the Knowledge module's pgvector search.
 
 model AiEmployee {
-  id        String         @id @default(cuid())
-  companyId String
-  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name      String
-  role      EmployeeRole
-  status    EmployeeStatus @default(ACTIVE)
-  persona   String?
-  model     String?
+  id                String          @id @default(cuid())
+  companyId         String
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name              String
+  role              EmployeeRole
+  status            EmployeeStatus  @default(ACTIVE)
+  persona           String?
+  model             String?
   // Rich employee configuration (Step 5). All optional; sensible defaults apply.
   department        String?
   managerName       String?
@@ -322,7 +325,7 @@ model AiEmployee {
   // existing employees are unaffected; analytics computes attainment when set.
   goals             Json?
   kpiTargets        Json?
-  createdAt DateTime       @default(now())
+  createdAt         DateTime        @default(now())
 
   conversations   Conversation[]
   memories        EmployeeMemory[]
@@ -400,24 +403,24 @@ model EmployeeFeedback {
 // of executions. No vector columns here.
 
 model InstalledSkill {
-  id          String   @id @default(cuid())
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  skillKey    String
+  id                String                @id @default(cuid())
+  companyId         String
+  company           Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  skillKey          String
   // null = company-wide (today's exact behavior, unchanged for every existing
   // row); set = this connection is owned by, and only by, that one AiEmployee
   // (docs/specs/2026-07-18-per-employee-skill-connections-design.md).
-  employeeId  String?
-  employee    AiEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  displayName String
+  employeeId        String?
+  employee          AiEmployee?           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  displayName       String
   // Non-secret company-specific settings (mirrors the catalog configSchema).
-  config      Json?
-  enabled     Boolean  @default(true)
+  config            Json?
+  enabled           Boolean               @default(true)
   // Connection state. connectionType mirrors the catalog ('oauth'|'api_key'|'none');
   // credentials holds SECRETS (api keys / oauth tokens) and is NEVER returned raw.
-  connectionType   String?
-  connectionStatus SkillConnectionStatus @default(NOT_CONNECTED)
-  credentials      Json?
+  connectionType    String?
+  connectionStatus  SkillConnectionStatus @default(NOT_CONNECTED)
+  credentials       Json?
   // --- Connector health / lifecycle (Unit B, docs §1.6–1.8) ---
   // lastHealthCheckAt/lastHealthError: last active probe timestamp + error.
   // consecutiveErrors: rolling egress/probe failure count; ≥N → DEGRADED.
@@ -427,11 +430,11 @@ model InstalledSkill {
   //   null → not yet baselined (first poll stores the current cursor, fires nothing).
   lastHealthCheckAt DateTime?
   lastHealthError   String?
-  consecutiveErrors Int      @default(0)
+  consecutiveErrors Int                   @default(0)
   tokenExpiresAt    DateTime?
   disabledReason    String?
   inboundCursor     String?
-  createdAt   DateTime @default(now())
+  createdAt         DateTime              @default(now())
 
   employees EmployeeSkill[]
 
@@ -477,23 +480,23 @@ model SkillExecution {
 // graph writing a WorkflowStepRun per visited node. No vector columns here.
 
 model Workflow {
-  id          String         @id @default(cuid())
-  companyId   String
-  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  status      WorkflowStatus @default(DRAFT)
-  definition  Json
+  id            String         @id @default(cuid())
+  companyId     String
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  status        WorkflowStatus @default(DRAFT)
+  definition    Json
   // Trigger configuration (Steps 8/9/11). MANUAL keeps the existing run path.
-  triggerType   TriggerType @default(MANUAL)
+  triggerType   TriggerType    @default(MANUAL)
   // SCHEDULE: { everyMs?, cron? } · EVENT: { eventType } · WEBHOOK/MANUAL: none.
   triggerConfig Json?
   // Random token for the public webhook URL (WEBHOOK triggers); generated on activate.
-  webhookToken  String?     @unique
+  webhookToken  String?        @unique
   // Set when the workflow was last activated; null = never activated.
   activatedAt   DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   runs WorkflowRun[]
 
@@ -501,19 +504,19 @@ model Workflow {
 }
 
 model WorkflowRun {
-  id         String            @id @default(cuid())
-  companyId  String
-  workflowId String
-  workflow   Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  status     WorkflowRunStatus @default(PENDING)
+  id             String            @id @default(cuid())
+  companyId      String
+  workflowId     String
+  workflow       Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status         WorkflowRunStatus @default(PENDING)
   // How this run was triggered: MANUAL (default) | SCHEDULE | WEBHOOK | EVENT.
-  source     String            @default("MANUAL")
+  source         String            @default("MANUAL")
   // Test mode (founder-market-readiness-audit.md §5/§12): TOOL_ACTION steps
   // produce a preview instead of really calling the skill (no real email
   // sent, no real calendar event created, no SkillExecution row written).
-  dryRun     Boolean           @default(false)
-  trigger    Json?
-  context    Json?
+  dryRun         Boolean           @default(false)
+  trigger        Json?
+  context        Json?
   // Correlation & lineage (docs §9). triggerEventId = the CanonicalEvent id that
   // fired this run (EVENT source; the lineage join key), null for other sources.
   // correlationId ties event→run→steps in logs/tracing: it defaults to the
@@ -523,11 +526,11 @@ model WorkflowRun {
   // When a run pauses at an APPROVAL node (status WAITING), the id of the node to
   // continue from once approved (the approval node's outgoing edge target). Null
   // otherwise. The persisted `context` is the seed for the resumed walk.
-  resumeNodeId String?
-  error      String?
-  startedAt  DateTime?
-  finishedAt DateTime?
-  createdAt  DateTime          @default(now())
+  resumeNodeId   String?
+  error          String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime          @default(now())
 
   steps WorkflowStepRun[]
 
@@ -594,19 +597,19 @@ model ApprovalRequest {
 // enforced). No vector columns here.
 
 model Subscription {
-  id                    String             @id @default(cuid())
-  companyId             String             @unique
-  company               Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  plan                  Plan               @default(STARTER)
-  status                SubscriptionStatus @default(ACTIVE)
+  id                     String             @id @default(cuid())
+  companyId              String             @unique
+  company                Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan                   Plan               @default(STARTER)
+  status                 SubscriptionStatus @default(ACTIVE)
   // Which BillingProvider owns this subscription ("mock" | "stripe").
-  provider              String             @default("mock")
+  provider               String             @default("mock")
   // Opaque provider references (e.g. Stripe customer/subscription ids).
-  externalCustomerId    String?
+  externalCustomerId     String?
   externalSubscriptionId String?
-  currentPeriodEnd      DateTime?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+  currentPeriodEnd       DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 }
 
 // --- Organization: Security Policies / Teams / Departments (P1 #7) ---------
@@ -733,12 +736,12 @@ enum SlotStatus {
 }
 
 model InterviewSlot {
-  id         String     @id @default(cuid())
-  companyId  String
-  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  start      DateTime
-  end        DateTime
-  status     SlotStatus @default(OPEN)
+  id              String     @id @default(cuid())
+  companyId       String
+  company         Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  start           DateTime
+  end             DateTime
+  status          SlotStatus @default(OPEN)
   // Set when claimed: who it was booked for + which workflow run claimed it.
   bookedFor       String?
   workflowRunId   String?
@@ -749,7 +752,7 @@ model InterviewSlot {
   // Why a slot was cancelled without ever being booked (e.g. "holiday",
   // "google-calendar-conflict", "rescheduled") — null for a plain booked-then-cancelled slot.
   cancelReason    String?
-  createdAt  DateTime   @default(now())
+  createdAt       DateTime   @default(now())
 
   @@index([companyId, status, start])
 }
@@ -773,9 +776,9 @@ model SocialAccount {
   companyId           String
   company             Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employeeId          String?
-  provider            String              // matches a Postiz providerIdentifier, e.g. "instagram"
-  postizIntegrationId String              // Postiz's own Integration.id
-  postizCustomerId    String?             // Postiz's Customer id this account is tagged to
+  provider            String // matches a Postiz providerIdentifier, e.g. "instagram"
+  postizIntegrationId String // Postiz's own Integration.id
+  postizCustomerId    String? // Postiz's Customer id this account is tagged to
   displayName         String?
   externalAccountId   String?
   status              SocialAccountStatus @default(CONNECTED)
@@ -854,7 +857,7 @@ model MediaAsset {
   company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   storageKey String
   mimeType   String
-  kind       String   // IMAGE | VIDEO | BRAND_LOGO | BRAND_FONT
+  kind       String // IMAGE | VIDEO | BRAND_LOGO | BRAND_FONT
   uploadedBy String?
   createdAt  DateTime @default(now())
 
@@ -865,7 +868,7 @@ model BrandAsset {
   id                  String   @id @default(cuid())
   companyId           String
   company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  kind                String   // LOGO | COLOR_PALETTE | FONT | VOICE_DOC
+  kind                String // LOGO | COLOR_PALETTE | FONT | VOICE_DOC
   mediaAssetId        String?
   structuredValue     Json?
   knowledgeDocumentId String?
@@ -883,4 +886,60 @@ model MarketingAnalyticsSnapshot {
   metrics         Json
 
   @@index([companyId, socialAccountId])
+}
+
+model ChatwootAccount {
+  id                String                @id @default(cuid())
+  companyId         String                @unique
+  company           Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  chatwootAccountId String
+  agentBotId        String
+  agentBotToken     String // CryptoService-encrypted at rest
+  webhookSecret     String // CryptoService-encrypted at rest
+  createdAt         DateTime              @default(now())
+  conversations     SupportConversation[]
+
+  @@index([companyId])
+}
+
+enum SupportConversationStatus {
+  OPEN
+  RESOLVED
+  PENDING
+}
+
+model SupportConversation {
+  id                     String                    @id @default(cuid())
+  companyId              String
+  company                Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  chatwootAccountId      String
+  chatwootAccount        ChatwootAccount           @relation(fields: [chatwootAccountId], references: [id], onDelete: Cascade)
+  chatwootConversationId String
+  contactEmail           String?
+  status                 SupportConversationStatus @default(OPEN)
+  lastMessageAt          DateTime                  @default(now())
+  messages               SupportMessage[]
+
+  @@index([companyId])
+  @@index([companyId, chatwootConversationId])
+}
+
+enum SupportMessageDirection {
+  IN
+  OUT
+}
+
+model SupportMessage {
+  id                String                  @id @default(cuid())
+  companyId         String
+  company           Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  conversationId    String
+  conversation      SupportConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  chatwootMessageId String?
+  direction         SupportMessageDirection
+  content           String
+  createdAt         DateTime                @default(now())
+
+  @@index([companyId])
+  @@index([conversationId])
 }
