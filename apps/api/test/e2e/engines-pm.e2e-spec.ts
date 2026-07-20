@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { SkillCatalog } from '../../src/modules/skills/catalog';
 
 describe('PM engine — schema', () => {
   const prisma = new PrismaClient();
@@ -17,5 +18,14 @@ describe('PM engine — schema', () => {
       },
     });
     expect(workspace.companyId).toBe(company.id);
+  });
+});
+
+describe('PM engine — catalog', () => {
+  it('registers the plane skill with list_issues/create_issue/update_issue_status tools', () => {
+    expect(SkillCatalog.has('plane')).toBe(true);
+    expect(SkillCatalog.getTool('plane', 'list_issues')).toBeDefined();
+    expect(SkillCatalog.getTool('plane', 'create_issue')).toBeDefined();
+    expect(SkillCatalog.getTool('plane', 'update_issue_status')).toBeDefined();
   });
 });

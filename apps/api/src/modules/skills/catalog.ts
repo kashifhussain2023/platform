@@ -637,6 +637,52 @@ const CATALOG: readonly SkillDefinition[] = [
       },
     ],
   },
+  {
+    key: 'plane',
+    name: 'AI Project Manager (Plane)',
+    description: 'Create, track, and update project issues via the self-hosted Plane instance.',
+    category: 'project_management',
+    connection: { type: 'none' }, // provisioned once per company at onboarding, not per-employee OAuth
+    configSchema: [],
+    tools: [
+      {
+        name: 'list_issues',
+        description: "List a project's tracked issues.",
+        parameters: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string', description: 'Orlixa PlaneProject id.' },
+          },
+          required: ['projectId'],
+        },
+      },
+      {
+        name: 'create_issue',
+        description: 'Create a new issue in a project.',
+        parameters: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string', description: 'Orlixa PlaneProject id.' },
+            title: { type: 'string', description: 'Issue title.' },
+            description: { type: 'string', description: 'Issue description.' },
+          },
+          required: ['projectId', 'title'],
+        },
+      },
+      {
+        name: 'update_issue_status',
+        description: 'Update the status/state of an existing issue.',
+        parameters: {
+          type: 'object',
+          properties: {
+            issueId: { type: 'string', description: 'Orlixa TrackedIssue id.' },
+            status: { type: 'string', description: 'New status (e.g. "In Progress", "Done").' },
+          },
+          required: ['issueId', 'status'],
+        },
+      },
+    ],
+  },
 ];
 
 /** Static registry over the built-in catalog. */

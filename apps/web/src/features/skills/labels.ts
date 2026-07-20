@@ -10,11 +10,13 @@ export const CATEGORY_STYLES: Record<SkillCategory, string> = {
   productivity: 'bg-green-500/15 text-green-400',
   marketing: 'bg-pink-500/15 text-pink-400',
   support: 'bg-cyan-500/15 text-cyan-400',
+  project_management: 'bg-orange-500/15 text-orange-400',
 };
 
-/** "communication" → "Communication" ("crm" → "CRM"). */
+/** "communication" → "Communication" ("crm" → "CRM", "project_management" → "Project Management"). */
 export function formatCategory(category: SkillCategory): string {
   if (category === 'crm') return 'CRM';
+  if (category === 'project_management') return 'Project Management';
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
