@@ -34,6 +34,36 @@ describe('Marketing engine — schema', () => {
     expect(account.companyId).toBe(company.id);
     expect(account.status).toBe('CONNECTED');
   });
+
+  it('accepts ScheduledPostStatus.PUBLISHED as a valid write and reads it back', async () => {
+    const company = await prisma.company.create({
+      data: { name: 'Acme Published Test', slug: `acme-published-${Date.now()}` },
+    });
+    const account = await prisma.socialAccount.create({
+      data: {
+        companyId: company.id,
+        provider: 'instagram',
+        postizIntegrationId: 'postiz-int-456',
+        status: 'CONNECTED',
+      },
+    });
+    const scheduledPost = await prisma.scheduledPost.create({
+      data: {
+        companyId: company.id,
+        socialAccountId: account.id,
+        content: 'hello world',
+        publishAt: new Date(),
+        status: 'PUBLISHED',
+        postizPostId: 'p_1',
+      },
+    });
+    expect(scheduledPost.status).toBe('PUBLISHED');
+
+    const reloaded = await prisma.scheduledPost.findUniqueOrThrow({
+      where: { id: scheduledPost.id },
+    });
+    expect(reloaded.status).toBe('PUBLISHED');
+  });
 });
 
 describe('Marketing engine — catalog', () => {

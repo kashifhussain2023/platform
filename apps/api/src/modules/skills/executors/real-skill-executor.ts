@@ -765,6 +765,18 @@ export class RealSkillExecutor implements SkillExecutor {
       where: { id: scheduledPostId, companyId: ctx.companyId },
     });
     if (!post) return { ok: false, error: 'ScheduledPost not found for this company' };
-    return { ok: true, result: { status: post.status, postizPostId: post.postizPostId } };
+    const published = await this.prisma.publishedPost.findUnique({
+      where: { scheduledPostId },
+    });
+    return {
+      ok: true,
+      result: {
+        status: post.status,
+        postizPostId: post.postizPostId,
+        ...(published
+          ? { platformPostId: published.platformPostId, permalink: published.permalink }
+          : {}),
+      },
+    };
   }
 }

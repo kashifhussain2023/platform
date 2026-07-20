@@ -50,16 +50,42 @@ export class MarketingSyncProcessor extends WorkerHost implements OnModuleInit {
       where: { status: 'SCHEDULED' },
       take: 100,
     });
+    if (pending.length === 0) return;
+
+    // Reconciliation backstop — Postiz's own webhook is unsigned/no-retry
+    // (docs/architecture/engines/postiz-engine.md §13), so this poll is the
+    // source of truth, not just a fallback.
+    //
+    // ONE list call per sweep, not one per pending post — avoids N calls against
+    // Postiz's own rate limit (postiz-engine.md §14: 90/hour instance-wide).
+    const postizPosts = await this.postizClient.listPosts();
+    const byId = new Map(postizPosts.map((p) => [p.id, p]));
+
     for (const post of pending) {
-      // Reconciliation backstop — Postiz's own webhook is unsigned/no-retry
-      // (docs/architecture/engines/postiz-engine.md §13), so this poll is the
-      // source of truth, not just a fallback.
       if (!post.postizPostId) continue;
-      // (real implementation calls a per-post Postiz status lookup here;
-      // deferred to a later engine phase — extending PostizClientService with a
-      // getPost(id) method following the exact same fetch() pattern as
-      // schedulePost in Task 2 — so this sweep stays a safe no-op scaffold
-      // until that lookup lands.)
+      const remote = byId.get(post.postizPostId);
+      if (!remote) continue; // not found this sweep — leave SCHEDULED, try again next sweep
+      if (remote.state === 'PUBLISHED') {
+        await this.prisma.publishedPost.create({
+          data: {
+            companyId: post.companyId,
+            socialAccountId: post.socialAccountId,
+            scheduledPostId: post.id,
+            platformPostId: remote.releaseId ?? null,
+            permalink: remote.releaseURL ?? null,
+          },
+        });
+        await this.prisma.scheduledPost.update({
+          where: { id: post.id },
+          data: { status: 'PUBLISHED' },
+        });
+      } else if (remote.state === 'ERROR') {
+        await this.prisma.scheduledPost.update({
+          where: { id: post.id },
+          data: { status: 'FAILED' },
+        });
+      }
+      // state QUEUE/DRAFT → still pending, leave as SCHEDULED, no action.
     }
     this.logger.debug(`marketing-sync swept ${pending.length} pending post(s)`);
   }

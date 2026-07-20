@@ -177,7 +177,7 @@ describe('RealSkillExecutor — postiz.*', () => {
   });
 
   describe('postiz.get_post_status', () => {
-    it('returns the stored ScheduledPost status', async () => {
+    it('returns the stored ScheduledPost status when no PublishedPost exists yet', async () => {
       const postizClient = {};
       const prisma = {
         scheduledPost: {
@@ -185,6 +185,41 @@ describe('RealSkillExecutor — postiz.*', () => {
             id: 'sp_1',
             status: 'SCHEDULED',
             postizPostId: 'p_123',
+          }),
+        },
+        publishedPost: { findUnique: jest.fn().mockResolvedValue(null) },
+      };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClient as any,
+        prisma as any,
+      );
+      const result = await executor.execute(
+        'postiz',
+        'get_post_status',
+        { scheduledPostId: 'sp_1' },
+        ctx,
+      );
+      expect(result.ok).toBe(true);
+      expect(result.result).toEqual({ status: 'SCHEDULED', postizPostId: 'p_123' });
+    });
+
+    it('includes platformPostId/permalink when a PublishedPost row exists', async () => {
+      const postizClient = {};
+      const prisma = {
+        scheduledPost: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'sp_1',
+            status: 'PUBLISHED',
+            postizPostId: 'p_123',
+          }),
+        },
+        publishedPost: {
+          findUnique: jest.fn().mockResolvedValue({
+            platformPostId: 'ig_123',
+            permalink: 'https://instagram.com/p/abc',
           }),
         },
       };
@@ -202,7 +237,12 @@ describe('RealSkillExecutor — postiz.*', () => {
         ctx,
       );
       expect(result.ok).toBe(true);
-      expect(result.result).toEqual({ status: 'SCHEDULED', postizPostId: 'p_123' });
+      expect(result.result).toEqual({
+        status: 'PUBLISHED',
+        postizPostId: 'p_123',
+        platformPostId: 'ig_123',
+        permalink: 'https://instagram.com/p/abc',
+      });
     });
 
     it('fails when the ScheduledPost is not found for this company', async () => {

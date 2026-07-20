@@ -25,4 +25,35 @@ describe('PostizClientService', () => {
     );
     expect(result.url).toContain('instagram.com');
   });
+
+  it('lists posts from the public API', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { id: 'p_1', state: 'PUBLISHED', releaseId: 'ig_123', releaseURL: 'https://instagram.com/p/abc' },
+      ],
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const posts = await service.listPosts();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://postiz.internal.test/public/v1/posts',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'test-key' }),
+      }),
+    );
+    expect(posts[0].state).toBe('PUBLISHED');
+  });
+
+  it('throws with the response body when listPosts fails', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => 'internal error',
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(service.listPosts()).rejects.toThrow('Postiz listPosts failed: 500');
+  });
 });

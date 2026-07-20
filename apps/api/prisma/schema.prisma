@@ -792,6 +792,7 @@ enum ScheduledPostStatus {
   DRAFT
   PENDING_APPROVAL
   SCHEDULED
+  PUBLISHED
   FAILED
 }
 

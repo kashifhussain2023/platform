@@ -19,6 +19,13 @@ export interface PostizIntegrationDto {
   customer?: { id: string; name: string };
 }
 
+export interface PostizPostDto {
+  id: string;
+  state: string;
+  releaseId?: string;
+  releaseURL?: string;
+}
+
 /**
  * Thin, typed wrapper around the self-hosted Postiz public API
  * (docs/architecture/engines/postiz-engine.md §11, postiz-integration-plan.md).
@@ -95,5 +102,15 @@ export class PostizClientService {
       throw new Error('Postiz schedulePost returned no post id');
     }
     return { postizPostId };
+  }
+
+  async listPosts(): Promise<PostizPostDto[]> {
+    const res = await fetch(`${this.baseUrl()}/public/v1/posts`, { headers: this.headers() });
+    if (!res.ok) {
+      const text = await res.text();
+      this.logger.warn(`Postiz listPosts failed (${res.status}): ${text}`);
+      throw new Error(`Postiz listPosts failed: ${res.status}`);
+    }
+    return (await res.json()) as PostizPostDto[];
   }
 }
