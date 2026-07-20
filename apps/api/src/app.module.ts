@@ -17,6 +17,7 @@ import { EmployeesModule } from './modules/employees/employees.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { MarketingModule } from './modules/engines/marketing/marketing.module';
+import { SupportModule } from './modules/engines/support/support.module';
 import { WorkflowsModule } from './modules/workflows/workflows.module';
 import { EventsModule } from './modules/events/events.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
@@ -48,6 +49,7 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
     SchedulingModule,
     SkillsModule,
     MarketingModule,
+    SupportModule,
     WorkflowsModule,
     EventsModule,
     ApprovalsModule,

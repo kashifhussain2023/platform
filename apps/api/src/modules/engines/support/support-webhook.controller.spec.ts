@@ -1,0 +1,169 @@
+import { UnauthorizedException } from '@nestjs/common';
+import { createHmac } from 'crypto';
+import { SupportWebhookController } from './support-webhook.controller';
+import { ChatwootClientService } from './chatwoot-client.service';
+import { CryptoService } from '../../../common/crypto/crypto.service';
+
+/**
+ * The test that proves the security fix this task exists for: a request with
+ * a WRONG signature must be rejected (401) WITHOUT any SupportConversation/
+ * SupportMessage read-then-write ever reaching Prisma. Mirrors the exact
+ * mistake Marketing/Postiz shipped and had to fix at final review — this
+ * suite is written so Support never repeats it.
+ */
+describe('SupportWebhookController', () => {
+  const secret = 'plaintext-webhook-secret';
+  const encryptedSecret = `encrypted(${secret})`; // stand-in envelope, decrypted by the fake CryptoService below
+  const companyId = 'company-1';
+  const chatwootAccountId = '42';
+  const chatwootAccountRowId = 'cwacct-1';
+
+  function buildController() {
+    const prisma = {
+      chatwootAccount: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: chatwootAccountRowId,
+          companyId,
+          chatwootAccountId,
+          webhookSecret: encryptedSecret,
+        }),
+      },
+      supportConversation: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'conv-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'conv-1' }),
+      },
+      supportMessage: {
+        create: jest.fn().mockResolvedValue({ id: 'msg-1' }),
+      },
+    };
+    const crypto = {
+      decrypt: jest.fn((env: string) => env.replace('encrypted(', '').replace(')', '')),
+    } as unknown as CryptoService;
+    const chatwootClient = new ChatwootClientService(
+      { get: () => undefined } as any,
+      crypto,
+    );
+    const controller = new SupportWebhookController(
+      prisma as any,
+      chatwootClient,
+      crypto,
+    );
+    return { controller, prisma, crypto };
+  }
+
+  function sign(body: string, ts: string, withSecret = secret): string {
+    const hex = createHmac('sha256', withSecret).update(`${ts}.${body}`).digest('hex');
+    return `sha256=${hex}`;
+  }
+
+  function fakeReq(body: string) {
+    return { rawBody: Buffer.from(body, 'utf8') } as any;
+  }
+
+  it('rejects a wrong signature with 401 and makes NO SupportConversation/SupportMessage call', async () => {
+    const { controller, prisma } = buildController();
+    const body = JSON.stringify({
+      account: { id: 42 },
+      conversation: { id: 7 },
+      message_type: 'incoming',
+      content: 'hello',
+    });
+    const ts = String(Math.floor(Date.now() / 1000));
+    const wrongSignature = sign(body, ts, 'not-the-real-secret');
+
+    await expect(
+      controller.receive(fakeReq(body), wrongSignature, ts),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(prisma.supportConversation.findFirst).not.toHaveBeenCalled();
+    expect(prisma.supportConversation.create).not.toHaveBeenCalled();
+    expect(prisma.supportConversation.update).not.toHaveBeenCalled();
+    expect(prisma.supportMessage.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when no ChatwootAccount matches the payload account id, before any Support* write', async () => {
+    const { controller, prisma } = buildController();
+    prisma.chatwootAccount.findFirst.mockResolvedValueOnce(null);
+    const body = JSON.stringify({ account: { id: 999 }, conversation: { id: 7 } });
+    const ts = String(Math.floor(Date.now() / 1000));
+    const signature = sign(body, ts);
+
+    await expect(
+      controller.receive(fakeReq(body), signature, ts),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(prisma.supportConversation.create).not.toHaveBeenCalled();
+    expect(prisma.supportMessage.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects with missing signature/timestamp headers', async () => {
+    const { controller, prisma } = buildController();
+    const body = JSON.stringify({ account: { id: 42 }, conversation: { id: 7 } });
+
+    await expect(
+      controller.receive(fakeReq(body), undefined, undefined),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prisma.supportConversation.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts a correctly signed incoming message and creates conversation + IN message', async () => {
+    const { controller, prisma } = buildController();
+    const body = JSON.stringify({
+      account: { id: 42 },
+      conversation: { id: 7 },
+      sender: { email: 'customer@example.com' },
+      message_type: 'incoming',
+      content: 'Hi, I need help',
+      id: 555,
+    });
+    const ts = String(Math.floor(Date.now() / 1000));
+    const signature = sign(body, ts);
+
+    const result = await controller.receive(fakeReq(body), signature, ts);
+
+    expect(result).toEqual({ ok: true });
+    expect(prisma.supportConversation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        companyId,
+        chatwootAccountId: chatwootAccountRowId,
+        chatwootConversationId: '7',
+        contactEmail: 'customer@example.com',
+      }),
+    });
+    expect(prisma.supportMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        companyId,
+        conversationId: 'conv-1',
+        direction: 'IN',
+        content: 'Hi, I need help',
+        chatwootMessageId: '555',
+      }),
+    });
+  });
+
+  it('does not create a SupportMessage for an outgoing/activity event (only IN messages from this webhook)', async () => {
+    const { controller, prisma } = buildController();
+    const body = JSON.stringify({
+      account: { id: 42 },
+      conversation: { id: 7 },
+      message_type: 'outgoing',
+      content: 'agent reply',
+    });
+    const ts = String(Math.floor(Date.now() / 1000));
+    const signature = sign(body, ts);
+
+    const result = await controller.receive(fakeReq(body), signature, ts);
+
+    expect(result).toEqual({ ok: true });
+    expect(prisma.supportConversation.create).toHaveBeenCalled();
+    expect(prisma.supportMessage.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the request has no raw body at all', async () => {
+    const { controller } = buildController();
+    await expect(
+      controller.receive({ rawBody: undefined } as any, 'sha256=whatever', '123'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+});

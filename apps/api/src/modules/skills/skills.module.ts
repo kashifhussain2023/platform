@@ -28,6 +28,7 @@ import { PostizClientService } from '../engines/marketing/postiz-client.service'
 import { MarketingModule } from '../engines/marketing/marketing.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ChatwootClientService } from '../engines/support/chatwoot-client.service';
+import { SupportModule } from '../engines/support/support.module';
 import { CryptoService } from '../../common/crypto/crypto.service';
 
 /**
@@ -80,6 +81,7 @@ function skillExecutorFactory(
     BullModule.registerQueue({ name: CONNECTOR_HEALTH_QUEUE }),
     SchedulingModule,
     MarketingModule,
+    SupportModule,
   ],
   controllers: [
     SkillsController,
@@ -93,9 +95,6 @@ function skillExecutorFactory(
     ConnectorHealthService,
     ConnectorTokenService,
     ConnectorHealthProcessor,
-    // Temporary direct provider until SupportModule exists (Task 5) — same
-    // reasoning as PostizClientService living here before MarketingModule did.
-    ChatwootClientService,
     {
       provide: SKILL_EXECUTOR_TOKEN,
       inject: [

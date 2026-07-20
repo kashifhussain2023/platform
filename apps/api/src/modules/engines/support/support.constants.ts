@@ -3,6 +3,18 @@ export const CHATWOOT_ENV = {
   PLATFORM_API_TOKEN: 'CHATWOOT_PLATFORM_API_TOKEN',
 } as const;
 
+// Confirmed directly from the real Chatwoot source
+// (`lib/webhooks/trigger.rb#request_headers`, the `:agent_bot_webhook` path):
+// headers are lowercased by Express/Node on receipt regardless of the casing
+// Chatwoot sends them in.
+export const CHATWOOT_SIGNATURE_HEADER = 'x-chatwoot-signature';
+export const CHATWOOT_TIMESTAMP_HEADER = 'x-chatwoot-timestamp';
+
+// Reject a signature whose timestamp is more than this far from "now" (either
+// direction) — Chatwoot's own scheme has no built-in expiry; this closes a
+// trivial replay hole for a captured request at negligible cost.
+export const SIGNATURE_MAX_AGE_MS = 5 * 60_000;
+
 export const SUPPORT_SYNC_QUEUE = 'support-sync';
 export const SUPPORT_SYNC_JOB = 'support-sync-sweep';
 export const SUPPORT_SYNC_SCHEDULER = 'support-sync';

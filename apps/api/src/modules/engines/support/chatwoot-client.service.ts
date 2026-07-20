@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { CryptoService } from '../../../common/crypto/crypto.service';
-import { CHATWOOT_ENV } from './support.constants';
+import { CHATWOOT_ENV, SIGNATURE_MAX_AGE_MS } from './support.constants';
 
 export interface ProvisionedAccount {
   chatwootAccountId: string;
@@ -108,13 +108,47 @@ export class ChatwootClientService {
     return { chatwootMessageId: String(data.id) };
   }
 
-  verifyWebhookSignature(rawBody: string, signatureHeader: string, webhookSecret: string): boolean {
-    const expected = createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+  /**
+   * Verifies Chatwoot's real Agent-Bot webhook HMAC scheme, confirmed by
+   * reading the actual Chatwoot source (`lib/webhooks/trigger.rb#request_headers`,
+   * the code path used for `:agent_bot_webhook` deliveries):
+   *   X-Chatwoot-Signature: "sha256=" + HMAC_SHA256_hex(secret, "<timestamp>.<rawBody>")
+   *   X-Chatwoot-Timestamp: unix seconds (the same value concatenated into the
+   *     signed string above — NOT just a signature-adjacent header).
+   * A prior version of this method (Task 4) incorrectly treated the signature
+   * header as a bare hex digest of the body alone, which would reject every
+   * real Chatwoot delivery; fixed here since it is this task's entire point to
+   * verify against the real scheme, not a guessed one.
+   *
+   * Also enforces a 5-minute replay window on the timestamp — Chatwoot's own
+   * source has no built-in expiry, but rejecting stale timestamps costs
+   * nothing and closes a trivial replay hole for a captured request.
+   */
+  verifyWebhookSignature(
+    rawBody: string,
+    signatureHeader: string | undefined,
+    timestampHeader: string | undefined,
+    webhookSecret: string,
+  ): boolean {
+    if (!signatureHeader || !timestampHeader) return false;
+
+    const match = /^sha256=([0-9a-f]+)$/i.exec(signatureHeader.trim());
+    if (!match) return false;
+
+    const timestamp = Number(timestampHeader);
+    if (!Number.isFinite(timestamp)) return false;
+    const ageMs = Math.abs(Date.now() - timestamp * 1000);
+    if (ageMs > SIGNATURE_MAX_AGE_MS) return false;
+
+    const expectedHex = createHmac('sha256', webhookSecret)
+      .update(`${timestampHeader}.${rawBody}`)
+      .digest('hex');
+
     let a: Buffer;
     let b: Buffer;
     try {
-      a = Buffer.from(expected, 'hex');
-      b = Buffer.from(signatureHeader, 'hex');
+      a = Buffer.from(expectedHex, 'hex');
+      b = Buffer.from(match[1], 'hex');
     } catch {
       return false;
     }

@@ -24,11 +24,26 @@ describe('ChatwootClientService', () => {
     expect(init.headers.api_access_token).toBe('bot-token-abc');
   });
 
-  it('verifies a webhook signature correctly', () => {
+  it('verifies a webhook signature correctly (real Chatwoot scheme: sha256=<hex of "ts.body">)', () => {
     const secret = 'shared-secret';
     const body = '{"event":"message_created"}';
-    const validSig = require('crypto').createHmac('sha256', secret).update(body).digest('hex');
-    expect(service.verifyWebhookSignature(body, validSig, secret)).toBe(true);
-    expect(service.verifyWebhookSignature(body, 'wrong-sig', secret)).toBe(false);
+    const ts = String(Math.floor(Date.now() / 1000));
+    const validSig = `sha256=${require('crypto')
+      .createHmac('sha256', secret)
+      .update(`${ts}.${body}`)
+      .digest('hex')}`;
+    expect(service.verifyWebhookSignature(body, validSig, ts, secret)).toBe(true);
+    expect(service.verifyWebhookSignature(body, 'sha256=wrong', ts, secret)).toBe(false);
+    // Missing/garbled headers must fail closed, not throw.
+    expect(service.verifyWebhookSignature(body, undefined, ts, secret)).toBe(false);
+    expect(service.verifyWebhookSignature(body, validSig, undefined, secret)).toBe(false);
+    // A stale timestamp (outside the replay window) must be rejected even
+    // with an otherwise-correct signature.
+    const staleTs = String(Math.floor(Date.now() / 1000) - 10 * 60);
+    const staleSig = `sha256=${require('crypto')
+      .createHmac('sha256', secret)
+      .update(`${staleTs}.${body}`)
+      .digest('hex')}`;
+    expect(service.verifyWebhookSignature(body, staleSig, staleTs, secret)).toBe(false);
   });
 });
