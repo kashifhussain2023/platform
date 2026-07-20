@@ -189,6 +189,9 @@ model Company {
   chatwootAccount             ChatwootAccount?
   supportConversations        SupportConversation[]
   supportMessages             SupportMessage[]
+  planeWorkspace              PlaneWorkspace?
+  planeProjects               PlaneProject[]
+  trackedIssues               TrackedIssue[]
 }
 
 // Minimal who-did-what trail (founder-market-readiness-audit.md §6/§4: full
@@ -942,4 +945,47 @@ model SupportMessage {
 
   @@index([companyId])
   @@index([conversationId])
+}
+
+model PlaneWorkspace {
+  id                 String   @id @default(cuid())
+  companyId          String   @unique
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planeWorkspaceSlug String
+  apiToken           String   // CryptoService-encrypted at rest
+  webhookSecret      String   // CryptoService-encrypted at rest
+  createdAt          DateTime @default(now())
+  projects           PlaneProject[]
+
+  @@index([companyId])
+}
+
+model PlaneProject {
+  id               String         @id @default(cuid())
+  companyId        String
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planeWorkspaceId String
+  planeWorkspace   PlaneWorkspace @relation(fields: [planeWorkspaceId], references: [id], onDelete: Cascade)
+  planeProjectId   String
+  name             String
+  createdAt        DateTime       @default(now())
+  issues           TrackedIssue[]
+
+  @@index([companyId])
+}
+
+model TrackedIssue {
+  id             String       @id @default(cuid())
+  companyId      String
+  company        Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planeProjectId String
+  planeProject   PlaneProject @relation(fields: [planeProjectId], references: [id], onDelete: Cascade)
+  planeIssueId   String
+  title          String
+  status         String
+  assignee       String?
+  lastSyncedAt   DateTime     @default(now())
+
+  @@index([companyId])
+  @@index([companyId, planeIssueId])
 }
