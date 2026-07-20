@@ -588,6 +588,55 @@ const CATALOG: readonly SkillDefinition[] = [
       },
     ],
   },
+  {
+    key: 'chatwoot',
+    name: 'AI Customer Support Manager (Chatwoot)',
+    description: 'Reply to customer support conversations via the self-hosted Chatwoot Agent Bot.',
+    category: 'support',
+    connection: { type: 'none' }, // provisioned once per company at onboarding, not per-employee OAuth
+    configSchema: [],
+    tools: [
+      {
+        name: 'list_open_conversations',
+        description: "List the company's currently open support conversations.",
+        parameters: { type: 'object', properties: {}, required: [] },
+      },
+      {
+        name: 'get_conversation',
+        description: 'Get the full message history of one conversation.',
+        parameters: {
+          type: 'object',
+          properties: {
+            conversationId: { type: 'string', description: 'Orlixa SupportConversation id.' },
+          },
+          required: ['conversationId'],
+        },
+      },
+      {
+        name: 'reply_to_conversation',
+        description: 'Send a reply into a customer support conversation.',
+        parameters: {
+          type: 'object',
+          properties: {
+            conversationId: { type: 'string', description: 'Orlixa SupportConversation id.' },
+            content: { type: 'string', description: 'Reply text to send to the customer.' },
+          },
+          required: ['conversationId', 'content'],
+        },
+      },
+      {
+        name: 'resolve_conversation',
+        description: 'Mark a conversation as resolved.',
+        parameters: {
+          type: 'object',
+          properties: {
+            conversationId: { type: 'string', description: 'Orlixa SupportConversation id.' },
+          },
+          required: ['conversationId'],
+        },
+      },
+    ],
+  },
 ];
 
 /** Static registry over the built-in catalog. */

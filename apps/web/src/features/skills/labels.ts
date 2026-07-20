@@ -9,6 +9,7 @@ export const CATEGORY_STYLES: Record<SkillCategory, string> = {
   crm: 'bg-amber-500/15 text-amber-400',
   productivity: 'bg-green-500/15 text-green-400',
   marketing: 'bg-pink-500/15 text-pink-400',
+  support: 'bg-cyan-500/15 text-cyan-400',
 };
 
 /** "communication" → "Communication" ("crm" → "CRM"). */

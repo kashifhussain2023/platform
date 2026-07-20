@@ -582,7 +582,8 @@ export type SkillCategory =
   | 'utility'
   | 'crm'
   | 'productivity'
-  | 'marketing';
+  | 'marketing'
+  | 'support';
 
 /**
  * How a skill authenticates against its (real) backend. `api_key` prompts for a

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { SkillCatalog } from '../../src/modules/skills/catalog';
 
 describe('Support engine — schema', () => {
   const prisma = new PrismaClient();
@@ -18,5 +19,13 @@ describe('Support engine — schema', () => {
       },
     });
     expect(account.companyId).toBe(company.id);
+  });
+});
+
+describe('Support engine — catalog', () => {
+  it('registers the chatwoot skill with a reply_to_conversation tool', () => {
+    expect(SkillCatalog.has('chatwoot')).toBe(true);
+    const tool = SkillCatalog.getTool('chatwoot', 'reply_to_conversation');
+    expect(tool).toBeDefined();
   });
 });
