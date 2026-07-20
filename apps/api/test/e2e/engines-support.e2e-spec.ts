@@ -7,10 +7,42 @@
 // the chatwoot skill's catalog entry has connection:{type:'none'} (provisioned
 // once per company, not per-employee OAuth) — AutoSkillExecutor treats
 // connection.type==='none' as always-eligible for the REAL executor, so leaving
-// SKILL_EXECUTOR unset here would NOT get you the mock executor for this skill.
+// SKILL_EXECUTOR unset here IS DELIBERATE: it is what makes this test actually
+// exercise RealSkillExecutor.chatwootReplyToConversation (do NOT add
+// SKILL_EXECUTOR=mock — that forces MockSkillExecutor instead and the test
+// would no longer touch the real code path at all; verified empirically).
+//
+// What actually happens end-to-end (verified by running this suite with
+// console output, not assumed): MockLlmProvider.deriveArg has NO branch
+// matching the parameter name `conversationId` (see mock-llm.provider.ts), so
+// it falls through to the generic `clip(userText, 500)` fallback — meaning
+// args.conversationId ends up being the (whitespace-collapsed) chat message
+// text ITSELF, not the real SupportConversation.id. Embedding the real id as
+// a substring of a natural-sounding message ("Reply to conversation <id>
+// saying...") does NOT fix this: the fallback copies the WHOLE message
+// verbatim, so conversationId still isn't an exact match. Making the ENTIRE
+// message just the bare id (so it WOULD be an exact match) doesn't work
+// either — selectTool's naive token-overlap scorer can no longer see the word
+// "reply" anywhere and can't disambiguate reply_to_conversation from the
+// chatwoot skill's other 3 conversation-themed tools (list_open_conversations,
+// get_conversation, resolve_conversation); ties fall back to catalog
+// declaration order, so list_open_conversations wins instead (also verified
+// by running it). So with today's mock LLM there is no single chat message
+// that both selects reply_to_conversation AND supplies a real conversation
+// id — RealSkillExecutor.chatwootReplyToConversation's
+// `prisma.supportConversation.findFirst({where:{id:conversationId,
+// companyId}})` always finds nothing here and short-circuits with
+// `{ok:false, error:'SupportConversation not found for this company'}` —
+// BEFORE the ChatwootAccount lookup, crypto.decrypt, or chatwootClient.sendReply
+// are ever reached. The ChatwootAccount row created below is therefore not
+// read by this specific assertion today; it stays because it's part of the
+// realistic fixture setup and would become live again once MockLlmProvider
+// (or a future test-only LLM stub) learns to extract a real id instead of
+// echoing the whole message. The assertion below checks the persisted
+// SkillExecution audit row's `error` directly, so this is pinned to the true
+// reason rather than merely inferred from a comment.
 // Always run with:
 //   LLM_PROVIDER=mock EMBEDDINGS_PROVIDER=hash STORAGE_PROVIDER=local \
-//   SKILL_EXECUTOR=mock \
 //   DATABASE_URL=postgresql://vaep:vaep@localhost:5433/vaep?schema=public \
 //   REDIS_URL=redis://127.0.0.1:6380 JWT_ACCESS_SECRET=... JWT_REFRESH_SECRET=...
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -50,7 +82,7 @@ describe('Support engine — catalog', () => {
   });
 });
 
-// --- DB-gated: full tool-calling loop (SKILL_EXECUTOR=mock, no network) ------
+// --- DB-gated: full tool-calling loop (real executor, no network) -----------
 // Same describeIfDb + Test.createTestingModule({imports:[AppModule]}) + supertest
 // convention as engines-marketing.e2e-spec.ts / integrations.e2e-spec.ts (this
 // suite's own harness.mjs script-style client is for standalone scripts against
@@ -87,6 +119,9 @@ describeIfDb('Support engine — full tool-calling loop', () => {
     // SupportConversation to already exist for the company — provisionAccount
     // is an intentional stub (Task 2), not callable here — so create both rows
     // directly via Prisma, same as engines-marketing.e2e-spec.ts's SocialAccount.
+    // (The ChatwootAccount row isn't actually read by this suite's one `it` —
+    // see the file header comment for why — but it's kept so the fixture stays
+    // an accurate model of the real prerequisite state.)
     const companyId = res.body.company.id as string;
     const chatwootAccount = await prisma.chatwootAccount.create({
       data: {
@@ -150,5 +185,24 @@ describeIfDb('Support engine — full tool-calling loop', () => {
           c.skillKey === 'chatwoot' && c.tool === 'reply_to_conversation',
       ),
     ).toBe(true);
+
+    // Prove the specific short-circuit, not just "some tool call happened":
+    // ToolCallDto (the API response shape) deliberately drops `error` — the
+    // real error text only lives on the persisted SkillExecution audit row
+    // (see SkillsService.runTool). Assert on that row directly so this test
+    // is pinned to the TRUE reason the call fails closed (see file header),
+    // and would break loudly if MockLlmProvider ever learned to derive a real
+    // conversationId and the failure shifted to a later step (ChatwootAccount
+    // lookup / crypto.decrypt / chatwootClient.sendReply).
+    const execution = await prisma.skillExecution.findFirst({
+      where: {
+        companyId: employee.body.companyId,
+        skillKey: 'chatwoot',
+        tool: 'reply_to_conversation',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(execution?.status).toBe('ERROR');
+    expect(execution?.error).toBe('SupportConversation not found for this company');
   });
 });
