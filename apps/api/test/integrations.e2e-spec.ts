@@ -14,6 +14,7 @@ import { AutoSkillExecutor } from '../src/modules/skills/executors/auto-skill-ex
 import { SchedulingService } from '../src/modules/scheduling/scheduling.service';
 import { PostizClientService } from '../src/modules/engines/marketing/postiz-client.service';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import { ChatwootClientService } from '../src/modules/engines/support/chatwoot-client.service';
 import {
   assertUrlAllowed,
   isBlockedAddress,
@@ -137,14 +138,23 @@ describeIfDb('Integrations e2e (auto executor · OAuth · Stripe webhook)', () =
           scheduling: SchedulingService,
           postizClient: PostizClientService,
           prisma: PrismaService,
+          chatwootClient: ChatwootClientService,
+          crypto: CryptoService,
         ) => {
           const mock = new MockSkillExecutor();
           return new AutoSkillExecutor(
-            new RealSkillExecutor(config, mock, scheduling, postizClient, prisma),
+            new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto),
             mock,
           );
         },
-        inject: [ConfigService, SchedulingService, PostizClientService, PrismaService],
+        inject: [
+          ConfigService,
+          SchedulingService,
+          PostizClientService,
+          PrismaService,
+          ChatwootClientService,
+          CryptoService,
+        ],
       })
       .compile();
 

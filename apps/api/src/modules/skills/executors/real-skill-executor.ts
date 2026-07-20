@@ -9,6 +9,8 @@ import { assertUrlAllowed } from './ssrf';
 import type { SchedulingService } from '../../scheduling/scheduling.service';
 import type { PostizClientService } from '../../engines/marketing/postiz-client.service';
 import type { PrismaService } from '../../../common/prisma/prisma.service';
+import type { ChatwootClientService } from '../../engines/support/chatwoot-client.service';
+import type { CryptoService } from '../../../common/crypto/crypto.service';
 
 /** Coerce a possibly-unknown credential/arg value to a trimmed string (or ''). */
 function str(value: unknown): string {
@@ -71,6 +73,10 @@ export class RealSkillExecutor implements SkillExecutor {
     private readonly postizClient: PostizClientService,
     /** Direct Prisma access for SocialAccount/ScheduledPost rows (postiz.* tools). */
     private readonly prisma: PrismaService,
+    /** Chatwoot REST wrapper for the 'chatwoot' support skill (per-company agent bot token). */
+    private readonly chatwootClient: ChatwootClientService,
+    /** Decrypts the per-company ChatwootAccount.agentBotToken before use. */
+    private readonly crypto: CryptoService,
   ) {}
 
   async execute(
@@ -113,6 +119,14 @@ export class RealSkillExecutor implements SkillExecutor {
           return await this.postizPublishNow(args, ctx);
         case 'postiz.get_post_status':
           return await this.postizGetPostStatus(args, ctx);
+        case 'chatwoot.list_open_conversations':
+          return await this.chatwootListOpenConversations(ctx);
+        case 'chatwoot.get_conversation':
+          return await this.chatwootGetConversation(args, ctx);
+        case 'chatwoot.reply_to_conversation':
+          return await this.chatwootReplyToConversation(args, ctx);
+        case 'chatwoot.resolve_conversation':
+          return await this.chatwootResolveConversation(args, ctx);
         default:
           // No real implementation for this tool → mock (never 500).
           return this.fallback.execute(skillKey, tool, args, ctx);
@@ -778,5 +792,107 @@ export class RealSkillExecutor implements SkillExecutor {
           : {}),
       },
     };
+  }
+
+  // --- chatwoot.* (self-hosted Chatwoot; per-company encrypted agent bot token) --
+
+  private async chatwootListOpenConversations(
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const conversations = await this.prisma.supportConversation.findMany({
+      where: { companyId: ctx.companyId, status: 'OPEN' },
+    });
+    return { ok: true, result: { conversations } };
+  }
+
+  private async chatwootGetConversation(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const conversationId = str(args.conversationId);
+    if (!conversationId) {
+      return { ok: false, error: 'get_conversation requires a conversationId' };
+    }
+    const conversation = await this.prisma.supportConversation.findFirst({
+      where: { id: conversationId, companyId: ctx.companyId },
+      include: { messages: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!conversation) {
+      return { ok: false, error: 'SupportConversation not found for this company' };
+    }
+    return { ok: true, result: { conversation } };
+  }
+
+  private async chatwootReplyToConversation(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const conversationId = str(args.conversationId);
+    const content = str(args.content);
+    if (!conversationId || !content) {
+      return { ok: false, error: 'reply_to_conversation requires conversationId and content' };
+    }
+    const conversation = await this.prisma.supportConversation.findFirst({
+      where: { id: conversationId, companyId: ctx.companyId },
+    });
+    if (!conversation) {
+      return { ok: false, error: 'SupportConversation not found for this company' };
+    }
+    const account = await this.prisma.chatwootAccount.findFirst({
+      where: { companyId: ctx.companyId },
+    });
+    if (!account) {
+      return { ok: false, error: 'Chatwoot not connected for this company' };
+    }
+    try {
+      const decryptedToken = this.crypto.decrypt(account.agentBotToken);
+      const { chatwootMessageId } = await this.chatwootClient.sendReply(
+        account.chatwootAccountId,
+        conversation.chatwootConversationId,
+        decryptedToken,
+        content,
+      );
+      const [message] = await this.prisma.$transaction([
+        this.prisma.supportMessage.create({
+          data: {
+            companyId: ctx.companyId,
+            conversationId: conversation.id,
+            direction: 'OUT',
+            content,
+            chatwootMessageId,
+          },
+        }),
+        this.prisma.supportConversation.update({
+          where: { id: conversation.id },
+          data: { lastMessageAt: new Date() },
+        }),
+      ]);
+      return { ok: true, result: { messageId: message.id, chatwootMessageId } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'reply_to_conversation failed' };
+    }
+  }
+
+  private async chatwootResolveConversation(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const conversationId = str(args.conversationId);
+    if (!conversationId) {
+      return { ok: false, error: 'resolve_conversation requires a conversationId' };
+    }
+    const conversation = await this.prisma.supportConversation.findFirst({
+      where: { id: conversationId, companyId: ctx.companyId },
+    });
+    if (!conversation) {
+      return { ok: false, error: 'SupportConversation not found for this company' };
+    }
+    // Only updates Orlixa's own mirror row — no live Chatwoot resolve-endpoint
+    // call (ChatwootClientService doesn't implement one yet; out of scope here).
+    const updated = await this.prisma.supportConversation.update({
+      where: { id: conversation.id },
+      data: { status: 'RESOLVED' },
+    });
+    return { ok: true, result: { id: updated.id, status: updated.status } };
   }
 }

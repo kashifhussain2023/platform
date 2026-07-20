@@ -10,6 +10,8 @@ const fallbackMock = {
   execute: jest.fn().mockResolvedValue({ ok: false, error: 'not implemented' }),
 } as unknown as SkillExecutor;
 const schedulingMock = {} as unknown as SchedulingService;
+const chatwootClientMock = {} as any;
+const cryptoMock = {} as any;
 
 const ctx = { companyId: 'c_1' };
 
@@ -37,6 +39,8 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         prisma as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -68,6 +72,8 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         prisma as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -100,6 +106,8 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         prisma as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -128,6 +136,8 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         prisma as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute('postiz', 'list_connected_accounts', {}, ctx);
       expect(result.ok).toBe(true);
@@ -149,6 +159,8 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         {} as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -169,6 +181,8 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         {} as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute('postiz', 'start_connect_account', {}, ctx);
       expect(result.ok).toBe(false);
@@ -195,6 +209,8 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         prisma as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -229,6 +245,8 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         prisma as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -256,11 +274,263 @@ describe('RealSkillExecutor — postiz.*', () => {
         schedulingMock,
         postizClient as any,
         prisma as any,
+        chatwootClientMock,
+        cryptoMock,
       );
       const result = await executor.execute(
         'postiz',
         'get_post_status',
         { scheduledPostId: 'sp_missing' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+    });
+  });
+});
+
+describe('RealSkillExecutor — chatwoot.*', () => {
+  const postizClientMock = {} as any;
+
+  describe('chatwoot.list_open_conversations', () => {
+    it("returns the company's OPEN SupportConversation rows", async () => {
+      const conversations = [{ id: 'conv_1', status: 'OPEN' }];
+      const prisma = {
+        supportConversation: { findMany: jest.fn().mockResolvedValue(conversations) },
+      };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+      );
+      const result = await executor.execute('chatwoot', 'list_open_conversations', {}, ctx);
+      expect(result.ok).toBe(true);
+      expect(prisma.supportConversation.findMany).toHaveBeenCalledWith({
+        where: { companyId: 'c_1', status: 'OPEN' },
+      });
+      expect(result.result).toEqual({ conversations });
+    });
+  });
+
+  describe('chatwoot.get_conversation', () => {
+    it('returns the conversation with its ordered messages when found for this company', async () => {
+      const conversation = { id: 'conv_1', companyId: 'c_1', messages: [] };
+      const prisma = {
+        supportConversation: { findFirst: jest.fn().mockResolvedValue(conversation) },
+      };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+      );
+      const result = await executor.execute(
+        'chatwoot',
+        'get_conversation',
+        { conversationId: 'conv_1' },
+        ctx,
+      );
+      expect(result.ok).toBe(true);
+      expect(prisma.supportConversation.findFirst).toHaveBeenCalledWith({
+        where: { id: 'conv_1', companyId: 'c_1' },
+        include: { messages: { orderBy: { createdAt: 'asc' } } },
+      });
+      expect(result.result).toEqual({ conversation });
+    });
+
+    it('fails when the conversation is not found for this company (wrong tenant)', async () => {
+      const prisma = {
+        supportConversation: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+      );
+      const result = await executor.execute(
+        'chatwoot',
+        'get_conversation',
+        { conversationId: 'conv_other_company' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+    });
+  });
+
+  describe('chatwoot.reply_to_conversation', () => {
+    it('decrypts the token, sends via ChatwootClientService, and records an OUT message', async () => {
+      const conversation = { id: 'conv_1', companyId: 'c_1', chatwootConversationId: 'cw_conv_1' };
+      const account = {
+        id: 'acct_1',
+        companyId: 'c_1',
+        chatwootAccountId: 'cw_acct_1',
+        agentBotToken: 'v1:encrypted:blob:here',
+      };
+      const prisma = {
+        supportConversation: {
+          findFirst: jest.fn().mockResolvedValue(conversation),
+          update: jest.fn().mockResolvedValue({ ...conversation, lastMessageAt: new Date() }),
+        },
+        chatwootAccount: { findFirst: jest.fn().mockResolvedValue(account) },
+        supportMessage: { create: jest.fn().mockResolvedValue({ id: 'msg_1' }) },
+        $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+      };
+      const chatwootClient = {
+        sendReply: jest.fn().mockResolvedValue({ chatwootMessageId: 'cw_msg_1' }),
+      };
+      const crypto = { decrypt: jest.fn().mockReturnValue('plaintext-bot-token') };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock,
+        prisma as any,
+        chatwootClient as any,
+        crypto as any,
+      );
+      const result = await executor.execute(
+        'chatwoot',
+        'reply_to_conversation',
+        { conversationId: 'conv_1', content: 'Thanks for reaching out!' },
+        ctx,
+      );
+      expect(result.ok).toBe(true);
+      expect(prisma.chatwootAccount.findFirst).toHaveBeenCalledWith({
+        where: { companyId: 'c_1' },
+      });
+      expect(crypto.decrypt).toHaveBeenCalledWith(account.agentBotToken);
+      expect(chatwootClient.sendReply).toHaveBeenCalledWith(
+        'cw_acct_1',
+        'cw_conv_1',
+        'plaintext-bot-token',
+        'Thanks for reaching out!',
+      );
+      expect(prisma.supportMessage.create).toHaveBeenCalledWith({
+        data: {
+          companyId: 'c_1',
+          conversationId: 'conv_1',
+          direction: 'OUT',
+          content: 'Thanks for reaching out!',
+          chatwootMessageId: 'cw_msg_1',
+        },
+      });
+      expect(result.result).toEqual({ messageId: 'msg_1', chatwootMessageId: 'cw_msg_1' });
+    });
+
+    it('fails without calling Chatwoot when there is no ChatwootAccount for this company', async () => {
+      const conversation = { id: 'conv_1', companyId: 'c_1', chatwootConversationId: 'cw_conv_1' };
+      const prisma = {
+        supportConversation: { findFirst: jest.fn().mockResolvedValue(conversation) },
+        chatwootAccount: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const chatwootClient = { sendReply: jest.fn() };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock,
+        prisma as any,
+        chatwootClient as any,
+        cryptoMock,
+      );
+      const result = await executor.execute(
+        'chatwoot',
+        'reply_to_conversation',
+        { conversationId: 'conv_1', content: 'Hi' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error).toBe('Chatwoot not connected for this company');
+      expect(chatwootClient.sendReply).not.toHaveBeenCalled();
+    });
+
+    it('fails when the conversation is not found for this company', async () => {
+      const prisma = {
+        supportConversation: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const chatwootClient = { sendReply: jest.fn() };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock,
+        prisma as any,
+        chatwootClient as any,
+        cryptoMock,
+      );
+      const result = await executor.execute(
+        'chatwoot',
+        'reply_to_conversation',
+        { conversationId: 'conv_missing', content: 'Hi' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+      expect(chatwootClient.sendReply).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('chatwoot.resolve_conversation', () => {
+    it('updates the SupportConversation status to RESOLVED (companyId-scoped)', async () => {
+      const conversation = { id: 'conv_1', companyId: 'c_1', status: 'OPEN' };
+      const prisma = {
+        supportConversation: {
+          findFirst: jest.fn().mockResolvedValue(conversation),
+          update: jest.fn().mockResolvedValue({ id: 'conv_1', status: 'RESOLVED' }),
+        },
+      };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+      );
+      const result = await executor.execute(
+        'chatwoot',
+        'resolve_conversation',
+        { conversationId: 'conv_1' },
+        ctx,
+      );
+      expect(result.ok).toBe(true);
+      expect(prisma.supportConversation.findFirst).toHaveBeenCalledWith({
+        where: { id: 'conv_1', companyId: 'c_1' },
+      });
+      expect(prisma.supportConversation.update).toHaveBeenCalledWith({
+        where: { id: 'conv_1' },
+        data: { status: 'RESOLVED' },
+      });
+      expect(result.result).toEqual({ id: 'conv_1', status: 'RESOLVED' });
+    });
+
+    it('fails when the conversation is not found for this company', async () => {
+      const prisma = {
+        supportConversation: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+      );
+      const result = await executor.execute(
+        'chatwoot',
+        'resolve_conversation',
+        { conversationId: 'conv_missing' },
         ctx,
       );
       expect(result.ok).toBe(false);

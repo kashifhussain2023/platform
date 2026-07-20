@@ -27,6 +27,8 @@ import { SchedulingService } from '../scheduling/scheduling.service';
 import { PostizClientService } from '../engines/marketing/postiz-client.service';
 import { MarketingModule } from '../engines/marketing/marketing.module';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ChatwootClientService } from '../engines/support/chatwoot-client.service';
+import { CryptoService } from '../../common/crypto/crypto.service';
 
 /**
  * Pick the skill-execution backend from SKILL_EXECUTOR (mirrors the embeddings /
@@ -44,15 +46,17 @@ function skillExecutorFactory(
   scheduling: SchedulingService,
   postizClient: PostizClientService,
   prisma: PrismaService,
+  chatwootClient: ChatwootClientService,
+  crypto: CryptoService,
 ): SkillExecutor {
   const kind = (config.get<string>('SKILL_EXECUTOR') ?? 'mock').toLowerCase();
   const mock = new MockSkillExecutor();
   switch (kind) {
     case 'real':
-      return new RealSkillExecutor(config, mock, scheduling, postizClient, prisma);
+      return new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto);
     case 'auto':
       return new AutoSkillExecutor(
-        new RealSkillExecutor(config, mock, scheduling, postizClient, prisma),
+        new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto),
         mock,
       );
     case 'mock':
@@ -89,9 +93,19 @@ function skillExecutorFactory(
     ConnectorHealthService,
     ConnectorTokenService,
     ConnectorHealthProcessor,
+    // Temporary direct provider until SupportModule exists (Task 5) — same
+    // reasoning as PostizClientService living here before MarketingModule did.
+    ChatwootClientService,
     {
       provide: SKILL_EXECUTOR_TOKEN,
-      inject: [ConfigService, SchedulingService, PostizClientService, PrismaService],
+      inject: [
+        ConfigService,
+        SchedulingService,
+        PostizClientService,
+        PrismaService,
+        ChatwootClientService,
+        CryptoService,
+      ],
       useFactory: skillExecutorFactory,
     },
     // Injectable fetch for the token-refresh endpoint call (stubbed in unit tests).
