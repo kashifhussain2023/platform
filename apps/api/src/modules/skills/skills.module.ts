@@ -30,6 +30,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { ChatwootClientService } from '../engines/support/chatwoot-client.service';
 import { SupportModule } from '../engines/support/support.module';
 import { CryptoService } from '../../common/crypto/crypto.service';
+import { PlaneClientService } from '../engines/pm/plane-client.service';
 
 /**
  * Pick the skill-execution backend from SKILL_EXECUTOR (mirrors the embeddings /
@@ -49,15 +50,16 @@ function skillExecutorFactory(
   prisma: PrismaService,
   chatwootClient: ChatwootClientService,
   crypto: CryptoService,
+  planeClient: PlaneClientService,
 ): SkillExecutor {
   const kind = (config.get<string>('SKILL_EXECUTOR') ?? 'mock').toLowerCase();
   const mock = new MockSkillExecutor();
   switch (kind) {
     case 'real':
-      return new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto);
+      return new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto, planeClient);
     case 'auto':
       return new AutoSkillExecutor(
-        new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto),
+        new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto, planeClient),
         mock,
       );
     case 'mock':
@@ -95,6 +97,9 @@ function skillExecutorFactory(
     ConnectorHealthService,
     ConnectorTokenService,
     ConnectorHealthProcessor,
+    // Temporary direct provider: PmModule doesn't exist yet (Task 5), same
+    // reasoning as PostizClientService/ChatwootClientService above.
+    PlaneClientService,
     {
       provide: SKILL_EXECUTOR_TOKEN,
       inject: [
@@ -104,6 +109,7 @@ function skillExecutorFactory(
         PrismaService,
         ChatwootClientService,
         CryptoService,
+        PlaneClientService,
       ],
       useFactory: skillExecutorFactory,
     },

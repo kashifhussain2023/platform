@@ -11,6 +11,7 @@ import type { PostizClientService } from '../../engines/marketing/postiz-client.
 import type { PrismaService } from '../../../common/prisma/prisma.service';
 import type { ChatwootClientService } from '../../engines/support/chatwoot-client.service';
 import type { CryptoService } from '../../../common/crypto/crypto.service';
+import type { PlaneClientService } from '../../engines/pm/plane-client.service';
 
 /** Coerce a possibly-unknown credential/arg value to a trimmed string (or ''). */
 function str(value: unknown): string {
@@ -77,6 +78,8 @@ export class RealSkillExecutor implements SkillExecutor {
     private readonly chatwootClient: ChatwootClientService,
     /** Decrypts the per-company ChatwootAccount.agentBotToken before use. */
     private readonly crypto: CryptoService,
+    /** Plane REST wrapper for the 'plane' project-management skill (per-company encrypted API token). */
+    private readonly planeClient: PlaneClientService,
   ) {}
 
   async execute(
@@ -127,6 +130,12 @@ export class RealSkillExecutor implements SkillExecutor {
           return await this.chatwootReplyToConversation(args, ctx);
         case 'chatwoot.resolve_conversation':
           return await this.chatwootResolveConversation(args, ctx);
+        case 'plane.list_issues':
+          return await this.planeListIssues(args, ctx);
+        case 'plane.create_issue':
+          return await this.planeCreateIssue(args, ctx);
+        case 'plane.update_issue_status':
+          return await this.planeUpdateIssueStatus(args, ctx);
         default:
           // No real implementation for this tool → mock (never 500).
           return this.fallback.execute(skillKey, tool, args, ctx);
@@ -894,5 +903,119 @@ export class RealSkillExecutor implements SkillExecutor {
       data: { status: 'RESOLVED' },
     });
     return { ok: true, result: { id: updated.id, status: updated.status } };
+  }
+
+  // --- plane.* (self-hosted Plane; per-company encrypted API token) ---------
+
+  private async planeListIssues(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const projectId = str(args.projectId);
+    if (!projectId) {
+      return { ok: false, error: 'list_issues requires a projectId' };
+    }
+    const project = await this.prisma.planeProject.findFirst({
+      where: { id: projectId, companyId: ctx.companyId },
+    });
+    if (!project) {
+      return { ok: false, error: 'PlaneProject not found for this company' };
+    }
+    const issues = await this.prisma.trackedIssue.findMany({
+      where: { planeProjectId: project.id, companyId: ctx.companyId },
+    });
+    return { ok: true, result: { issues } };
+  }
+
+  private async planeCreateIssue(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const projectId = str(args.projectId);
+    const title = str(args.title);
+    const description = str(args.description);
+    if (!projectId || !title) {
+      return { ok: false, error: 'create_issue requires projectId and title' };
+    }
+    const project = await this.prisma.planeProject.findFirst({
+      where: { id: projectId, companyId: ctx.companyId },
+    });
+    if (!project) {
+      return { ok: false, error: 'Plane not connected for this company' };
+    }
+    const workspace = await this.prisma.planeWorkspace.findFirst({
+      where: { id: project.planeWorkspaceId, companyId: ctx.companyId },
+    });
+    if (!workspace) {
+      return { ok: false, error: 'Plane not connected for this company' };
+    }
+    try {
+      const decryptedToken = this.crypto.decrypt(workspace.apiToken);
+      const { planeIssueId } = await this.planeClient.createIssue(
+        workspace.planeWorkspaceSlug,
+        project.planeProjectId,
+        decryptedToken,
+        { title, description: description || undefined },
+      );
+      const issue = await this.prisma.trackedIssue.create({
+        data: {
+          companyId: ctx.companyId,
+          planeProjectId: project.id,
+          planeIssueId,
+          title,
+          status: 'open',
+          lastSyncedAt: new Date(),
+        },
+      });
+      return { ok: true, result: { issueId: issue.id, planeIssueId } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'create_issue failed' };
+    }
+  }
+
+  private async planeUpdateIssueStatus(
+    args: Record<string, unknown>,
+    ctx: ExecutorContext,
+  ): Promise<SkillExecutionResult> {
+    const issueId = str(args.issueId);
+    const status = str(args.status);
+    if (!issueId || !status) {
+      return { ok: false, error: 'update_issue_status requires issueId and status' };
+    }
+    const trackedIssue = await this.prisma.trackedIssue.findFirst({
+      where: { id: issueId, companyId: ctx.companyId },
+    });
+    if (!trackedIssue) {
+      return { ok: false, error: 'TrackedIssue not found for this company' };
+    }
+    const project = await this.prisma.planeProject.findFirst({
+      where: { id: trackedIssue.planeProjectId, companyId: ctx.companyId },
+    });
+    if (!project) {
+      return { ok: false, error: 'Plane not connected for this company' };
+    }
+    const workspace = await this.prisma.planeWorkspace.findFirst({
+      where: { id: project.planeWorkspaceId, companyId: ctx.companyId },
+    });
+    if (!workspace) {
+      return { ok: false, error: 'Plane not connected for this company' };
+    }
+    try {
+      const decryptedToken = this.crypto.decrypt(workspace.apiToken);
+      await this.planeClient.updateIssueStatus(
+        workspace.planeWorkspaceSlug,
+        project.planeProjectId,
+        decryptedToken,
+        trackedIssue.planeIssueId,
+        status,
+      );
+      const updated = await this.prisma.trackedIssue.update({
+        where: { id: trackedIssue.id },
+        data: { status, lastSyncedAt: new Date() },
+      });
+      return { ok: true, result: { id: updated.id, status: updated.status } };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'update_issue_status failed' };
+    }
   }
 }

@@ -12,6 +12,7 @@ const fallbackMock = {
 const schedulingMock = {} as unknown as SchedulingService;
 const chatwootClientMock = {} as any;
 const cryptoMock = {} as any;
+const planeClientMock = {} as any;
 
 const ctx = { companyId: 'c_1' };
 
@@ -41,6 +42,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -74,6 +76,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -108,6 +111,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -138,6 +142,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute('postiz', 'list_connected_accounts', {}, ctx);
       expect(result.ok).toBe(true);
@@ -161,6 +166,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         {} as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -183,6 +189,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         {} as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute('postiz', 'start_connect_account', {}, ctx);
       expect(result.ok).toBe(false);
@@ -211,6 +218,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -247,6 +255,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -276,6 +285,7 @@ describe('RealSkillExecutor — postiz.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'postiz',
@@ -305,6 +315,7 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute('chatwoot', 'list_open_conversations', {}, ctx);
       expect(result.ok).toBe(true);
@@ -329,6 +340,7 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'chatwoot',
@@ -356,6 +368,7 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'chatwoot',
@@ -397,6 +410,7 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         prisma as any,
         chatwootClient as any,
         crypto as any,
+        planeClientMock,
       );
       const result = await executor.execute(
         'chatwoot',
@@ -442,6 +456,7 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         prisma as any,
         chatwootClient as any,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'chatwoot',
@@ -467,6 +482,7 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         prisma as any,
         chatwootClient as any,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'chatwoot',
@@ -496,6 +512,7 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'chatwoot',
@@ -526,6 +543,7 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         prisma as any,
         chatwootClientMock,
         cryptoMock,
+        planeClientMock,
       );
       const result = await executor.execute(
         'chatwoot',
@@ -534,6 +552,259 @@ describe('RealSkillExecutor — chatwoot.*', () => {
         ctx,
       );
       expect(result.ok).toBe(false);
+    });
+  });
+});
+
+describe('RealSkillExecutor — plane.*', () => {
+  const postizClientMock2 = {} as any;
+
+  describe('plane.list_issues', () => {
+    it("returns the project's tracked issues (companyId-scoped)", async () => {
+      const project = { id: 'proj_1', companyId: 'c_1', planeWorkspaceId: 'ws_1' };
+      const issues = [{ id: 'issue_1', planeProjectId: 'proj_1', companyId: 'c_1' }];
+      const prisma = {
+        planeProject: { findFirst: jest.fn().mockResolvedValue(project) },
+        trackedIssue: { findMany: jest.fn().mockResolvedValue(issues) },
+      };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock2,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+        planeClientMock,
+      );
+      const result = await executor.execute('plane', 'list_issues', { projectId: 'proj_1' }, ctx);
+      expect(result.ok).toBe(true);
+      expect(prisma.planeProject.findFirst).toHaveBeenCalledWith({
+        where: { id: 'proj_1', companyId: 'c_1' },
+      });
+      expect(prisma.trackedIssue.findMany).toHaveBeenCalledWith({
+        where: { planeProjectId: 'proj_1', companyId: 'c_1' },
+      });
+      expect(result.result).toEqual({ issues });
+    });
+
+    it('fails when the project is not found for this company (wrong tenant)', async () => {
+      const prisma = {
+        planeProject: { findFirst: jest.fn().mockResolvedValue(null) },
+        trackedIssue: { findMany: jest.fn() },
+      };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock2,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+        planeClientMock,
+      );
+      const result = await executor.execute(
+        'plane',
+        'list_issues',
+        { projectId: 'proj_other_company' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+      expect(prisma.trackedIssue.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('plane.create_issue', () => {
+    it('decrypts the token, calls PlaneClientService.createIssue, and writes a TrackedIssue', async () => {
+      const project = { id: 'proj_1', companyId: 'c_1', planeProjectId: 'plane_proj_1', planeWorkspaceId: 'ws_1' };
+      const workspace = {
+        id: 'ws_1',
+        companyId: 'c_1',
+        planeWorkspaceSlug: 'acme',
+        apiToken: 'v1:encrypted:blob:here',
+      };
+      const prisma = {
+        planeProject: { findFirst: jest.fn().mockResolvedValue(project) },
+        planeWorkspace: { findFirst: jest.fn().mockResolvedValue(workspace) },
+        trackedIssue: { create: jest.fn().mockResolvedValue({ id: 'issue_1' }) },
+      };
+      const planeClient = {
+        createIssue: jest.fn().mockResolvedValue({ planeIssueId: 'plane_issue_1' }),
+      };
+      const crypto = { decrypt: jest.fn().mockReturnValue('plaintext-api-token') };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock2,
+        prisma as any,
+        chatwootClientMock,
+        crypto as any,
+        planeClient as any,
+      );
+      const result = await executor.execute(
+        'plane',
+        'create_issue',
+        { projectId: 'proj_1', title: 'Fix bug', description: 'Details here' },
+        ctx,
+      );
+      expect(result.ok).toBe(true);
+      expect(prisma.planeWorkspace.findFirst).toHaveBeenCalledWith({
+        where: { id: 'ws_1', companyId: 'c_1' },
+      });
+      expect(crypto.decrypt).toHaveBeenCalledWith(workspace.apiToken);
+      expect(planeClient.createIssue).toHaveBeenCalledWith('acme', 'plane_proj_1', 'plaintext-api-token', {
+        title: 'Fix bug',
+        description: 'Details here',
+      });
+      expect(prisma.trackedIssue.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          companyId: 'c_1',
+          planeProjectId: 'proj_1',
+          planeIssueId: 'plane_issue_1',
+          title: 'Fix bug',
+          status: 'open',
+        }),
+      });
+      expect(result.result).toEqual({ issueId: 'issue_1', planeIssueId: 'plane_issue_1' });
+    });
+
+    it('fails without calling Plane when there is no PlaneWorkspace for this company', async () => {
+      const project = { id: 'proj_1', companyId: 'c_1', planeProjectId: 'plane_proj_1', planeWorkspaceId: 'ws_1' };
+      const prisma = {
+        planeProject: { findFirst: jest.fn().mockResolvedValue(project) },
+        planeWorkspace: { findFirst: jest.fn().mockResolvedValue(null) },
+        trackedIssue: { create: jest.fn() },
+      };
+      const planeClient = { createIssue: jest.fn() };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock2,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+        planeClient as any,
+      );
+      const result = await executor.execute(
+        'plane',
+        'create_issue',
+        { projectId: 'proj_1', title: 'Fix bug' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error).toBe('Plane not connected for this company');
+      expect(planeClient.createIssue).not.toHaveBeenCalled();
+    });
+
+    it('fails when the project is not found for this company', async () => {
+      const prisma = {
+        planeProject: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const planeClient = { createIssue: jest.fn() };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock2,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+        planeClient as any,
+      );
+      const result = await executor.execute(
+        'plane',
+        'create_issue',
+        { projectId: 'proj_missing', title: 'Fix bug' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+      expect(planeClient.createIssue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('plane.update_issue_status', () => {
+    it('decrypts the token, calls PlaneClientService.updateIssueStatus, and updates the local row', async () => {
+      const trackedIssue = {
+        id: 'issue_1',
+        companyId: 'c_1',
+        planeProjectId: 'proj_1',
+        planeIssueId: 'plane_issue_1',
+        status: 'open',
+      };
+      const project = { id: 'proj_1', companyId: 'c_1', planeProjectId: 'plane_proj_1', planeWorkspaceId: 'ws_1' };
+      const workspace = {
+        id: 'ws_1',
+        companyId: 'c_1',
+        planeWorkspaceSlug: 'acme',
+        apiToken: 'v1:encrypted:blob:here',
+      };
+      const prisma = {
+        trackedIssue: {
+          findFirst: jest.fn().mockResolvedValue(trackedIssue),
+          update: jest.fn().mockResolvedValue({ id: 'issue_1', status: 'Done' }),
+        },
+        planeProject: { findFirst: jest.fn().mockResolvedValue(project) },
+        planeWorkspace: { findFirst: jest.fn().mockResolvedValue(workspace) },
+      };
+      const planeClient = { updateIssueStatus: jest.fn().mockResolvedValue(undefined) };
+      const crypto = { decrypt: jest.fn().mockReturnValue('plaintext-api-token') };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock2,
+        prisma as any,
+        chatwootClientMock,
+        crypto as any,
+        planeClient as any,
+      );
+      const result = await executor.execute(
+        'plane',
+        'update_issue_status',
+        { issueId: 'issue_1', status: 'Done' },
+        ctx,
+      );
+      expect(result.ok).toBe(true);
+      expect(crypto.decrypt).toHaveBeenCalledWith(workspace.apiToken);
+      expect(planeClient.updateIssueStatus).toHaveBeenCalledWith(
+        'acme',
+        'plane_proj_1',
+        'plaintext-api-token',
+        'plane_issue_1',
+        'Done',
+      );
+      expect(prisma.trackedIssue.update).toHaveBeenCalledWith({
+        where: { id: 'issue_1' },
+        data: expect.objectContaining({ status: 'Done' }),
+      });
+      expect(result.result).toEqual({ id: 'issue_1', status: 'Done' });
+    });
+
+    it('fails when the TrackedIssue is not found for this company (wrong tenant)', async () => {
+      const prisma = {
+        trackedIssue: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const planeClient = { updateIssueStatus: jest.fn() };
+      const executor = new RealSkillExecutor(
+        configMock,
+        fallbackMock,
+        schedulingMock,
+        postizClientMock2,
+        prisma as any,
+        chatwootClientMock,
+        cryptoMock,
+        planeClient as any,
+      );
+      const result = await executor.execute(
+        'plane',
+        'update_issue_status',
+        { issueId: 'issue_other_company', status: 'Done' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+      expect(planeClient.updateIssueStatus).not.toHaveBeenCalled();
     });
   });
 });

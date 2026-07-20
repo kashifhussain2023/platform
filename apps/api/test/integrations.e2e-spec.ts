@@ -15,6 +15,7 @@ import { SchedulingService } from '../src/modules/scheduling/scheduling.service'
 import { PostizClientService } from '../src/modules/engines/marketing/postiz-client.service';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { ChatwootClientService } from '../src/modules/engines/support/chatwoot-client.service';
+import { PlaneClientService } from '../src/modules/engines/pm/plane-client.service';
 import {
   assertUrlAllowed,
   isBlockedAddress,
@@ -140,10 +141,11 @@ describeIfDb('Integrations e2e (auto executor · OAuth · Stripe webhook)', () =
           prisma: PrismaService,
           chatwootClient: ChatwootClientService,
           crypto: CryptoService,
+          planeClient: PlaneClientService,
         ) => {
           const mock = new MockSkillExecutor();
           return new AutoSkillExecutor(
-            new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto),
+            new RealSkillExecutor(config, mock, scheduling, postizClient, prisma, chatwootClient, crypto, planeClient),
             mock,
           );
         },
@@ -154,6 +156,7 @@ describeIfDb('Integrations e2e (auto executor · OAuth · Stripe webhook)', () =
           PrismaService,
           ChatwootClientService,
           CryptoService,
+          PlaneClientService,
         ],
       })
       .compile();
