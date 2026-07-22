@@ -17,6 +17,7 @@ import { ConnectorReconcileProcessor } from './reconciliation/connector-reconcil
 import { ConnectorPollController } from './inbound/connector-poll.controller';
 import { GmailInboundService } from './inbound/gmail-inbound.service';
 import { GmailInboundProcessor } from './inbound/gmail-inbound.processor';
+import { queueWorkersEnabled } from '../../common/resilience/queue-workers';
 
 /**
  * Connector Event Ingestion module (Unit A) — the per-provider event pipeline
@@ -46,11 +47,11 @@ import { GmailInboundProcessor } from './inbound/gmail-inbound.processor';
   ],
   providers: [
     EventsService,
-    EventNormalizeProcessor,
     ConnectorReconcileService,
-    ConnectorReconcileProcessor,
     GmailInboundService,
-    GmailInboundProcessor,
+    ...(queueWorkersEnabled()
+      ? [EventNormalizeProcessor, ConnectorReconcileProcessor, GmailInboundProcessor]
+      : []),
   ],
   exports: [EventsService],
 })

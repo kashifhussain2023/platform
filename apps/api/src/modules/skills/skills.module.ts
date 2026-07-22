@@ -31,6 +31,7 @@ import { ChatwootClientService } from '../engines/support/chatwoot-client.servic
 import { SupportModule } from '../engines/support/support.module';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import { PlaneClientService } from '../engines/pm/plane-client.service';
+import { queueWorkersEnabled } from '../../common/resilience/queue-workers';
 
 /**
  * Pick the skill-execution backend from SKILL_EXECUTOR (mirrors the embeddings /
@@ -96,7 +97,7 @@ function skillExecutorFactory(
     OAuthService,
     ConnectorHealthService,
     ConnectorTokenService,
-    ConnectorHealthProcessor,
+    ...(queueWorkersEnabled() ? [ConnectorHealthProcessor] : []),
     // Temporary direct provider: PmModule doesn't exist yet (Task 5), same
     // reasoning as PostizClientService/ChatwootClientService above.
     PlaneClientService,

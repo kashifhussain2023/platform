@@ -19,6 +19,7 @@ import {
 } from './storage/storage.provider';
 import { LocalStorageProvider } from './storage/local-storage.provider';
 import { S3StorageProvider } from './storage/s3-storage.provider';
+import { queueWorkersEnabled } from '../../common/resilience/queue-workers';
 
 /** Parse REDIS_URL into ioredis connection options for BullMQ. */
 function redisConnection(config: ConfigService) {
@@ -73,7 +74,7 @@ function storageFactory(config: ConfigService): StorageProvider {
   controllers: [KnowledgeController],
   providers: [
     KnowledgeService,
-    IngestionProcessor,
+    ...(queueWorkersEnabled() ? [IngestionProcessor] : []),
     // Swap these useFactory selections via env to change backends later.
     {
       provide: EMBEDDING_PROVIDER,

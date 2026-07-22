@@ -11,6 +11,7 @@ import { WorkflowsController } from './workflows.controller';
 import { WorkflowWebhooksController } from './webhooks.controller';
 import { WorkflowsService } from './workflows.service';
 import { WORKFLOW_RUN_QUEUE } from './workflows.constants';
+import { queueWorkersEnabled } from '../../common/resilience/queue-workers';
 
 /**
  * Workflow builder module: tenant-scoped CRUD, run creation + a BullMQ
@@ -38,7 +39,12 @@ import { WORKFLOW_RUN_QUEUE } from './workflows.constants';
     BillingModule,
   ],
   controllers: [WorkflowsController, WorkflowWebhooksController],
-  providers: [WorkflowsService, WorkflowEngine, WorkflowProcessor, WorkflowGeneratorService],
+  providers: [
+    WorkflowsService,
+    WorkflowEngine,
+    WorkflowGeneratorService,
+    ...(queueWorkersEnabled() ? [WorkflowProcessor] : []),
+  ],
   exports: [WorkflowsService],
 })
 export class WorkflowsModule {}

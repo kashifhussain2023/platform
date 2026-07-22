@@ -9,7 +9,11 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=@vaep/api",
+    "dev:web": "turbo run dev --filter=@vaep/web",
     "build": "turbo run build",
+    "build:api": "turbo run build --filter=@vaep/api",
+    "build:web": "turbo run build --filter=@vaep/web",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test"

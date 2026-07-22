@@ -4,6 +4,7 @@ import { PostizClientService } from './postiz-client.service';
 import { MarketingSyncProcessor } from './marketing-sync.processor';
 import { MarketingWebhookController } from './marketing-webhook.controller';
 import { MARKETING_SYNC_QUEUE } from './marketing.constants';
+import { queueWorkersEnabled } from '../../../common/resilience/queue-workers';
 
 /**
  * Marketing engine module: the Postiz REST client, the unsigned-webhook
@@ -14,7 +15,10 @@ import { MARKETING_SYNC_QUEUE } from './marketing.constants';
 @Module({
   imports: [BullModule.registerQueue({ name: MARKETING_SYNC_QUEUE })],
   controllers: [MarketingWebhookController],
-  providers: [PostizClientService, MarketingSyncProcessor],
+  providers: [
+    PostizClientService,
+    ...(queueWorkersEnabled() ? [MarketingSyncProcessor] : []),
+  ],
   exports: [PostizClientService],
 })
 export class MarketingModule {}
