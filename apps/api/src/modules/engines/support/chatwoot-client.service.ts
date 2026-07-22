@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { CryptoService } from '../../../common/crypto/crypto.service';
+import { asFetchResponse } from '../../../common/http/fetch-response';
 import { CHATWOOT_ENV, SIGNATURE_MAX_AGE_MS } from './support.constants';
 
 export interface ProvisionedAccount {
@@ -91,13 +92,15 @@ export class ChatwootClientService {
     agentBotToken: string,
     content: string,
   ): Promise<{ chatwootMessageId: string }> {
-    const res = await fetch(
-      `${this.baseUrl()}/api/v1/accounts/${chatwootAccountId}/conversations/${chatwootConversationId}/messages`,
-      {
-        method: 'POST',
-        headers: { api_access_token: agentBotToken, 'content-type': 'application/json' },
-        body: JSON.stringify({ content, message_type: 'outgoing' }),
-      },
+    const res = asFetchResponse(
+      await fetch(
+        `${this.baseUrl()}/api/v1/accounts/${chatwootAccountId}/conversations/${chatwootConversationId}/messages`,
+        {
+          method: 'POST',
+          headers: { api_access_token: agentBotToken, 'content-type': 'application/json' },
+          body: JSON.stringify({ content, message_type: 'outgoing' }),
+        },
+      ),
     );
     if (!res.ok) {
       const text = await res.text();

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type CanonicalEvent, type InstalledSkill } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { asFetchResponse } from '../../../common/http/fetch-response';
 import { ConnectorTokenService } from '../../skills/connectors/connector-token.service';
 import { WorkflowsService } from '../../workflows/workflows.service';
 import { extractText } from '../../knowledge/knowledge.util';
@@ -827,11 +828,13 @@ export class GmailInboundService {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10_000);
     try {
-      const res = await fetch(`${GMAIL_BASE}${path}`, {
-        method: 'GET',
-        headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
-        signal: controller.signal,
-      });
+      const res = asFetchResponse(
+        await fetch(`${GMAIL_BASE}${path}`, {
+          method: 'GET',
+          headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+          signal: controller.signal,
+        }),
+      );
       let body: unknown = null;
       try {
         body = await res.json();

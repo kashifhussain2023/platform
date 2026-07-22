@@ -1,4 +1,5 @@
 import { credString } from './credentials.util';
+import { asFetchResponse } from '../../../common/http/fetch-response';
 
 /**
  * Per-provider active HEALTH PROBE strategy (docs §1.8): a cheap, authenticated
@@ -41,7 +42,7 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return asFetchResponse(await fetch(url, { ...init, signal: controller.signal }));
   } finally {
     clearTimeout(timer);
   }

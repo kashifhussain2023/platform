@@ -6,6 +6,7 @@
  * close a DI cycle — see modules/skills/connectors/credentials.util.ts for the
  * same rationale). No injected services here, just an access token in.
  */
+import { asFetchResponse } from '../../../common/http/fetch-response';
 
 /** fetch() with an abort timeout so a hung backend can't stall the runtime. */
 async function fetchWithTimeout(
@@ -16,7 +17,7 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return asFetchResponse(await fetch(url, { ...init, signal: controller.signal }));
   } finally {
     clearTimeout(timer);
   }

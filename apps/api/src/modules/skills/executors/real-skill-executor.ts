@@ -12,6 +12,7 @@ import type { PrismaService } from '../../../common/prisma/prisma.service';
 import type { ChatwootClientService } from '../../engines/support/chatwoot-client.service';
 import type { CryptoService } from '../../../common/crypto/crypto.service';
 import type { PlaneClientService } from '../../engines/pm/plane-client.service';
+import { asFetchResponse } from '../../../common/http/fetch-response';
 
 /** Coerce a possibly-unknown credential/arg value to a trimmed string (or ''). */
 function str(value: unknown): string {
@@ -36,7 +37,7 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return asFetchResponse(await fetch(url, { ...init, signal: controller.signal }));
   } finally {
     clearTimeout(timer);
   }

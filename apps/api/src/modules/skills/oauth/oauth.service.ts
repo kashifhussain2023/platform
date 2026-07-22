@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import { CryptoService } from '../../../common/crypto/crypto.service';
+import { asFetchResponse } from '../../../common/http/fetch-response';
 import { SkillsService } from '../skills.service';
 import {
   providerForSkill,
@@ -123,14 +124,16 @@ export class OAuthService {
       client_secret: provider.clientSecret,
       redirect_uri: provider.redirectUri,
     });
-    const res = await fetch(provider.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        accept: 'application/json',
-      },
-      body: body.toString(),
-    });
+    const res = asFetchResponse(
+      await fetch(provider.tokenUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          accept: 'application/json',
+        },
+        body: body.toString(),
+      }),
+    );
     const data = (await res.json()) as Record<string, unknown>;
     // Slack returns HTTP 200 with { ok:false, error } on failure.
     if (!res.ok || data.ok === false) {

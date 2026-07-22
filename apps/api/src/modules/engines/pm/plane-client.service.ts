@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { asFetchResponse } from '../../../common/http/fetch-response';
 import { PLANE_ENV } from './pm.constants';
 
 export interface PlaneIssueDto {
@@ -35,13 +36,15 @@ export class PlaneClientService {
     apiToken: string,
     input: { title: string; description?: string },
   ): Promise<{ planeIssueId: string }> {
-    const res = await fetch(
-      `${this.baseUrl()}/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/issues/`,
-      {
-        method: 'POST',
-        headers: { 'X-Api-Key': apiToken, 'content-type': 'application/json' },
-        body: JSON.stringify({ name: input.title, description_html: input.description ?? '' }),
-      },
+    const res = asFetchResponse(
+      await fetch(
+        `${this.baseUrl()}/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/issues/`,
+        {
+          method: 'POST',
+          headers: { 'X-Api-Key': apiToken, 'content-type': 'application/json' },
+          body: JSON.stringify({ name: input.title, description_html: input.description ?? '' }),
+        },
+      ),
     );
     if (!res.ok) {
       const text = await res.text();
@@ -57,9 +60,11 @@ export class PlaneClientService {
     projectId: string,
     apiToken: string,
   ): Promise<PlaneIssueDto[]> {
-    const res = await fetch(
-      `${this.baseUrl()}/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/issues/`,
-      { headers: { 'X-Api-Key': apiToken } },
+    const res = asFetchResponse(
+      await fetch(
+        `${this.baseUrl()}/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/issues/`,
+        { headers: { 'X-Api-Key': apiToken } },
+      ),
     );
     if (!res.ok) {
       const text = await res.text();
@@ -76,13 +81,15 @@ export class PlaneClientService {
     issueId: string,
     status: string,
   ): Promise<void> {
-    const res = await fetch(
-      `${this.baseUrl()}/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/`,
-      {
-        method: 'PATCH',
-        headers: { 'X-Api-Key': apiToken, 'content-type': 'application/json' },
-        body: JSON.stringify({ state: status }),
-      },
+    const res = asFetchResponse(
+      await fetch(
+        `${this.baseUrl()}/api/v1/workspaces/${workspaceSlug}/projects/${projectId}/issues/${issueId}/`,
+        {
+          method: 'PATCH',
+          headers: { 'X-Api-Key': apiToken, 'content-type': 'application/json' },
+          body: JSON.stringify({ state: status }),
+        },
+      ),
     );
     if (!res.ok) {
       const text = await res.text();
