@@ -27,6 +27,20 @@ export interface PostizPostDto {
 }
 
 /**
+ * Minimal shape of the global `fetch()` Response we actually use. Typed
+ * locally (rather than trusting the ambient global `Response`) because
+ * `@types/node`'s fetch typings live behind a `typesVersions` redirect keyed
+ * on the resolved TypeScript version, which can differ between build
+ * environments and has been observed to drop these members.
+ */
+interface FetchResponseLike {
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+  json(): Promise<unknown>;
+}
+
+/**
  * Thin, typed wrapper around the self-hosted Postiz public API
  * (docs/architecture/engines/postiz-engine.md §11, postiz-integration-plan.md).
  * One shared API key for the whole Orlixa deployment — never per-company.
@@ -51,9 +65,9 @@ export class PostizClientService {
 
   async getConnectUrl(platform: string, refreshIntegrationId?: string): Promise<{ url: string }> {
     const qs = refreshIntegrationId ? `?refresh=${encodeURIComponent(refreshIntegrationId)}` : '';
-    const res = await fetch(`${this.baseUrl()}/public/v1/social/${platform}${qs}`, {
+    const res = (await fetch(`${this.baseUrl()}/public/v1/social/${platform}${qs}`, {
       headers: this.headers(),
-    });
+    })) as unknown as FetchResponseLike;
     if (!res.ok) {
       const text = await res.text();
       this.logger.warn(`Postiz getConnectUrl(${platform}) failed (${res.status}): ${text}`);
@@ -64,9 +78,9 @@ export class PostizClientService {
 
   async listIntegrations(group?: string): Promise<PostizIntegrationDto[]> {
     const qs = group ? `?group=${encodeURIComponent(group)}` : '';
-    const res = await fetch(`${this.baseUrl()}/public/v1/integrations${qs}`, {
+    const res = (await fetch(`${this.baseUrl()}/public/v1/integrations${qs}`, {
       headers: this.headers(),
-    });
+    })) as unknown as FetchResponseLike;
     if (!res.ok) {
       const text = await res.text();
       this.logger.warn(`Postiz listIntegrations failed (${res.status}): ${text}`);
@@ -86,11 +100,11 @@ export class PostizClientService {
         },
       ],
     };
-    const res = await fetch(`${this.baseUrl()}/public/v1/posts`, {
+    const res = (await fetch(`${this.baseUrl()}/public/v1/posts`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify(body),
-    });
+    })) as unknown as FetchResponseLike;
     if (!res.ok) {
       const text = await res.text();
       this.logger.warn(`Postiz schedulePost failed (${res.status}): ${text}`);
@@ -105,7 +119,9 @@ export class PostizClientService {
   }
 
   async listPosts(): Promise<PostizPostDto[]> {
-    const res = await fetch(`${this.baseUrl()}/public/v1/posts`, { headers: this.headers() });
+    const res = (await fetch(`${this.baseUrl()}/public/v1/posts`, {
+      headers: this.headers(),
+    })) as unknown as FetchResponseLike;
     if (!res.ok) {
       const text = await res.text();
       this.logger.warn(`Postiz listPosts failed (${res.status}): ${text}`);
