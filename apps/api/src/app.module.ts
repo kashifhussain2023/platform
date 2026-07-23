@@ -26,10 +26,12 @@ import { BillingModule } from './modules/billing/billing.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
     AppConfigModule,
+    HealthModule,
     // Global safety-net rate limit (docs status audit §3: no rate limiting
     // existed anywhere). Generous default so normal use/tests are unaffected;
     // specific cost-sensitive endpoints (auth login/register, AI workflow

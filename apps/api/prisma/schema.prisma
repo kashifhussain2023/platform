@@ -2,7 +2,13 @@
 // Every future table carries `companyId`; the tenant guard scopes all queries.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" keeps local dev/build working as-is; "rhel-openssl-3.0.x" is the
+  // query-engine binary Vercel's Node.js serverless (AWS Lambda) runtime
+  // needs — without it the function boots fine at build time but crashes at
+  // runtime the first time Prisma tries to load the engine (Prisma's own
+  // documented Vercel deployment gotcha).
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
