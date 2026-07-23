@@ -10,12 +10,13 @@ import {
 import { ConnectorHealthService } from './connector-health.service';
 import { TOKEN_REFRESH_SKEW_MS } from './connector.constants';
 import { credString, readCredentials, sealCredentials } from './credentials.util';
+import type { FetchResponseLike } from '../../../common/http/fetch-response';
 
 /** Minimal fetch signature (injectable so the refresh flow is unit-testable). */
 export type FetchLike = (
   url: string,
   init?: Parameters<typeof fetch>[1],
-) => ReturnType<typeof fetch>;
+) => Promise<FetchResponseLike>;
 
 /** DI token for the (swappable/stubbable) fetch used by the token endpoint call. */
 export const CONNECTOR_FETCH = Symbol('CONNECTOR_FETCH');
